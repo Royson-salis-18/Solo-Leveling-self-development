@@ -1,0 +1,54 @@
+{
+  "name": "Royson",
+  "level": 1,
+  "total_xp": 10,
+  "stats": {
+    "Fitness": 1,
+    "Finance": 2,
+    "Creativity": 1,
+    "Discipline": 1,
+    "Intelligence": 1,
+    "Social Skills": 1,
+    "Academics": 1
+  },
+  "streaks": {
+    "Fitness": 0,
+    "Finance": 1,
+    "Creativity": 0,
+    "Discipline": 0,
+    "Intelligence": 0,
+    "Social Skills": 0,
+    "Academics": 0
+  },
+  "discipline_score": 1,
+  "tasks": [
+    {
+      "name": "Quick workout (10-15 min)",
+      "category": "Fitness",
+      "xp_value": 15,
+      "deadline": "2025-10-02T11:15:15.715143",
+      "status": "pending",
+      "creation_date": "2025-10-01T11:15:15.718653",
+      "completion_date": null,
+      "description": "",
+      "punishment": "Reflect: Write 3 sentences about why this matters",
+      "is_recurring": false,
+      "recurrence_days": 0,
+      "recurrence_end": null
+    },
+    {
+      "name": "Review expenses",
+      "category": "Finance",
+      "xp_value": 10,
+      "deadline": "2025-10-02T11:16:42.910955",
+      "status": "completed",
+      "creation_date": "2025-10-01T11:16:42.912956",
+      "completion_date": "2025-10-01T11:16:46.161546",
+      "description": "",
+      "punishment": "Reflect: Write 3 sentences about why this matters",
+      "is_recurring": false,
+      "recurrence_days": 0,
+      "recurrence_end": null
+    }
+  ]
+}

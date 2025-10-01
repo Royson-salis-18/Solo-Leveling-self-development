@@ -1,0 +1,38 @@
+{
+  "players": {
+    "Royson": {
+      "name": "Royson",
+      "level": 1,
+      "total_xp": 0,
+      "tasks": [],
+      "stats": {
+        "Fitness": 1,
+        "Finance": 1,
+        "Creativity": 1,
+        "Discipline": 1,
+        "Intelligence": 1,
+        "Social Skills": 1,
+        "Academics": 1
+      },
+      "streaks": {
+        "Fitness": 0,
+        "Finance": 0,
+        "Creativity": 0,
+        "Discipline": 0,
+        "Intelligence": 0,
+        "Social Skills": 0,
+        "Academics": 0
+      },
+      "last_completed": {
+        "Fitness": null,
+        "Finance": null,
+        "Creativity": null,
+        "Discipline": null,
+        "Intelligence": null,
+        "Social Skills": null,
+        "Academics": null
+      },
+      "discipline_history": []
+    }
+  }
+}

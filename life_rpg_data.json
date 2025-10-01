@@ -1,0 +1,53 @@
+{
+  "players": {
+    "Royson": {
+      "name": "Royson",
+      "level": 1,
+      "total_xp": 0,
+      "stats": {
+        "Fitness": 1,
+        "Study": 1,
+        "Work": 1,
+        "Health": 1,
+        "Skills": 1
+      },
+      "tasks": [],
+      "streaks": {
+        "Fitness": 0,
+        "Study": 0,
+        "Work": 0,
+        "Health": 0,
+        "Skills": 0
+      },
+      "created_date": "2025-10-01T11:27:55.481848",
+      "last_active": "2025-10-01T11:27:55.481848"
+    }
+  },
+  "categories": {
+    "Fitness": {
+      "Workout (30min)": 30,
+      "Gym Session": 50,
+      "Run 5K": 40
+    },
+    "Study": {
+      "Study Session (1hr)": 35,
+      "Complete Assignment": 50,
+      "Read Chapter": 25
+    },
+    "Work": {
+      "Complete Project": 60,
+      "Deep Work (2hr)": 45,
+      "Meeting Prep": 20
+    },
+    "Health": {
+      "Healthy Meal": 15,
+      "8hrs Sleep": 25,
+      "Meditation": 20
+    },
+    "Skills": {
+      "Practice Skill": 30,
+      "Online Course": 40,
+      "Side Project": 55
+    }
+  }
+}
