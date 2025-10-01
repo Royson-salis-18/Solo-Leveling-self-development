@@ -754,13 +754,13 @@ with st.sidebar:
 
     st.markdown("---")
 
-    if st.button("🚪 LOGOUT"):
+    if st.button("LOGOUT"):
         st.session_state['logged_in'] = False
         st.session_state['username'] = None
         st.session_state['current_player'] = None
         st.rerun()
 
-    if st.button("🔄 REFRESH"):
+    if st.button("REFRESH"):
         st.rerun()
 
 # Main Content (rest of your original code remains the same)
