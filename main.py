@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 import base64
 import os
 import sqlite3
+import hashlib
 
 
 # Function to load local background image
@@ -23,7 +24,7 @@ def get_base64_image(image_path):
 
 # Page config
 st.set_page_config(
-    page_title="Life RPG Tracker",
+    page_title="Life RPG Tracker - Multiplayer",
     page_icon="⚔️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -248,16 +249,118 @@ def load_css():
         background-color: rgba(0,0,0,0.4) !important;
         border-color: rgba(255, 255, 255, 0.1) !important;
     }}
+
+    /* Leaderboard card styling */
+    .leaderboard-card {{
+        background: rgba(0,0,0,0.5);
+        padding: 1rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 23, 68, 0.3);
+        margin: 0.5rem 0;
+        backdrop-filter: blur(10px);
+    }}
+
+    .rank-gold {{
+        color: #FFD700 !important;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    }}
+
+    .rank-silver {{
+        color: #C0C0C0 !important;
+        text-shadow: 0 0 10px rgba(192, 192, 192, 0.8);
+    }}
+
+    .rank-bronze {{
+        color: #CD7F32 !important;
+        text-shadow: 0 0 10px rgba(205, 127, 50, 0.8);
+    }}
+
+    /* Login box styling */
+    .login-box {{
+        background: rgba(0,0,0,0.6);
+        padding: 2rem;
+        border-radius: 15px;
+        border: 2px solid rgba(255, 23, 68, 0.5);
+        margin: 2rem auto;
+        max-width: 400px;
+        backdrop-filter: blur(15px);
+    }}
     </style>
     """, unsafe_allow_html=True)
 
 
-# SQLite Database Manager - Persistent Storage
+# Authentication Manager
+class AuthManager:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.init_auth_table()
+
+    def init_auth_table(self):
+        """Initialize authentication table"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                created_date TEXT,
+                player_name TEXT UNIQUE
+            )
+        ''')
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash password using SHA-256"""
+        return hashlib.sha256(password.encode()).hexdigest()
+
+    def register_user(self, username: str, password: str, player_name: str) -> bool:
+        """Register a new user"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            password_hash = self.hash_password(password)
+            cursor.execute('''
+                INSERT INTO users (username, password_hash, created_date, player_name)
+                VALUES (?, ?, ?, ?)
+            ''', (username, password_hash, datetime.now().isoformat(), player_name))
+            conn.commit()
+            conn.close()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+    def verify_login(self, username: str, password: str) -> Optional[str]:
+        """Verify login credentials and return player name"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        password_hash = self.hash_password(password)
+        cursor.execute('''
+            SELECT player_name FROM users 
+            WHERE username = ? AND password_hash = ?
+        ''', (username, password_hash))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
+
+    def get_player_by_username(self, username: str) -> Optional[str]:
+        """Get player name from username"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT player_name FROM users WHERE username = ?', (username,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
+
+
+# SQLite Database Manager - Multiplayer Edition
 class DataManager:
     def __init__(self):
         # Use /tmp for writable storage on cloud platforms
         self.db_path = os.path.join('/tmp', 'life_rpg.db') if os.path.exists('/tmp') else 'life_rpg.db'
         self.init_database()
+        self.auth = AuthManager(self.db_path)
 
     def init_database(self):
         """Initialize SQLite database with tables"""
@@ -273,9 +376,16 @@ class DataManager:
                 stats TEXT,
                 streaks TEXT,
                 created_date TEXT,
-                last_active TEXT
+                last_active TEXT,
+                avatar TEXT
             )
         ''')
+
+        # Check if avatar column exists, if not add it (for migration)
+        cursor.execute("PRAGMA table_info(players)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'avatar' not in columns:
+            cursor.execute('ALTER TABLE players ADD COLUMN avatar TEXT DEFAULT "⚔️"')
 
         # Tasks table
         cursor.execute('''
@@ -301,6 +411,17 @@ class DataManager:
             CREATE TABLE IF NOT EXISTS categories (
                 category TEXT PRIMARY KEY,
                 activities TEXT
+            )
+        ''')
+
+        # Activity feed table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS activity_feed (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name TEXT,
+                action TEXT,
+                details TEXT,
+                timestamp TEXT
             )
         ''')
 
@@ -343,6 +464,7 @@ class DataManager:
                 'streaks': json.loads(row[4]),
                 'created_date': row[5],
                 'last_active': row[6],
+                'avatar': row[7] if len(row) > 7 else '⚔️',
                 'tasks': []
             }
 
@@ -381,8 +503,8 @@ class DataManager:
         # Update or insert player
         cursor.execute('''
             INSERT OR REPLACE INTO players 
-            (name, level, total_xp, stats, streaks, created_date, last_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (name, level, total_xp, stats, streaks, created_date, last_active, avatar)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             name,
             player_data['level'],
@@ -390,7 +512,8 @@ class DataManager:
             json.dumps(player_data['stats']),
             json.dumps(player_data['streaks']),
             player_data['created_date'],
-            datetime.now().isoformat()
+            datetime.now().isoformat(),
+            player_data.get('avatar', '⚔️')
         ))
 
         # Delete old tasks for this player
@@ -413,7 +536,7 @@ class DataManager:
         conn.commit()
         conn.close()
 
-    def create_player(self, name: str) -> Dict:
+    def create_player(self, name: str, avatar: str = '⚔️') -> Dict:
         data = self.load_data()
         player = {
             "name": name,
@@ -423,36 +546,64 @@ class DataManager:
             "tasks": [],
             "streaks": {cat: 0 for cat in data['categories'].keys()},
             "created_date": datetime.now().isoformat(),
-            "last_active": datetime.now().isoformat()
+            "last_active": datetime.now().isoformat(),
+            "avatar": avatar
         }
         self.save_player(name, player)
+        self.add_activity(name, "joined", "Joined the battle!")
         return player
 
-    def export_data(self) -> str:
-        """Export data as JSON string for download"""
-        return json.dumps(self.load_data(), indent=2)
+    def get_leaderboard(self, limit: int = 10) -> List[Dict]:
+        """Get top players by XP"""
+        data = self.load_data()
+        players = list(data['players'].values())
+        players.sort(key=lambda x: x['total_xp'], reverse=True)
+        return players[:limit]
 
-    def import_data(self, json_str: str) -> bool:
-        """Import data from JSON string"""
-        try:
-            data = json.loads(json_str)
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+    def get_active_players(self, hours: int = 24) -> List[Dict]:
+        """Get players active in last X hours"""
+        data = self.load_data()
+        cutoff = datetime.now() - timedelta(hours=hours)
+        active = []
+        for player in data['players'].values():
+            last_active = datetime.fromisoformat(player['last_active'])
+            if last_active > cutoff:
+                active.append(player)
+        return active
 
-            # Clear existing data
-            cursor.execute('DELETE FROM tasks')
-            cursor.execute('DELETE FROM players')
+    def add_activity(self, player_name: str, action: str, details: str):
+        """Add activity to feed"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO activity_feed (player_name, action, details, timestamp)
+            VALUES (?, ?, ?, ?)
+        ''', (player_name, action, details, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
 
-            # Import players
-            for player_name, player_data in data['players'].items():
-                self.save_player(player_name, player_data)
+    def get_activity_feed(self, limit: int = 20) -> List[Dict]:
+        """Get recent activity feed"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT player_name, action, details, timestamp 
+            FROM activity_feed 
+            ORDER BY timestamp DESC 
+            LIMIT ?
+        ''', (limit,))
 
-            conn.commit()
-            conn.close()
-            return True
-        except Exception as e:
-            st.error(f"Import error: {str(e)}")
-            return False
+        activities = []
+        for row in cursor.fetchall():
+            activities.append({
+                'player': row[0],
+                'action': row[1],
+                'details': row[2],
+                'timestamp': row[3]
+            })
+
+        conn.close()
+        return activities
 
 
 # Task management
@@ -500,304 +651,459 @@ class Task:
 dm = DataManager()
 load_css()
 
-# Sidebar - Player Management
+# Initialize session state
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+if 'username' not in st.session_state:
+    st.session_state['username'] = None
+
+# LOGIN PAGE
+if not st.session_state['logged_in']:
+    st.markdown("<h1 style='text-align: center;'>LIFE RPG TRACKER</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #ff1744; font-size: 1.2rem;'>Enter the Arena</p>",
+                unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["LOGIN", "REGISTER"])
+
+    with tab1:
+        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+        st.markdown("### WARRIOR LOGIN")
+
+        login_username = st.text_input("Username", key="login_user")
+        login_password = st.text_input("Password", type="password", key="login_pass")
+
+        if st.button("ENTER ARENA"):
+            if login_username and login_password:
+                player_name = dm.auth.verify_login(login_username, login_password)
+                if player_name:
+                    st.session_state['logged_in'] = True
+                    st.session_state['username'] = login_username
+                    st.session_state['current_player'] = player_name
+                    st.success(f"Welcome back, {player_name}!")
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials!")
+            else:
+                st.error("Please enter username and password!")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with tab2:
+        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+        st.markdown("### FORGE NEW ACCOUNT")
+
+        reg_username = st.text_input("Username", key="reg_user")
+        reg_password = st.text_input("Password", type="password", key="reg_pass")
+        reg_password2 = st.text_input("Confirm Password", type="password", key="reg_pass2")
+        reg_player_name = st.text_input("Warrior Name")
+        reg_avatar = st.selectbox("Choose Avatar", ["⚔️", "🛡️", "🏹", "🔱", "⚡", "🔥", "❄️", "🌟", "💀", "👑"])
+
+        if st.button("CREATE ACCOUNT"):
+            if not reg_username or not reg_password or not reg_player_name:
+                st.error("All fields required!")
+            elif reg_password != reg_password2:
+                st.error("Passwords don't match!")
+            elif len(reg_password) < 6:
+                st.error("Password must be at least 6 characters!")
+            else:
+                # Create player first
+                try:
+                    player = dm.create_player(reg_player_name, reg_avatar)
+                    # Register user
+                    if dm.auth.register_user(reg_username, reg_password, reg_player_name):
+                        st.success("Account created! Please login.")
+                    else:
+                        st.error("Username or warrior name already exists!")
+                except Exception as e:
+                    st.error(f"Error creating account: {str(e)}")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Show leaderboard on login page
+    st.markdown("---")
+    st.markdown("### GLOBAL LEADERBOARD")
+    leaderboard = dm.get_leaderboard(5)
+    if leaderboard:
+        for idx, p in enumerate(leaderboard, 1):
+            rank_class = "rank-gold" if idx == 1 else "rank-silver" if idx == 2 else "rank-bronze" if idx == 3 else ""
+            st.markdown(f"""
+            <div class='leaderboard-card'>
+                <span class='{rank_class}' style='font-size: 1.5rem; font-weight: 700;'>#{idx}</span>
+                <span style='font-size: 1.2rem;'>{p.get('avatar', '⚔️')} {p['name']}</span>
+                <span style='float: right; color: #ff1744;'>Level {p['level']} | {p['total_xp']} XP</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.stop()
+
+# LOGGED IN - Main Application
 with st.sidebar:
     st.title("WARRIOR PROFILE")
 
-    data = dm.load_data()
-    players = list(data['players'].keys())
-
-    if players:
-        selected_player = st.selectbox("Select Warrior", [""] + players, key="player_select")
-        if selected_player:
-            st.session_state['current_player'] = selected_player
-        elif 'current_player' in st.session_state and st.session_state['current_player'] not in players:
-            # Clear invalid player from session state
-            del st.session_state['current_player']
-
-    new_player = st.text_input("Create New Warrior")
-    if st.button("FORGE WARRIOR") and new_player:
-        if new_player not in players:
-            dm.create_player(new_player)
-            st.session_state['current_player'] = new_player
-            st.success(f"Warrior {new_player} forged!")
-            st.rerun()
-        else:
-            st.error("Warrior already exists!")
-
-    st.markdown("---")
-
-    # Data backup/restore section
-    st.markdown("### DATA BACKUP")
-
-    # Export data
-    if st.button("DOWNLOAD BACKUP"):
-        backup_data = dm.export_data()
-        st.download_button(
-            label="SAVE JSON FILE",
-            data=backup_data,
-            file_name=f"life_rpg_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json"
-        )
-
-    # Import data
-    uploaded_file = st.file_uploader("RESTORE FROM BACKUP", type=['json'])
-    if uploaded_file is not None:
-        try:
-            backup_data = uploaded_file.read().decode()
-            if dm.import_data(backup_data):
-                st.success("Data restored successfully!")
-                st.rerun()
-            else:
-                st.error("Invalid backup file!")
-        except Exception as e:
-            st.error(f"Error restoring data: {str(e)}")
-
-    st.markdown("---")
-    st.markdown("### BATTLE STATS")
-    if 'current_player' in st.session_state and st.session_state['current_player']:
-        player = dm.get_player(st.session_state['current_player'])
-        if player:
-            st.metric("Level", player['level'])
-            st.metric("Total XP", player['total_xp'])
-
-            # Calculate discipline score
-            total_tasks = len(player['tasks'])
-            completed = len([t for t in player['tasks'] if t['status'] == 'completed'])
-            overdue = len([t for t in player['tasks'] if Task.is_overdue(t)])
-
-            if total_tasks > 0:
-                discipline = int(((completed / total_tasks) * 70) - (overdue * 5))
-                discipline = max(0, min(100, discipline))
-                st.metric("Discipline", f"{discipline}%")
-                st.progress(discipline / 100)
-        else:
-            st.warning("Please select a valid warrior")
-
-# Main Content
-if 'current_player' not in st.session_state or not st.session_state['current_player']:
-    st.markdown("<h1 style='text-align: center;'>SELECT OR CREATE YOUR WARRIOR</h1>", unsafe_allow_html=True)
-    st.markdown(
-        "<p style='text-align: center; color: #ff1744; font-size: 1.2rem; text-shadow: 2px 2px 8px rgba(255, 23, 68, 0.8);'>The path to greatness begins with a single step...</p>",
-        unsafe_allow_html=True)
-else:
     player = dm.get_player(st.session_state['current_player'])
 
-    # Check if player exists
-    if not player:
-        st.error("Player not found! Please select or create a warrior from the sidebar.")
-        st.stop()
-
-    # Header
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
+    if player:
+        st.markdown(f"### {player.get('avatar', '⚔️')} {player['name']}")
         st.metric("Level", player['level'])
-    with col2:
         st.metric("Total XP", player['total_xp'])
-    with col3:
-        active_tasks = len([t for t in player['tasks'] if t['status'] == 'pending'])
-        st.metric("Active Quests", active_tasks)
-    with col4:
-        completed_today = len([t for t in player['tasks']
-                               if t['status'] == 'completed' and
-                               datetime.fromisoformat(t['completed']).date() == datetime.now().date()])
-        st.metric("Today", completed_today)
 
-    # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["ACTIVE QUESTS", "NEW QUEST", "PROGRESS", "HISTORY"])
+        # Calculate discipline score
+        total_tasks = len(player['tasks'])
+        completed = len([t for t in player['tasks'] if t['status'] == 'completed'])
+        overdue = len([t for t in player['tasks'] if Task.is_overdue(t)])
 
-    # Tab 1: Active Tasks
-    with tab1:
-        st.markdown("### CURRENT BATTLES")
+        if total_tasks > 0:
+            discipline = int(((completed / total_tasks) * 70) - (overdue * 5))
+            discipline = max(0, min(100, discipline))
+            st.metric("Discipline", f"{discipline}%")
+            st.progress(discipline / 100)
 
-        pending_tasks = [t for t in player['tasks'] if t['status'] == 'pending']
-        overdue_tasks = [t for t in pending_tasks if Task.is_overdue(t)]
+    st.markdown("---")
 
-        # Show overdue warnings
-        if overdue_tasks:
-            st.markdown("<div class='overdue-warning'>", unsafe_allow_html=True)
-            st.markdown(f"### {len(overdue_tasks)} QUESTS FAILED")
-            st.markdown("**CONSEQUENCES MUST BE FACED**")
-            for task in overdue_tasks:
-                with st.expander(f"{task['name']} - {task['xp']} XP", expanded=False):
+    if st.button("LOGOUT"):
+        st.session_state['logged_in'] = False
+        st.session_state['username'] = None
+        st.session_state['current_player'] = None
+        st.rerun()
+
+    if st.button("REFRESH"):
+        st.rerun()
+
+# Main Content (rest of your original code remains the same)
+# Header with player stats
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric("Level", player['level'])
+with col2:
+    st.metric("Total XP", player['total_xp'])
+with col3:
+    active_tasks = len([t for t in player['tasks'] if t['status'] == 'pending'])
+    st.metric("Active Quests", active_tasks)
+with col4:
+    completed_today = len([t for t in player['tasks']
+                           if t['status'] == 'completed' and
+                           datetime.fromisoformat(t['completed']).date() == datetime.now().date()])
+    st.metric("Today", completed_today)
+
+# Tabs
+data = dm.load_data()
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "ACTIVE QUESTS", "NEW QUEST", "PROGRESS", "HISTORY", "MULTIPLAYER", "ACTIVITY FEED"
+])
+
+# Tab 1: Active Tasks
+with tab1:
+    st.markdown("### CURRENT BATTLES")
+
+    pending_tasks = [t for t in player['tasks'] if t['status'] == 'pending']
+    overdue_tasks = [t for t in pending_tasks if Task.is_overdue(t)]
+
+    # Show overdue warnings
+    if overdue_tasks:
+        st.markdown("<div class='overdue-warning'>", unsafe_allow_html=True)
+        st.markdown(f"### {len(overdue_tasks)} QUESTS FAILED")
+        st.markdown("**CONSEQUENCES MUST BE FACED**")
+        for task in overdue_tasks:
+            with st.expander(f"{task['name']} - {task['xp']} XP", expanded=False):
+                st.markdown(f"**Category:** {task['category']}")
+                st.markdown(f"**Deadline:** {datetime.fromisoformat(task['deadline']).strftime('%Y-%m-%d %H:%M')}")
+                st.markdown(f"**Consequence:** {Task.get_consequence(task['xp'])}")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"Accept & Complete", key=f"complete_overdue_{task['id']}"):
+                        task['status'] = 'completed'
+                        task['completed'] = datetime.now().isoformat()
+                        player['total_xp'] += task['xp']
+                        player['level'] = 1 + player['total_xp'] // 100
+                        player['stats'][task['category']] += task['xp'] // 10
+                        dm.save_player(player['name'], player)
+                        dm.add_activity(player['name'], "completed_late",
+                                        f"Completed {task['name']} (+{task['xp']} XP)")
+                        st.success("Consequence accepted. Quest completed.")
+                        st.rerun()
+                with col2:
+                    if st.button(f"Delete Quest", key=f"delete_overdue_{task['id']}"):
+                        player['tasks'] = [t for t in player['tasks'] if t['id'] != task['id']]
+                        dm.save_player(player['name'], player)
+                        st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Show active tasks
+    active_tasks = [t for t in pending_tasks if not Task.is_overdue(t)]
+    if active_tasks:
+        for task in sorted(active_tasks, key=lambda x: x['deadline']):
+            deadline = datetime.fromisoformat(task['deadline'])
+            time_left = deadline - datetime.now()
+            hours_left = time_left.total_seconds() / 3600
+
+            with st.expander(f"{task['name']} - {task['xp']} XP", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                with col1:
                     st.markdown(f"**Category:** {task['category']}")
-                    st.markdown(f"**Deadline:** {datetime.fromisoformat(task['deadline']).strftime('%Y-%m-%d %H:%M')}")
-                    st.markdown(f"**Consequence:** {Task.get_consequence(task['xp'])}")
+                    st.markdown(f"**Deadline:** {deadline.strftime('%Y-%m-%d %H:%M')}")
+                    st.markdown(f"**Time Remaining:** {int(hours_left)}h {int((hours_left % 1) * 60)}m")
+                    if task['description']:
+                        st.markdown(f"**Details:** {task['description']}")
+                    if task['repeat_days'] > 0:
+                        st.markdown(
+                            f"**Repeats:** Every {task['repeat_days']} days (Count: {task['repeat_count']})")
 
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button(f"Accept & Complete", key=f"complete_overdue_{task['id']}"):
-                            task['status'] = 'completed'
-                            task['completed'] = datetime.now().isoformat()
-                            player['total_xp'] += task['xp']
-                            player['level'] = 1 + player['total_xp'] // 100
-                            player['stats'][task['category']] += task['xp'] // 10
-                            dm.save_player(player['name'], player)
-                            st.success("Consequence accepted. Quest completed.")
-                            st.rerun()
-                    with col2:
-                        if st.button(f"Delete Quest", key=f"delete_overdue_{task['id']}"):
-                            player['tasks'] = [t for t in player['tasks'] if t['id'] != task['id']]
-                            dm.save_player(player['name'], player)
-                            st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+                with col2:
+                    if st.button("Complete", key=f"complete_{task['id']}"):
+                        task['status'] = 'completed'
+                        task['completed'] = datetime.now().isoformat()
+                        player['total_xp'] += task['xp']
+                        old_level = player['level']
+                        player['level'] = 1 + player['total_xp'] // 100
+                        player['stats'][task['category']] += task['xp'] // 10
 
-        # Show active tasks
-        active_tasks = [t for t in pending_tasks if not Task.is_overdue(t)]
-        if active_tasks:
-            for task in sorted(active_tasks, key=lambda x: x['deadline']):
-                deadline = datetime.fromisoformat(task['deadline'])
-                time_left = deadline - datetime.now()
-                hours_left = time_left.total_seconds() / 3600
-
-                with st.expander(f"{task['name']} - {task['xp']} XP", expanded=False):
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"**Category:** {task['category']}")
-                        st.markdown(f"**Deadline:** {deadline.strftime('%Y-%m-%d %H:%M')}")
-                        st.markdown(f"**Time Remaining:** {int(hours_left)}h {int((hours_left % 1) * 60)}m")
-                        if task['description']:
-                            st.markdown(f"**Details:** {task['description']}")
+                        # Handle repeating tasks
                         if task['repeat_days'] > 0:
-                            st.markdown(
-                                f"**Repeats:** Every {task['repeat_days']} days (Count: {task['repeat_count']})")
+                            new_task = Task.create(
+                                task['name'],
+                                task['category'],
+                                task['xp'],
+                                deadline + timedelta(days=task['repeat_days']),
+                                task['description'],
+                                task['repeat_days']
+                            )
+                            new_task['repeat_count'] = task['repeat_count'] + 1
+                            player['tasks'].append(new_task)
 
-                    with col2:
-                        if st.button("Complete", key=f"complete_{task['id']}"):
-                            task['status'] = 'completed'
-                            task['completed'] = datetime.now().isoformat()
-                            player['total_xp'] += task['xp']
-                            player['level'] = 1 + player['total_xp'] // 100
-                            player['stats'][task['category']] += task['xp'] // 10
+                        dm.save_player(player['name'], player)
 
-                            # Handle repeating tasks
-                            if task['repeat_days'] > 0:
-                                new_task = Task.create(
-                                    task['name'],
-                                    task['category'],
-                                    task['xp'],
-                                    deadline + timedelta(days=task['repeat_days']),
-                                    task['description'],
-                                    task['repeat_days']
-                                )
-                                new_task['repeat_count'] = task['repeat_count'] + 1
-                                player['tasks'].append(new_task)
+                        # Add to activity feed
+                        if player['level'] > old_level:
+                            dm.add_activity(player['name'], "level_up", f"Reached Level {player['level']}!")
+                        dm.add_activity(player['name'], "completed", f"Completed {task['name']} (+{task['xp']} XP)")
 
-                            dm.save_player(player['name'], player)
-                            st.success(f"+{task['xp']} XP! Level {player['level']}")
-                            st.rerun()
+                        st.success(f"+{task['xp']} XP! Level {player['level']}")
+                        st.rerun()
 
-                        if st.button("Delete", key=f"delete_{task['id']}"):
-                            player['tasks'] = [t for t in player['tasks'] if t['id'] != task['id']]
-                            dm.save_player(player['name'], player)
-                            st.rerun()
-        else:
-            st.info("No active quests. Create new challenges!")
+                    if st.button("Delete", key=f"delete_{task['id']}"):
+                        player['tasks'] = [t for t in player['tasks'] if t['id'] != task['id']]
+                        dm.save_player(player['name'], player)
+                        st.rerun()
+    else:
+        st.info("No active quests. Create new challenges!")
 
-    # Tab 2: New Task
-    with tab2:
-        st.markdown("### FORGE NEW QUEST")
+# Tab 2: New Task
+with tab2:
+    st.markdown("### FORGE NEW QUEST")
 
-        categories = list(data['categories'].keys())
+    categories = list(data['categories'].keys())
 
-        col1, col2 = st.columns(2)
-        with col1:
-            task_name = st.text_input("Quest Name")
-            category = st.selectbox("Category", categories)
+    col1, col2 = st.columns(2)
+    with col1:
+        task_name = st.text_input("Quest Name")
+        category = st.selectbox("Category", categories)
 
-            if category:
-                activities = list(data['categories'][category].keys())
-                activity = st.selectbox("Activity (optional)", ["Custom"] + activities)
+        if category:
+            activities = list(data['categories'][category].keys())
+            activity = st.selectbox("Activity (optional)", ["Custom"] + activities)
 
-                if activity != "Custom":
-                    xp = data['categories'][category][activity]
-                    task_name = activity if not task_name else task_name
-                else:
-                    xp = st.number_input("XP Value", min_value=1, max_value=500, value=30)
-
-        with col2:
-            deadline_date = st.date_input("Deadline Date", datetime.now().date() + timedelta(days=1))
-            deadline_time = st.time_input("Deadline Time", datetime.now().time())
-            repeat_days = st.number_input("Repeat Every X Days (0 = no repeat)", min_value=0, max_value=365, value=0)
-
-        description = st.text_area("Quest Description (optional)")
-
-        if st.button("CREATE QUEST"):
-            if task_name and category:
-                deadline = datetime.combine(deadline_date, deadline_time)
-                new_task = Task.create(task_name, category, xp, deadline, description, repeat_days)
-                player['tasks'].append(new_task)
-                dm.save_player(player['name'], player)
-                st.success(f"Quest '{task_name}' created! +{xp} XP on completion")
-                st.rerun()
+            if activity != "Custom":
+                xp = data['categories'][category][activity]
+                task_name = activity if not task_name else task_name
             else:
-                st.error("Quest name and category required!")
+                xp = st.number_input("XP Value", min_value=1, max_value=500, value=30)
 
-    # Tab 3: Progress
-    with tab3:
-        st.markdown("### WARRIOR ANALYTICS")
+    with col2:
+        deadline_date = st.date_input("Deadline Date", datetime.now().date() + timedelta(days=1))
+        deadline_time = st.time_input("Deadline Time", datetime.now().time())
+        repeat_days = st.number_input("Repeat Every X Days (0 = no repeat)", min_value=0, max_value=365, value=0)
 
-        # Stats radar chart
-        categories = list(player['stats'].keys())
-        values = [player['stats'][cat] for cat in categories]
+    description = st.text_area("Quest Description (optional)")
 
-        fig = go.Figure(data=go.Scatterpolar(
-            r=values,
-            theta=categories,
-            fill='toself',
-            line=dict(color='#ff1744', width=2),
-            fillcolor='rgba(255, 23, 68, 0.3)'
-        ))
+    if st.button("CREATE QUEST"):
+        if task_name and category:
+            deadline = datetime.combine(deadline_date, deadline_time)
+            new_task = Task.create(task_name, category, xp, deadline, description, repeat_days)
+            player['tasks'].append(new_task)
+            dm.save_player(player['name'], player)
+            dm.add_activity(player['name'], "created_quest", f"Created quest: {task_name}")
+            st.success(f"Quest '{task_name}' created! +{xp} XP on completion")
+            st.rerun()
+        else:
+            st.error("Quest name and category required!")
 
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, range=[0, max(values) + 10]),
-                bgcolor='rgba(0,0,0,0.5)'
-            ),
-            showlegend=False,
+# Tab 3: Progress
+with tab3:
+    st.markdown("### WARRIOR ANALYTICS")
+
+    # Stats radar chart
+    categories = list(player['stats'].keys())
+    values = [player['stats'][cat] for cat in categories]
+
+    fig = go.Figure(data=go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        line=dict(color='#ff1744', width=2),
+        fillcolor='rgba(255, 23, 68, 0.3)'
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, max(values) + 10]),
+            bgcolor='rgba(0,0,0,0.5)'
+        ),
+        showlegend=False,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white')
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Completion timeline
+    completed = [t for t in player['tasks'] if t['status'] == 'completed']
+    if completed:
+        df = pd.DataFrame([{
+            'Date': datetime.fromisoformat(t['completed']).date(),
+            'XP': t['xp'],
+            'Task': t['name']
+        } for t in completed])
+
+        daily_xp = df.groupby('Date')['XP'].sum().reset_index()
+
+        fig2 = px.line(daily_xp, x='Date', y='XP',
+                       title='XP Progress Over Time',
+                       color_discrete_sequence=['#ff1744'])
+        fig2.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0.5)',
             font=dict(color='white')
         )
+        st.plotly_chart(fig2, use_container_width=True)
 
-        st.plotly_chart(fig, use_container_width=True)
+# Tab 4: History
+with tab4:
+    st.markdown("### BATTLE HISTORY")
 
-        # Completion timeline
-        completed = [t for t in player['tasks'] if t['status'] == 'completed']
-        if completed:
-            df = pd.DataFrame([{
-                'Date': datetime.fromisoformat(t['completed']).date(),
-                'XP': t['xp'],
-                'Task': t['name']
-            } for t in completed])
+    completed = [t for t in player['tasks'] if t['status'] == 'completed']
+    if completed:
+        df = pd.DataFrame([{
+            'Quest': t['name'],
+            'Category': t['category'],
+            'XP': t['xp'],
+            'Completed': datetime.fromisoformat(t['completed']).strftime('%Y-%m-%d %H:%M'),
+            'Time Taken': str(datetime.fromisoformat(t['completed']) -
+                              datetime.fromisoformat(t['created'])).split('.')[0]
+        } for t in sorted(completed, key=lambda x: x['completed'], reverse=True)])
 
-            daily_xp = df.groupby('Date')['XP'].sum().reset_index()
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No completed quests yet. Start your journey!")
 
-            fig2 = px.line(daily_xp, x='Date', y='XP',
-                           title='XP Progress Over Time',
-                           color_discrete_sequence=['#ff1744'])
-            fig2.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0.5)',
-                font=dict(color='white')
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+# Tab 5: Multiplayer Features
+with tab5:
+    st.markdown("### MULTIPLAYER ARENA")
 
-    # Tab 4: History
-    with tab4:
-        st.markdown("### BATTLE HISTORY")
+    # Leaderboard
+    st.markdown("#### GLOBAL LEADERBOARD")
+    leaderboard = dm.get_leaderboard(10)
 
-        completed = [t for t in player['tasks'] if t['status'] == 'completed']
-        if completed:
-            df = pd.DataFrame([{
-                'Quest': t['name'],
-                'Category': t['category'],
-                'XP': t['xp'],
-                'Completed': datetime.fromisoformat(t['completed']).strftime('%Y-%m-%d %H:%M'),
-                'Time Taken': str(datetime.fromisoformat(t['completed']) -
-                                  datetime.fromisoformat(t['created'])).split('.')[0]
-            } for t in sorted(completed, key=lambda x: x['completed'], reverse=True)])
+    if leaderboard:
+        for idx, p in enumerate(leaderboard, 1):
+            is_current = p['name'] == player['name']
+            rank_class = "rank-gold" if idx == 1 else "rank-silver" if idx == 2 else "rank-bronze" if idx == 3 else ""
+            highlight = "border: 2px solid #ff1744;" if is_current else ""
 
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No completed quests yet. Start your journey!")
+            st.markdown(f"""
+            <div class='leaderboard-card' style='{highlight}'>
+                <span class='{rank_class}' style='font-size: 1.5rem; font-weight: 700;'>#{idx}</span>
+                <span style='font-size: 1.2rem;'>{p.get('avatar', '⚔️')} {p['name']}</span>
+                <span style='float: right; color: #ff1744;'>Level {p['level']} | {p['total_xp']} XP</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Active Warriors
+    st.markdown("#### WARRIORS ONLINE (Last 24h)")
+    active = dm.get_active_players(24)
+
+    if active:
+        cols = st.columns(min(len(active), 5))
+        for idx, p in enumerate(active):
+            with cols[idx % 5]:
+                st.markdown(f"""
+                <div style='text-align: center; padding: 0.5rem;'>
+                    <div style='font-size: 2rem;'>{p.get('avatar', '⚔️')}</div>
+                    <div style='font-size: 0.9rem;'>{p['name']}</div>
+                    <div style='font-size: 0.8rem; color: #ff1744;'>Lv {p['level']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("No warriors active in the last 24 hours")
+
+    st.markdown("---")
+
+    # Comparison with others
+    st.markdown("#### COMPARE WITH WARRIOR")
+    all_players = [p['name'] for p in data['players'].values() if p['name'] != player['name']]
+    if all_players:
+        compare_with = st.selectbox("Select Warrior to Compare", all_players)
+        if compare_with:
+            other_player = dm.get_player(compare_with)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"### {player.get('avatar', '⚔️')} {player['name']}")
+                st.metric("Level", player['level'])
+                st.metric("Total XP", player['total_xp'])
+                st.metric("Quests Completed", len([t for t in player['tasks'] if t['status'] == 'completed']))
+
+            with col2:
+                st.markdown(f"### {other_player.get('avatar', '⚔️')} {other_player['name']}")
+                st.metric("Level", other_player['level'], delta=other_player['level'] - player['level'])
+                st.metric("Total XP", other_player['total_xp'], delta=other_player['total_xp'] - player['total_xp'])
+                st.metric("Quests Completed", len([t for t in other_player['tasks'] if t['status'] == 'completed']))
+    else:
+        st.info("No other warriors to compare with. Share the app with friends!")
+
+# Tab 6: Activity Feed
+with tab6:
+    st.markdown("### RECENT ACTIVITY")
+
+    activities = dm.get_activity_feed(30)
+
+    if activities:
+        for activity in activities:
+            timestamp = datetime.fromisoformat(activity['timestamp'])
+            time_ago = datetime.now() - timestamp
+
+            if time_ago.days > 0:
+                time_str = f"{time_ago.days}d ago"
+            elif time_ago.seconds > 3600:
+                time_str = f"{time_ago.seconds // 3600}h ago"
+            elif time_ago.seconds > 60:
+                time_str = f"{time_ago.seconds // 60}m ago"
+            else:
+                time_str = "just now"
+
+            # Get player avatar
+            activity_player = dm.get_player(activity['player'])
+            avatar = activity_player.get('avatar', '⚔️') if activity_player else '⚔️'
+
+            # Action icons
+            action_icons = {
+                'joined': '🎉',
+                'completed': '✅',
+                'completed_late': '⚠️',
+                'level_up': '⬆️',
+                'created_quest': '📝'
+            }
+            icon = action_icons.get(activity['action'], '📌')
+
+            st.markdown(f"""
+            <div class='leaderboard-card'>
+                <span style='font-size: 1.2rem;'>{icon} {avatar} <strong>{activity['player']}</strong></span>
+                <span style='color: #ffffff;'>{activity['details']}</span>
+                <span style='float: right; font-size: 0.8rem; color: rgba(255,255,255,0.6);'>{time_str}</span>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No recent activity. Be the first to complete a quest!")
