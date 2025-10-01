@@ -666,7 +666,6 @@ if not st.session_state['logged_in']:
     tab1, tab2 = st.tabs(["LOGIN", "REGISTER"])
 
     with tab1:
-        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
         st.markdown("### WARRIOR LOGIN")
 
         login_username = st.text_input("Username", key="login_user")
@@ -686,10 +685,7 @@ if not st.session_state['logged_in']:
             else:
                 st.error("Please enter username and password!")
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
     with tab2:
-        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
         st.markdown("### FORGE NEW ACCOUNT")
 
         reg_username = st.text_input("Username", key="reg_user")
@@ -716,8 +712,6 @@ if not st.session_state['logged_in']:
                         st.error("Username or warrior name already exists!")
                 except Exception as e:
                     st.error(f"Error creating account: {str(e)}")
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
     # Show leaderboard on login page
     st.markdown("---")
@@ -760,13 +754,13 @@ with st.sidebar:
 
     st.markdown("---")
 
-    if st.button("LOGOUT"):
+    if st.button("🚪 LOGOUT"):
         st.session_state['logged_in'] = False
         st.session_state['username'] = None
         st.session_state['current_player'] = None
         st.rerun()
 
-    if st.button("REFRESH"):
+    if st.button("🔄 REFRESH"):
         st.rerun()
 
 # Main Content (rest of your original code remains the same)
