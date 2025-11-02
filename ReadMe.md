@@ -6,6 +6,12 @@ Transform your daily tasks into epic quests! Life RPG Tracker gamifies your prod
 ![Python](https://img.shields.io/badge/python-3.8+-blue?style=for-the-badge)
 ![Streamlit](https://img.shields.io/badge/streamlit-1.28+-red?style=for-the-badge)
 
+## 🌐 Live Demo
+
+**[🚀 Try it now!](https://solo-leveling-self-development-by-royson.streamlit.app/)**
+
+No installation required - jump right into the action!
+
 ## ✨ Features
 
 ### 🎯 Core Gameplay
