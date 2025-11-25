@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+venv/
+.env/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# IDE files
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+
+# JSON Keys / Credentials
+*.json
+*.key
+*.pem
+
+# Local Databases
+*.db
+
+# Logs
+*.log
