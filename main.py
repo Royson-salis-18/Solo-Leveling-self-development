@@ -1,12 +1,11 @@
+
 import streamlit as st
 st.set_page_config(
     page_title="Life RPG Tracker",
-    page_icon=None,
+    page_icon=None,            # removed emojis — keep professional
     layout="wide",
+    initial_sidebar_state="expanded"
 )
-
-
-import streamlit as st
 import pandas as pd
 import json
 from datetime import datetime, timedelta
@@ -21,12 +20,7 @@ from backend import (
 )
 
 # Page config
-st.set_page_config(
-    page_title="Life RPG Tracker",
-    page_icon=None,            # removed emojis — keep professional
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+
 
 # Improve CSS for full-page modern card layout
 def load_css():
