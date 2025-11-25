@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 from supabase import create_client, Client
 
+
 @st.cache_resource
 def init_supabase() -> Client:
+    
     try:
         url = st.secrets["supabase_url"]
         key = st.secrets["supabase_key"]
