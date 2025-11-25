@@ -1,0 +1,2 @@
+echo "[server]
+fileWatcherType = 'none'" > .streamlit/config.toml
