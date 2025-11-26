@@ -15,7 +15,6 @@ def init_supabase() -> Client:
         key = st.secrets["supabase_key"]
     except Exception:
         url = "https://vznqvdfncckbatgleapf.supabase.co"
-        key = "YOUR_SUPABASE_ANON_KEY_HERE"
     return create_client(url, key)
 
 supabase = init_supabase()
