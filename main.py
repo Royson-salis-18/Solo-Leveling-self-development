@@ -1,7 +1,7 @@
 import streamlit as st
 st.set_page_config(
     page_title="Life RPG Tracker",
-    page_icon=None,            # removed emojis — keep professional
+    page_icon=None,           
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -506,5 +506,3 @@ with tab5:
                 st.error(f"Failed to save profile: {msg}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ...existing code continues (Active quests, Leaderboard, Progress) ...
-# ensure previous 'Progress' logic remains intact and accessible where it was before or via Dashboard
