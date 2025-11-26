@@ -1,4 +1,3 @@
-
 import streamlit as st
 st.set_page_config(
     page_title="Life RPG Tracker",
@@ -70,6 +69,18 @@ load_css()
 if 'ui_override' not in st.session_state:
     st.session_state['ui_override'] = None
 
+# Initialize session state keys used for UI lists (avoid repeated reloads)
+if 'active_tasks' not in st.session_state:
+    st.session_state['active_tasks'] = []
+if 'completed_tasks' not in st.session_state:
+    st.session_state['completed_tasks'] = []
+if 'user_points_hist' not in st.session_state:
+    st.session_state['user_points_hist'] = []
+if 'today_points_info' not in st.session_state:
+    st.session_state['today_points_info'] = {"daily_points":0, "cumulative_points":0}
+if 'recent_activity' not in st.session_state:
+    st.session_state['recent_activity'] = []
+
 # LOGIN PAGE
 if not st.session_state['logged_in']:
     st.markdown("<h1 style='text-align: center;'>LIFE RPG TRACKER</h1>", unsafe_allow_html=True)
@@ -91,6 +102,12 @@ if not st.session_state['logged_in']:
                     st.session_state['logged_in'] = True
                     st.session_state['user_email'] = (user.get('email') or login_email).strip().lower()
                     st.session_state['user_data'] = user
+                    # populate UI caches in session_state — avoids needing immediate reruns
+                    st.session_state['active_tasks'] = get_tasks(st.session_state['user_email'], completed=False)
+                    st.session_state['completed_tasks'] = get_tasks(st.session_state['user_email'], completed=True)
+                    st.session_state['user_points_hist'] = get_user_points_history(st.session_state['user_email'], days=30)
+                    st.session_state['today_points_info'] = get_today_points(st.session_state['user_email'])
+                    st.session_state['recent_activity'] = get_recent_activity(st.session_state['user_email'], limit=10)
                     update_user_activity(st.session_state['user_email'])
                     st.success(f"Welcome back, {user['name']}!")
                     # refresh local task lists rather than forcing a rerun
@@ -141,14 +158,12 @@ if not st.session_state['logged_in']:
 user_data = st.session_state['user_data']
 user_email = st.session_state['user_email']
 
-# load points + recent activity for current user (define before user_row checks)
-user_points_hist = get_user_points_history(user_email, days=30) if user_email else []
-today_points_info = get_today_points(user_email) if user_email else {"daily_points":0, "cumulative_points":0}
-recent_activity = get_recent_activity(user_email, limit=10) if user_email else []
-
-# ensure task lists are defined early so top header and other UI can reference them safely
-active_tasks = get_tasks(user_email, completed=False) if user_email else []
-completed_tasks = get_tasks(user_email, completed=True) if user_email else []
+# Use session_state values for the UI (consistent single source of truth)
+user_points_hist = st.session_state.get('user_points_hist', [])
+today_points_info = st.session_state.get('today_points_info', {"daily_points":0, "cumulative_points":0})
+recent_activity = st.session_state.get('recent_activity', [])
+active_tasks = st.session_state.get('active_tasks', [])
+completed_tasks = st.session_state.get('completed_tasks', [])
 
 # Refresh user data via backend helper
 user_row = get_user_by_email(user_email)
@@ -337,22 +352,28 @@ with tab2:
                         st.markdown(f"**Description:** {task.get('description')}")
                 
                 with col2:
+                    # Handler: COMPLETE (update session_state instead of forcing st.rerun())
                     if st.button("Complete", key=f"complete_{pk}_{idx}", disabled=(pk is None)):
                         if pk is None:
                             st.error("Task missing DB ID — cannot complete.")
                         else:
                             res = complete_task(pk, user_email, int(task.get('points', 0)))
                             if isinstance(res, dict) and res.get('ok'):
-                                # store override so UI still shows updated values after rerun
-                                st.session_state['ui_override'] = {
-                                    "email": user_email,
-                                    "total_points": res['new_points'],
-                                    "level": res['new_level']
-                                }
+                                st.session_state['ui_override'] = {"email": user_email, "total_points": res['new_points'], "level": res['new_level']}
+                                # refresh only the lists & points that need updating (no full rerun)
+                                st.session_state['active_tasks'] = get_tasks(user_email, completed=False)
+                                st.session_state['completed_tasks'] = get_tasks(user_email, completed=True)
+                                st.session_state['user_points_hist'] = get_user_points_history(user_email, days=30)
+                                st.session_state['today_points_info'] = get_today_points(user_email)
+                                st.session_state['recent_activity'] = get_recent_activity(user_email, limit=10)
+                                # update session user_data for immediate UI
+                                st.session_state['user_data']['total_points'] = res['new_points']
+                                st.session_state['user_data']['level'] = res['new_level']
                                 st.success(f"+{task.get('points',0)} XP!")
-                                # force a full rerun so header, leaderboard and all charts reload from DB
-                                st.rerun()
+                            else:
+                                st.error("Failed to complete task. See developer debug panel.")
 
+                    # Handler: DELETE (update session_state without full rerun)
                     if st.button("Delete", key=f"delete_{pk}_{idx}", disabled=(pk is None)):
                         if pk is None:
                             st.error("Task missing DB ID — cannot delete.")
@@ -360,9 +381,12 @@ with tab2:
                             ok = delete_task(pk)
                             if ok:
                                 st.success("Task deleted.")
-                                # clear UI override on delete (safe)
-                                st.session_state['ui_override'] = st.session_state.get('ui_override')
-                                st.rerun()
+                                st.session_state['active_tasks'] = get_tasks(user_email, completed=False)
+                                st.session_state['completed_tasks'] = get_tasks(user_email, completed=True)
+                                # update user points snapshot in case deletion changed anything (optional)
+                                st.session_state['user_points_hist'] = get_user_points_history(user_email, days=30)
+                                st.session_state['today_points_info'] = get_today_points(user_email)
+                                st.session_state['recent_activity'] = get_recent_activity(user_email, limit=10)
                             else:
                                 st.error("Failed to delete task. See developer debug panel.")
     else:
@@ -398,8 +422,12 @@ with tab3:
                 success = create_task(user_email, quest_title, quest_category, int(quest_points), deadline, quest_description)
                 if success:
                     st.success(f"Quest '{quest_title}' created! +{quest_points} XP on completion")
-                    # creation succeeded — trigger full rerun so UI (lists/graphs) reload from DB
-                    st.rerun()
+                    st.session_state['active_tasks'] = get_tasks(user_email, completed=False)
+                    st.session_state['completed_tasks'] = get_tasks(user_email, completed=True)
+                    # points don't change until completion, but refresh snapshots anyway
+                    st.session_state['user_points_hist'] = get_user_points_history(user_email, days=30)
+                    st.session_state['today_points_info'] = get_today_points(user_email)
+                    st.session_state['recent_activity'] = get_recent_activity(user_email, limit=10)
                 else:
                     st.error("Failed to create quest. See developer debug panel.")
 
