@@ -31,13 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // No Supabase → immediately done loading (preview mode)
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
     // Check current session on mount
     const checkAuth = async () => {
-      if (!supabase) return;
-      
-      const { data } = await supabase.auth.getSession();
+      const { data } = await supabase!.auth.getSession();
       if (data.session?.user) {
         setUser(data.session.user);
+        localStorage.setItem("user_email", data.session.user.email ?? "");
         await fetchProfile(data.session.user.id);
       }
       setIsLoading(false);
@@ -45,20 +50,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     checkAuth();
 
-    // Listen for auth changes
-    if (!supabase) {
-      setIsLoading(false);
-      return;
-    }
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
+    // Listen for auth state changes
+    const { data: listener } = supabase!.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
           setUser(session.user);
+          localStorage.setItem("user_email", session.user.email ?? "");
           await fetchProfile(session.user.id);
         } else {
           setUser(null);
           setProfile(null);
+          localStorage.removeItem("user_email");
         }
         setIsLoading(false);
       }
@@ -87,32 +89,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    if (!supabase) throw new Error("Supabase not initialized");
+    if (!supabase) throw new Error("Supabase not configured");
 
     setIsLoading(true);
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
       if (authError) throw authError;
       if (!authData.user) throw new Error("Failed to create user");
 
-      // Create profile
+      // Create profile row
       const { error: profileError } = await supabase
         .from("user_profiles")
-        .insert({
-          user_id: authData.user.id,
-          email,
-          name,
-          level: 1,
-          total_points: 0,
-        });
-
+        .insert({ user_id: authData.user.id, email, name, level: 1, total_points: 0 });
       if (profileError) throw profileError;
 
+      localStorage.setItem("user_email", email);
       setUser(authData.user);
       await fetchProfile(authData.user.id);
     } catch (error) {
@@ -123,18 +114,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase not initialized");
+    if (!supabase) throw new Error("Supabase not configured");
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (!data.user) throw new Error("Failed to sign in");
 
+      localStorage.setItem("user_email", email);
       setUser(data.user);
       await fetchProfile(data.user.id);
     } catch (error) {
@@ -145,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    if (!supabase) throw new Error("Supabase not initialized");
+    if (!supabase) throw new Error("Supabase not configured");
 
     setIsLoading(true);
     try {
@@ -153,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       setUser(null);
       setProfile(null);
+      localStorage.removeItem("user_email");
     } catch (error) {
       throw error;
     } finally {
@@ -184,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         isLoading,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user || !supabase,
         signUp,
         signIn,
         signOut,
