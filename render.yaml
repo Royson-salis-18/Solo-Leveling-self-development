@@ -1,15 +1,16 @@
 services:
-  - type: static
+  - type: web
     name: solo-leveling-second-brain
-    env: static
+    runtime: static
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    staticPublishPath: dist
     rootDir: web
     envVars:
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
+    # Routing for SPA (React Router)
     routes:
       - type: rewrite
         source: /*
