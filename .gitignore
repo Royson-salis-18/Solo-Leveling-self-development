@@ -1,5 +1,4 @@
 .idea/
-*.json
 venv/
 __pycache__/
 *.db
