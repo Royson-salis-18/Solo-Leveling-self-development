@@ -8,6 +8,8 @@ interface ButtonProps {
   disabled?: boolean;
   className?: string;
   type?: "button" | "submit" | "reset";
+  title?: string;
+  id?: string;
 }
 
 export function Button({
@@ -18,6 +20,8 @@ export function Button({
   disabled = false,
   className = "",
   type = "button",
+  title,
+  id,
 }: ButtonProps) {
   const sizeClass = size === "sm" ? "btn-sm" : "";
   const variantClass = `btn-${variant}`;
@@ -28,6 +32,8 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       className={`btn ${variantClass} ${sizeClass} ${className}`}
+      title={title}
+      id={id}
     >
       {children}
     </button>

@@ -1,114 +1,207 @@
-import { useState } from "react";
-import { mockLeaderboard } from "../lib/mockData";
-import { Medal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/authContext";
+
+type LBUser = {
+  user_id: string; name: string; level: number; total_points: number;
+  player_class: string; player_rank: string; player_title: string;
+  guild_id: string | null; clan_id_via_members?: string;
+};
+
+type GuildLB = { id: string; name: string; total_xp: number; member_count: number };
+type ClanLB  = { id: string; name: string; total_xp: number; member_count: number };
+
+type LBTab = "Hunters" | "Guilds" | "Clans";
+
+const MEDALLION = ["🥇", "🥈", "🥉"];
 
 export function LeaderboardPage() {
-  const [leaderboard]  = useState(mockLeaderboard);
-  const [filterLevel,  setFilterLevel] = useState<number | null>(null);
-  const [activeView,   setActiveView]  = useState<"global"|"weekly">("global");
+  const { user } = useAuth();
+  const [tab, setTab]           = useState<LBTab>("Hunters");
+  const [hunters, setHunters]   = useState<LBUser[]>([]);
+  const [guilds,  setGuilds]    = useState<GuildLB[]>([]);
+  const [clans,   setClans]     = useState<ClanLB[]>([]);
+  const [loading, setLoading]   = useState(true);
 
-  const displayUsers = filterLevel
-    ? leaderboard.filter(u => u.level >= filterLevel)
-    : leaderboard;
+  useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
+    (async () => {
+      const [hRes, gRes, cRes] = await Promise.all([
+        supabase.from("user_profiles")
+          .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id")
+          .order("total_points", { ascending: false })
+          .limit(50),
 
-  const rankEmoji = (rank: number) => {
-    if (rank === 1) return "🥇";
-    if (rank === 2) return "🥈";
-    if (rank === 3) return "🥉";
-    return null;
-  };
+        supabase.from("guilds").select("id, name, member_count"),
+        supabase.from("clans").select("id, name"),
+      ]);
+
+      setHunters(hRes.data ?? []);
+
+      // For guild XP: sum all user_profiles.total_points per guild_id
+      if (gRes.data?.length) {
+        const { data: guildProfs } = await supabase
+          .from("user_profiles").select("guild_id, total_points").not("guild_id", "is", null);
+        const guildXP = new Map<string, { xp: number; count: number }>();
+        (guildProfs ?? []).forEach((p: any) => {
+          const cur = guildXP.get(p.guild_id) ?? { xp: 0, count: 0 };
+          guildXP.set(p.guild_id, { xp: cur.xp + p.total_points, count: cur.count + 1 });
+        });
+        const gbData = (gRes.data ?? []).map(g => ({
+          id: g.id, name: g.name,
+          total_xp: guildXP.get(g.id)?.xp ?? 0,
+          member_count: guildXP.get(g.id)?.count ?? 0,
+        })).filter(g => g.member_count >= 5)
+          .sort((a, b) => b.total_xp - a.total_xp);
+        setGuilds(gbData);
+      }
+
+      // For clan XP: sum via clan_members join user_profiles
+      if (cRes.data?.length) {
+        const { data: clanMemberRows } = await supabase
+          .from("clan_members").select("clan_id, user_id");
+        const { data: allProfs } = await supabase
+          .from("user_profiles").select("user_id, total_points");
+
+        const clanXP = new Map<string, { xp: number; count: number }>();
+        (clanMemberRows ?? []).forEach((cm: any) => {
+          const prof = allProfs?.find((p: any) => p.user_id === cm.user_id);
+          const cur  = clanXP.get(cm.clan_id) ?? { xp: 0, count: 0 };
+          clanXP.set(cm.clan_id, { xp: cur.xp + (prof?.total_points ?? 0), count: cur.count + 1 });
+        });
+
+        const clData = (cRes.data ?? []).map(c => ({
+          id: c.id, name: c.name,
+          total_xp: clanXP.get(c.id)?.xp ?? 0,
+          member_count: clanXP.get(c.id)?.count ?? 0,
+        })).filter(c => c.member_count >= 3)
+          .sort((a, b) => b.total_xp - a.total_xp);
+        setClans(clData);
+      }
+
+      setLoading(false);
+    })();
+  }, []);
+
+  const isMe = (id: string) => id === user?.id;
+
+  const podiumOrder = hunters.length >= 3
+    ? [hunters[1], hunters[0], hunters[2]]
+    : hunters.slice(0, 3);
+  const podiumRealIdx = (pos: number) => [1, 0, 2][pos] ?? pos;
 
   return (
     <section className="page">
       <div className="page-header">
         <h2 className="page-title">Leaderboard</h2>
-        <select
-          className="form-select"
-          style={{ width: 160 }}
-          onChange={e => setFilterLevel(e.target.value ? parseInt(e.target.value) : null)}
-        >
-          <option value="">All Levels</option>
-          <option value="10">Level 10+</option>
-          <option value="15">Level 15+</option>
-          <option value="20">Level 20+</option>
-        </select>
+        <div className="text-xs text-muted">{hunters.length} hunters ranked</div>
       </div>
 
-      {/* View tabs */}
-      <div className="tabs">
-        <div className={`tab${activeView==="global"?" active":""}`}  onClick={()=>setActiveView("global")}>Global</div>
-        <div className={`tab${activeView==="weekly"?" active":""}`}  onClick={()=>setActiveView("weekly")}>This Week</div>
+      {/* Tab bar */}
+      <div className="arena-tabs" style={{ marginBottom: 24 }}>
+        {(["Hunters", "Guilds", "Clans"] as LBTab[]).map(t => (
+          <button key={t} className={`arena-tab${tab === t ? " arena-tab--active" : ""}`} onClick={() => setTab(t)}>
+            {t === "Hunters" ? "⚔️" : t === "Guilds" ? "🏛️" : "🛡️"} {t}
+          </button>
+        ))}
       </div>
 
-      {/* Top 3 podium cards */}
-      {displayUsers.length >= 3 && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:4 }}>
-          {[displayUsers[1], displayUsers[0], displayUsers[2]].map((user, pos) => {
-            const isPodiumTop = pos === 1;
-            return (
-              <div key={user.email} className="panel" style={{
-                textAlign:"center", padding:"20px 12px",
-                background: isPodiumTop ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-                border: isPodiumTop ? "1px solid rgba(255,255,255,0.18)" : undefined,
-                transform: isPodiumTop ? "translateY(-4px)" : undefined,
-              }}>
-                <div style={{ fontSize:"1.6rem", marginBottom:6 }}>{rankEmoji(user.rank)}</div>
-                <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.12)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 10px", fontSize:"1rem", fontWeight:700 }}>
-                  {user.name.charAt(0)}
+      {loading ? (
+        <div className="panel panel-empty text-muted text-sm">Querying ranked data…</div>
+      ) : (
+        <>
+          {/* ── HUNTERS ── */}
+          {tab === "Hunters" && (
+            <>
+              {/* Podium */}
+              {podiumOrder.length === 3 && (
+                <div className="lb-podium">
+                  {podiumOrder.map((u, pos) => {
+                    const ri    = podiumRealIdx(pos);
+                    const isTop = ri === 0;
+                    const heights = ["56px", "80px", "44px"];
+                    return (
+                      <div key={u.user_id} className={`lb-podium-card${isTop ? " lb-podium-card--top" : ""}`}>
+                        <div className="lb-podium-bar" style={{ height: heights[ri] }} />
+                        <div className="lb-podium-avatar" style={{ width: isTop ? 60 : 48, height: isTop ? 60 : 48, border: isTop ? "2px solid rgba(255,255,255,0.4)" : "1px solid var(--border-1)", boxShadow: isTop ? "0 0 30px rgba(255,255,255,0.15)" : "none" }}>
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="lb-podium-medal">{MEDALLION[ri]}</div>
+                        <div className="lb-podium-name">{isMe(u.user_id) ? "You" : u.name}</div>
+                        <div className="lb-podium-class">{u.player_class}</div>
+                        <div className="lb-podium-xp">{u.total_points.toLocaleString()} <span className="text-xs text-muted">XP</span></div>
+                        <span className={`rank-badge rank-${u.player_rank}`}>{u.player_rank}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ fontSize:"0.82rem", fontWeight:600, color:"var(--text-primary)", marginBottom:3 }}>{user.name}</div>
-                <div style={{ fontSize:"0.70rem", color:"var(--text-tertiary)", marginBottom:6 }}>Lv. {user.level}</div>
-                <div style={{ fontSize:"0.80rem", fontWeight:600, color:"var(--text-secondary)" }}>{user.total_points.toLocaleString()} XP</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              )}
 
-      {/* Full list */}
-      <article className="panel" style={{ padding:0 }}>
-        {displayUsers.length === 0 ? (
-          <p style={{ textAlign:"center", color:"var(--text-tertiary)", padding:"32px 20px", fontSize:"0.82rem" }}>
-            No users at this level range.
-          </p>
-        ) : (
-          displayUsers.map((user, i) => (
-            <div key={user.email} className="leaderboard-item" style={{
-              borderRadius: 0,
-              borderBottom: i < displayUsers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-              padding: "12px 16px",
-            }}>
-              {/* Rank */}
-              <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:60 }}>
-                <span style={{ fontSize:"0.80rem", color: user.rank <= 3 ? "var(--text-primary)" : "var(--text-tertiary)", fontWeight:600, fontVariantNumeric:"tabular-nums" }}>
-                  {rankEmoji(user.rank) ?? `#${user.rank}`}
-                </span>
-              </div>
+              {/* Full list */}
+              <article className="panel panel-no-pad">
+                {hunters.map((u, i) => (
+                  <div key={u.user_id} className={`lb-row${isMe(u.user_id) ? " lb-row--me" : ""}`}>
+                    <div className="lb-row-rank">{i < 3 ? MEDALLION[i] : `#${i + 1}`}</div>
+                    <div className="lb-row-avatar">{u.name.charAt(0).toUpperCase()}</div>
+                    <div className="lb-row-info">
+                      <div className="lb-row-name">
+                        {isMe(u.user_id) ? "You" : u.name}
+                        <span className="rank-badge rank-sm" style={{ marginLeft: 6 }}>{u.player_rank}</span>
+                      </div>
+                      <div className="lb-row-sub">{u.player_class} · Lv.{u.level} · <em>{u.player_title}</em></div>
+                    </div>
+                    <div className="lb-row-xp">{u.total_points.toLocaleString()} <span className="text-xs text-muted">XP</span></div>
+                  </div>
+                ))}
+              </article>
+            </>
+          )}
 
-              {/* Avatar + name */}
-              <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
-                <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.80rem", fontWeight:600, flexShrink:0 }}>
-                  {user.name.charAt(0)}
-                </div>
-                <div>
-                  <div style={{ fontSize:"0.83rem", fontWeight:500, color:"var(--text-primary)" }}>{user.name}</div>
-                  <div style={{ fontSize:"0.70rem", color:"var(--text-tertiary)", display:"flex", gap:6 }}>
-                    <span>Level {user.level}</span>
-                    <span style={{ padding:"0 5px", background:"rgba(255,255,255,0.06)", borderRadius:4 }}>
-                      {Math.floor(user.total_points / 250)} milestones
-                    </span>
+          {/* ── GUILDS ── */}
+          {tab === "Guilds" && (
+            <div className="flex-col gap-14">
+              {guilds.length === 0 ? (
+                <div className="panel panel-empty"><p className="text-muted text-sm">No guilds with 5+ members yet.</p></div>
+              ) : guilds.map((g, i) => (
+                <div key={g.id} className={`lb-group-card${i === 0 ? " lb-group-card--top" : ""}`}>
+                  <div className="lb-group-rank">{i < 3 ? MEDALLION[i] : `#${i + 1}`}</div>
+                  <div className="lb-group-icon" style={{ color: "#ffcc00" }}>🏛️</div>
+                  <div className="lb-group-info">
+                    <div className="lb-group-name">{g.name}</div>
+                    <div className="lb-group-meta">{g.member_count} members</div>
+                  </div>
+                  <div className="lb-group-xp">
+                    <div className="lb-group-xp-val">{g.total_xp.toLocaleString()}</div>
+                    <div className="text-xs text-muted">Total XP</div>
                   </div>
                 </div>
-              </div>
-
-              {/* XP */}
-              <div style={{ fontWeight:600, fontSize:"0.84rem", color:"var(--text-secondary)", fontVariantNumeric:"tabular-nums" }}>
-                {user.total_points.toLocaleString()} XP
-              </div>
+              ))}
             </div>
-          ))
-        )}
-      </article>
+          )}
+
+          {/* ── CLANS ── */}
+          {tab === "Clans" && (
+            <div className="flex-col gap-14">
+              {clans.length === 0 ? (
+                <div className="panel panel-empty"><p className="text-muted text-sm">No clans with 3+ members yet.</p></div>
+              ) : clans.map((c, i) => (
+                <div key={c.id} className={`lb-group-card${i === 0 ? " lb-group-card--top" : ""}`}>
+                  <div className="lb-group-rank">{i < 3 ? MEDALLION[i] : `#${i + 1}`}</div>
+                  <div className="lb-group-icon">🛡️</div>
+                  <div className="lb-group-info">
+                    <div className="lb-group-name">{c.name}</div>
+                    <div className="lb-group-meta">{c.member_count} / 5 members</div>
+                  </div>
+                  <div className="lb-group-xp">
+                    <div className="lb-group-xp-val">{c.total_xp.toLocaleString()}</div>
+                    <div className="text-xs text-muted">Total XP</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

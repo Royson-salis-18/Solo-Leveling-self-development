@@ -1,78 +1,157 @@
-import type { Quest } from "../lib/mockData";
+import { useState } from "react";
 import { Button } from "./Button";
-import { CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle, Trash2, Edit3, Plus, Zap } from "lucide-react";
 
-interface QuestItemProps {
-  quest: Quest;
-  onComplete?: (id: string) => void;
-  onDelete?:   (id: string) => void;
-  isCompleted?: boolean;
+export interface DBTask {
+  id: string;
+  user_id?: string;
+  parent_id: string | null;
+  title: string;
+  description: string;
+  category: string;
+  points: number;
+  is_completed: boolean;
+  deadline: string | null;
+  priority: string;
+  assigned_to?: string | null;   // for clan/guild leader assignments
+  subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
 }
 
-export function QuestItem({ quest, onComplete, onDelete, isCompleted = false }: QuestItemProps) {
+interface QuestItemProps {
+  quest: DBTask;
+  onComplete?:    (id: string, isDone: boolean) => void;
+  onSkip?:        (id: string) => void;
+  onDelete?:      (id: string) => void;
+  onEdit?:        (quest: DBTask) => void;
+  onAddSubtask?:  (parentId: string) => void;
+  depth?: number;
+  readOnly?: boolean; // for assigned quests viewed by members
+}
+
+export function QuestItem({
+  quest, onComplete, onSkip, onDelete, onEdit, onAddSubtask,
+  depth = 0, readOnly = false,
+}: QuestItemProps) {
+  const [expanded, setExpanded] = useState(true);
+  const isCompleted = quest.is_completed;
+  const marginLeft  = depth * 20;
+  const hasChildren = quest.subtasks && quest.subtasks.length > 0;
+
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 14,
-      padding: "13px 16px",
-      transition: "background 0.15s",
-      cursor: "default",
-    }}
-      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
-      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-    >
-      {/* Done indicator */}
-      <div style={{ flexShrink:0, width:18 }}>
-        {isCompleted
-          ? <CheckCircle size={16} color="rgba(255,255,255,0.35)" />
-          : <div style={{ width:14, height:14, borderRadius:"50%", border:"1px solid rgba(255,255,255,0.18)", background:"rgba(255,255,255,0.04)" }} />
-        }
-      </div>
-
-      {/* Content */}
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{
-          fontSize:"0.83rem", fontWeight:500,
-          color: isCompleted ? "var(--text-tertiary)" : "var(--text-primary)",
-          textDecoration: isCompleted ? "line-through" : "none",
-          whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
-        }}>
-          {quest.title}
+    <div className="list-divider">
+      <div
+        className="quest-item-wrapper"
+        style={{ marginLeft: `${marginLeft}px` }}
+        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+      >
+        {/* Expand / done indicator */}
+        <div
+          className="quest-checkbox"
+          style={{ cursor: hasChildren ? "pointer" : "default" }}
+          onClick={() => hasChildren && setExpanded(p => !p)}
+        >
+          {isCompleted
+            ? <CheckCircle size={16} color="rgba(255,255,255,0.35)" />
+            : hasChildren
+              ? <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>{expanded ? "▼" : "▶"}</div>
+              : <div className="quest-indicator" />
+          }
         </div>
-        <div style={{ display:"flex", gap:6, marginTop:3, flexWrap:"wrap", alignItems:"center" }}>
-          <span style={{ fontSize:"0.68rem", padding:"1px 6px", background:"rgba(255,255,255,0.06)", borderRadius:4, color:"var(--text-tertiary)", border:"1px solid rgba(255,255,255,0.08)" }}>
-            {quest.category}
-          </span>
-          {quest.deadline && (
-            <span style={{ fontSize:"0.68rem", color:"var(--text-tertiary)" }}>
-              Due {new Date(quest.deadline).toLocaleDateString()}
-            </span>
-          )}
-          {quest.description && (
-            <span style={{ fontSize:"0.70rem", color:"var(--text-tertiary)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:200 }}>
-              {quest.description}
-            </span>
-          )}
+
+        {/* Content */}
+        <div className="quest-content">
+          <div className={`quest-title${isCompleted ? " quest-title-completed" : ""}`}>
+            {quest.title}
+            {quest.assigned_to && (
+              <span style={{ marginLeft: 8, fontSize: "0.6rem", color: "#a8a8ff", fontWeight: 700,
+                background: "rgba(168,168,255,0.12)", padding: "1px 6px", borderRadius: 4 }}>
+                ASSIGNED
+              </span>
+            )}
+          </div>
+          <div className="quest-meta">
+            <span className="quest-point-badge">{quest.category}</span>
+            {quest.priority !== "Normal" && (
+              <span className={`tag${quest.priority === "URGENT" ? " tag-urgent" : ""}`}>{quest.priority}</span>
+            )}
+            {quest.deadline && (
+              <span className="text-xs text-muted">
+                Due {new Date(quest.deadline + "T00:00:00").toLocaleDateString()}
+              </span>
+            )}
+            {quest.description && (
+              <span className="quest-deadline" style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {quest.description}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* XP badge */}
+        <div className={`quest-xp-badge${isCompleted ? " quest-xp-badge-completed" : ""}`}>
+          +{quest.points} XP
+        </div>
+
+        {/* Actions */}
+        {!readOnly && (
+          <div className="flex-shrink-0 flex gap-4" style={{ opacity: isCompleted ? 0.4 : 1 }}>
+            {onComplete && (
+              <Button variant={isCompleted ? "secondary" : "success"} size="sm"
+                onClick={() => onComplete(quest.id, isCompleted)}>
+                Done
+              </Button>
+            )}
+            {!isCompleted && onSkip && (
+              <Button variant="secondary" size="sm"
+                onClick={() => onSkip(quest.id)}
+                title="Skip quest (uses ⚡ item)">
+                <Zap size={12} />
+              </Button>
+            )}
+            {!isCompleted && onAddSubtask && (
+              <Button variant="secondary" size="sm"
+                onClick={() => onAddSubtask(quest.id)} title="Add subtask">
+                <Plus size={12} />
+              </Button>
+            )}
+            {!isCompleted && onEdit && (
+              <Button variant="secondary" size="sm"
+                onClick={() => onEdit(quest)} title="Edit">
+                <Edit3 size={12} />
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="danger" size="sm"
+                onClick={() => onDelete(quest.id)} title="Delete">
+                <Trash2 size={12} />
+              </Button>
+            )}
+          </div>
+        )}
+        {readOnly && onComplete && !isCompleted && (
+          <Button variant="success" size="sm" onClick={() => onComplete(quest.id, isCompleted)}>
+            Done
+          </Button>
+        )}
       </div>
 
-      {/* XP badge */}
-      <div style={{ fontSize:"0.80rem", fontWeight:600, color: isCompleted ? "var(--text-tertiary)" : "var(--text-secondary)", whiteSpace:"nowrap", flexShrink:0 }}>
-        +{quest.points} XP
-      </div>
-
-      {/* Actions */}
-      {!isCompleted && (
-        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-          {onComplete && (
-            <Button variant="success" size="sm" onClick={() => onComplete(quest.id)}>
-              <CheckCircle size={12} /> Done
-            </Button>
-          )}
-          {onDelete && (
-            <Button variant="danger" size="sm" onClick={() => onDelete(quest.id)}>
-              <Trash2 size={12} />
-            </Button>
-          )}
+      {/* Recursive subtasks */}
+      {expanded && hasChildren && (
+        <div className="subtasks-container">
+          {quest.subtasks.map(sub => (
+            <QuestItem
+              key={sub.id}
+              quest={sub}
+              onComplete={onComplete}
+              onSkip={onSkip}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onAddSubtask={onAddSubtask}
+              readOnly={readOnly}
+              depth={depth + 1}
+            />
+          ))}
         </div>
       )}
     </div>

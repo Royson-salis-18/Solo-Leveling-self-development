@@ -13,9 +13,9 @@ export function PerformanceRadar({ data, title, height = 320 }: Props) {
   return (
     <article className="panel">
       {title && (
-        <p className="panel" style={{ background:"none", border:"none", boxShadow:"none", padding:0, marginBottom:14 }}>
-          <span style={{ fontSize:"0.70rem", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", color:"var(--text-tertiary)" }}>{title}</span>
-        </p>
+        <div className="radar-title-wrapper">
+          <span className="radar-title">{title}</span>
+        </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
         <RadarChart data={data} margin={{ top:16, right:24, bottom:16, left:24 }}>

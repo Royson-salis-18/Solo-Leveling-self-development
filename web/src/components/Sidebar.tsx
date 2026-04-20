@@ -1,41 +1,28 @@
-import {
-  Brain, CheckSquare, Edit3, PlusCircle, LayoutGrid, Smartphone,
-  FolderOpen, Star, Archive, Crosshair, TrendingUp, DollarSign,
-  BookOpen, Smile, Headphones, Play, BarChart2, Home, ScrollText,
-  Gift, Trophy, User, LogOut,
-} from "lucide-react";
+import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 
-function SidebarSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="nav-section">
-      <p className="nav-section-label">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-function NavBtn({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
-  return (
-    <div className="nav-item">
-      <Icon size={13} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
-    </div>
-  );
-}
-
-const mainLinks = [
+const links = [
   { to: "/",            label: "Dashboard",   icon: Home },
   { to: "/quests",      label: "Quests",      icon: ScrollText },
   { to: "/rewards",     label: "Rewards",     icon: Gift },
+  { to: "/arena",       label: "Arena",       icon: Swords },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/profile",     label: "Profile",     icon: User },
 ];
 
 export function Sidebar() {
-  const { signOut } = useAuth();
+  const { signOut, profile, user } = useAuth();
   const navigate = useNavigate();
+
+  const displayName = profile?.name ?? user?.email?.split("@")[0] ?? "Hunter";
+  const initial     = displayName.charAt(0).toUpperCase();
+  const level       = (profile as any)?.level ?? 1;
+  const xp          = (profile as any)?.total_points ?? 0;
+  const playerClass = (profile as any)?.player_class ?? "None";
+  const playerRank  = (profile as any)?.player_rank  ?? "E";
+  const xpToNext    = level * 500;
+  const xpPct       = Math.min((xp % 500) / 500, 1) * 100;
 
   const handleLogout = async () => {
     await signOut();
@@ -44,86 +31,97 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      {/* Header image / wave area */}
-      <div className="sidebar-header-img" />
 
-      {/* Brand */}
-      <div className="brand-wrap">
-        <div className="brain-badge">
-          <Brain size={16} color="rgba(255,255,255,0.75)" />
+      {/* ── Brand ── */}
+      <div className="sb-brand">
+        <div className="sb-brand-icon">
+          <Brain size={20} strokeWidth={1.5} />
         </div>
-        <p className="brand-title">Second Brain 5.0</p>
-        <p className="brand-sub">Monochrome · Minimal · Focused</p>
+        <div>
+          <div className="sb-brand-title">SOLO LEVELING</div>
+          <div className="sb-brand-sub">Second Brain 5.0</div>
+        </div>
       </div>
 
-      {/* Quick Actions grid */}
-      <SidebarSection label="Quick Actions">
-        <div className="nav-actions-grid">
-          <NavBtn icon={CheckSquare}  label="New Task" />
-          <NavBtn icon={PlusCircle}   label="Add Resource" />
-          <NavBtn icon={Edit3}        label="New Note" />
-          <NavBtn icon={DollarSign}   label="Transaction" />
-          <NavBtn icon={PlusCircle}   label="New Item" />
-          <NavBtn icon={Edit3}        label="New Record" />
-        </div>
-      </SidebarSection>
-
-      {/* Main Navigation */}
-      <SidebarSection label="Navigation">
-        {mainLinks.map((link) => (
+      {/* ── Nav ── */}
+      <nav className="sb-nav">
+        <div className="sb-section-label">Navigation</div>
+        {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
             end={link.to === "/"}
-            className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
+            className={({ isActive }) => `sb-item${isActive ? " sb-item--active" : ""}${link.to === "/arena" ? " sb-item--arena" : ""}`}
           >
-            <link.icon size={13} />
+            <link.icon size={16} strokeWidth={1.8} />
             <span>{link.label}</span>
           </NavLink>
         ))}
-        <NavBtn icon={Smartphone}   label="Mobile Access" />
-        <NavBtn icon={FolderOpen}   label="Projects" />
-        <NavBtn icon={Star}         label="Life Areas" />
-        <NavBtn icon={Archive}      label="Archive" />
-      </SidebarSection>
+      </nav>
 
-      {/* Work */}
-      <SidebarSection label="Work">
-        <NavBtn icon={Crosshair}    label="Focus Mode" />
-        <NavBtn icon={TrendingUp}   label="SEO Dashboard" />
-        <NavBtn icon={BarChart2}    label="Goals Tracker" />
-        <NavBtn icon={DollarSign}   label="Finance Minimal" />
-      </SidebarSection>
-
-      {/* Life */}
-      <SidebarSection label="Life">
-        <NavBtn icon={CheckSquare}  label="Tasks" />
-        <NavBtn icon={Edit3}        label="Journaling" />
-        <NavBtn icon={Smile}        label="Habits Tracker" />
-        <NavBtn icon={BookOpen}     label="Books Tracker" />
-      </SidebarSection>
-
-      {/* Gifts */}
-      <SidebarSection label="Gifts">
-        <NavBtn icon={Play}         label="Video Tutorial" />
-        <NavBtn icon={Headphones}   label="Podcast" />
-      </SidebarSection>
-
-      {/* Monthly Finance */}
-      <SidebarSection label="Monthly Finance">
-        <NavBtn icon={TrendingUp}   label="Month Analysis" />
-      </SidebarSection>
-
-      {/* Spacer + Logout */}
+      {/* ── Spacer ── */}
       <div style={{ flex: 1 }} />
-      <div className="nav-section" style={{ marginTop: 16, paddingBottom: 16 }}>
+
+      {/* ── User info ── */}
+      <div style={{ padding: "0 4px 4px" }}>
+        <div style={{
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          borderRadius: 14,
+          padding: "14px 16px",
+          marginBottom: 8,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            {/* Avatar */}
+            <div style={{
+              width: 38, height: 38,
+              borderRadius: 10,
+              background: "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1rem", fontWeight: 700, color: "var(--t1)",
+              flexShrink: 0,
+            }}>
+              {initial}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: "0.86rem", fontWeight: 600, color: "var(--t1)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {displayName}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.6rem", color: "#a8a8ff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", background: "rgba(168,168,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>{playerClass}</span>
+                <span style={{ fontSize: "0.6rem", color: "var(--t3)", fontWeight: 700, background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{playerRank}-Rank</span>
+              </div>
+            </div>
+          </div>
+
+          {/* XP bar */}
+          <div>
+            <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", width: `${xpPct}%`,
+                background: "rgba(255,255,255,0.50)",
+                borderRadius: 99,
+                transition: "width 0.5s ease",
+              }} />
+            </div>
+            <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.22)", marginTop: 5 }}>
+              {xp.toLocaleString()} / {xpToNext.toLocaleString()} XP · Lv.{level}
+            </div>
+          </div>
+        </div>
+
+        {/* Logout */}
         <button
+          className="sb-logout"
           onClick={handleLogout}
-          className="nav-item"
-          style={{ color: "rgba(255, 100, 100, 0.75)", width: "100%", background: "none", border: "none", cursor: "pointer" }}
+          style={{ width: "100%" }}
         >
-          <LogOut size={13} />
-          <span>Sign out</span>
+          <LogOut size={14} strokeWidth={1.8} />
+          <span>Sign Out</span>
         </button>
       </div>
     </aside>

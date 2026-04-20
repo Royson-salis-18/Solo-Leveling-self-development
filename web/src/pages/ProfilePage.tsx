@@ -1,133 +1,247 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { PerformanceRadar } from "../components/PerformanceRadar";
-import { mockCurrentUser } from "../lib/mockData";
+import { Edit3 } from "lucide-react";
 
-const CATS = [
-  { name:"Work",     points:820 },
-  { name:"Health",   points:440 },
-  { name:"Learning", points:320 },
-  { name:"Personal", points:260 },
-];
+type Profile = {
+  user_id: string;
+  name: string;
+  bio: string;
+  level: number;
+  total_points: number;
+  player_class: string;
+  player_rank: string;
+  player_title: string;
+  guild_id: string | null;
+  clan_id: string | null;
+  is_boosted: boolean;
+  age?: number;
+  weapon_of_choice?: string;
+  gear_style?: string;
+};
+
+const CLASS_CONFIG: Record<string, string[]> = {
+  "Assassin":    ["Street Shadow", "Ghost Agent", "Void Walker", "Silent Reaper", "Void Sovereign"],
+  "Warrior":     ["Street Brawler", "Combat Vet", "Vanguard", "Iron Conqueror", "War Lord"],
+  "Mage":        ["Code Weaver", "Apprentice", "Archmage", "Reality Glitcher", "Techno-Sage"],
+  "Tamer":       ["Handler", "Jockey", "Beast Lord", "Spectral Binder", "Primeval King"],
+  "Healer":      ["Field Medic", "Nano-Saint", "Guardian Angel", "World Tree Sage", "Life Bringer"],
+  "Tank":        ["Shield", "Fortress", "Indomitable", "Aegis Prime", "Eternal Bastion"],
+  "Ranger":      ["Scout", "Pathfinder", "Grid Sniper", "Windstrider", "Dimensional Tracker"],
+  "Necromancer": ["Glint Reaper", "Soul Collector", "Lich King", "Ender of Worlds", "Death Monarch"],
+  "Engineer":    ["Tinkerer", "Machinist", "Gear Soul", "Clockwork God", "Mech Overlord"],
+  "Shadow Monarch": ["Chosen One", "Shadow Lord", "Dark Sovereign", "Ruler of Shadows", "Eternal Monarch"]
+};
+
+const GET_TITLE = (cls: string, points: number) => {
+  const titles = CLASS_CONFIG[cls] || ["Rookie", "Hunter", "Elite", "Master", "Legend"];
+  if (points < 1000) return titles[0];
+  if (points < 3000) return titles[1];
+  if (points < 8000) return titles[2];
+  if (points < 20000) return titles[3];
+  return titles[4];
+};
+
+const CLASSES = Object.keys(CLASS_CONFIG);
+const RANKS   = ["E", "D", "C", "B", "A", "S"];
 
 export function ProfilePage() {
-  const [user, setUser] = useState(mockCurrentUser);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editData, setEditData] = useState({ name: user.name, bio: user.bio });
+  const { user } = useAuth();
+  const [profile,  setProfile]  = useState<Profile | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editData, setEditData] = useState({ 
+    name: "", bio: "", player_class: "None", player_title: "Rookie",
+    age: 0, weapon_of_choice: "None", gear_style: "Hybrid"
+  });
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
 
-  const stats = { totalQuests:45, completionRate:87, currentStreak:12, longestStreak:34 };
-  const levelProgress  = (user.total_points % 500) / 500;
-  const nextLevelXP    = Math.ceil(user.total_points / 500) * 500;
-
-  const handleSave = () => {
-    setUser({ ...user, name: editData.name, bio: editData.bio });
-    setShowEditModal(false);
+  const fetchProfile = async () => {
+    if (!supabase || !user) return;
+    setLoading(true);
+    const { data: prof } = await supabase.from("user_profiles").select("*").eq("user_id", user.id).maybeSingle();
+    
+    if (prof) {
+      setProfile(prof);
+      setEditData({ 
+        name: prof.name, bio: prof.bio, player_class: prof.player_class, player_title: prof.player_title,
+        age: prof.age || 0, weapon_of_choice: prof.weapon_of_choice || "None", gear_style: prof.gear_style || "Hybrid"
+      });
+    }
+    setLoading(false);
   };
+
+  useEffect(() => { fetchProfile(); }, [user]);
+
+  const handleCreateProfile = async () => {
+    if (!supabase || !user) return;
+    setSaving(true);
+    const { data } = await supabase.from("user_profiles").insert({
+      user_id: user.id,
+      name: user.email?.split("@")[0] || "Hunter",
+      player_class: "Warrior",
+      player_rank: "E",
+      age: 18,
+      weapon_of_choice: "Starter Blade",
+      gear_style: "Modern"
+    }).select().single();
+    if (data) setProfile(data);
+    setSaving(false);
+  };
+
+  const handleSave = async () => {
+    if (!supabase || !user || !editData.name.trim()) return;
+    setSaving(true);
+    const newTitle = GET_TITLE(editData.player_class, profile?.total_points || 0);
+    const { data } = await supabase
+      .from("user_profiles")
+      .update({ 
+        name: editData.name, 
+        bio: editData.bio, 
+        player_class: editData.player_class, 
+        player_title: newTitle,
+        age: editData.age,
+        weapon_of_choice: editData.weapon_of_choice,
+        gear_style: editData.gear_style
+      })
+      .eq("user_id", user.id)
+      .select()
+      .single();
+    if (data) setProfile(data);
+    setSaving(false);
+    setShowEdit(false);
+  };
+
+  const navigate = useNavigate();
+
+  if (loading) return <section className="page"><div className="panel panel-empty text-muted text-sm">Synchronizing with System…</div></section>;
+  
+  if (!profile) return (
+    <section className="page">
+      <article className="panel panel-empty">
+        <h2>No Hunter Record Found</h2>
+        <p className="text-muted text-sm mb-16">Your existence has not been registered in the system yet.</p>
+        <Button variant="primary" onClick={handleCreateProfile} disabled={saving}>{saving ? "Registering…" : "Register Profile"}</Button>
+      </article>
+    </section>
+  );
+
+  const xpPct   = Math.min((profile.total_points % 500) / 500, 1) * 100;
+  const initial = profile.name.charAt(0).toUpperCase();
 
   return (
     <section className="page">
       <div className="page-header">
-        <h2 className="page-title">Profile</h2>
-        <Button variant="primary" onClick={()=>setShowEditModal(true)}>Edit Profile</Button>
+        <h2 className="page-title">Ranker Profile</h2>
+        <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>
+          <Edit3 size={13} /> Update Status
+        </Button>
       </div>
 
-      {/* Header card */}
-      <div className="profile-header">
-        <div className="profile-avatar">{user.name.charAt(0).toUpperCase()}</div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:"1rem", fontWeight:600, color:"var(--text-primary)", marginBottom:"4px" }}>{user.name}</div>
-          <div style={{ fontSize:"0.76rem", color:"var(--text-tertiary)", marginBottom:"4px" }}>{user.email}</div>
-          <div style={{ fontSize:"0.78rem", color:"var(--text-secondary)" }}>{user.bio}</div>
-          <div style={{ marginTop:"10px" }}>
-            <span className="level-badge">⭐ Level {user.level}</span>
+      <div className="profile-header rpg-card">
+        <div className="profile-avatar">{initial}</div>
+        <div className="profile-content-flex">
+          <div className="profile-name">
+            {profile.name} <span className="rank-tag" style={{ border: "1px solid var(--border-1)", padding: "2px 6px", borderRadius: 4 }}>{profile.player_rank}</span>
+          </div>
+          <div className="profile-title-tag" style={{ color: "var(--t1)", opacity: 0.8 }}>{profile.player_title}</div>
+          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+            <span className="level-badge">LVL {profile.level}</span>
+            <span className="class-badge" style={{ background: "rgba(255,255,255,0.08)", color: "#fff" }}>{profile.player_class}</span>
           </div>
         </div>
-        <div style={{ textAlign:"right" }}>
-          <div style={{ fontSize:"0.68rem", color:"var(--text-tertiary)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:"4px" }}>Total XP</div>
-          <div style={{ fontSize:"1.6rem", fontWeight:700, color:"var(--text-primary)", letterSpacing:"-0.02em" }}>{user.total_points.toLocaleString()}</div>
+        <div className="profile-stats-right">
+          <div className="profile-stat-label">Total Mana</div>
+          <div className="profile-stat-value">{profile.total_points.toLocaleString()}</div>
         </div>
       </div>
 
-      {/* Level progress */}
-      <article className="panel">
-        <h2>Level Progress</h2>
-        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"0.76rem", color:"var(--text-tertiary)", marginBottom:"8px" }}>
-          <span>{user.total_points.toLocaleString()} XP</span>
-          <span>{nextLevelXP.toLocaleString()} XP (Level {user.level + 1})</span>
-        </div>
-        <div className="progress-track" style={{ height:"5px" }}>
-          <div className="progress-fill" style={{ width:`${levelProgress * 100}%` }}/>
-        </div>
-      </article>
-
-      {/* Stats */}
-      <article className="panel">
-        <h2>Statistics</h2>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))", gap:"12px" }}>
-          {[
-            { label:"Total Quests",     value: stats.totalQuests },
-            { label:"Completion Rate",  value: `${stats.completionRate}%` },
-            { label:"Current Streak",   value: `🔥 ${stats.currentStreak}` },
-            { label:"Longest Streak",   value: `🏆 ${stats.longestStreak}` },
-          ].map(s=>(
-            <div key={s.label} className="stat-card">
-              <p className="stat-label">{s.label}</p>
-              <h3 className="stat-value" style={{ fontSize:"1.4rem" }}>{s.value}</h3>
-            </div>
-          ))}
-        </div>
-      </article>
-
-      {/* Category breakdown */}
-      <article className="panel">
-        <h2>XP by Category</h2>
-        <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
-          {CATS.map(c=>(
-            <div key={c.name}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px", fontSize:"0.80rem" }}>
-                <span style={{ color:"var(--text-secondary)" }}>{c.name}</span>
-                <span style={{ color:"var(--text-primary)", fontWeight:600 }}>{c.points} XP</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <article className="panel">
+          <h2>Clan / Guild</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 80, justifyContent: "center", alignItems: "center" }}>
+             {profile.clan_id || profile.guild_id ? (
+               <>
+                 <p className="text-sm font-600">Active Duty in {profile.clan_id ? "Clan" : "Guild"}</p>
+                 <Button variant="secondary" size="sm" onClick={() => navigate("/arena")}>Open Arena Hub</Button>
+               </>
+             ) : (
+               <>
+                 <p className="text-muted text-xs">Unbound Hunter Status</p>
+                 <Button variant="secondary" size="sm" onClick={() => navigate("/arena")}>Join Arena</Button>
+               </>
+             )}
+          </div>
+        </article>
+        <article className="panel">
+          <h2>System Inventory</h2>
+          <div className="inventory-grid">
+            {[{type: 'TASK_SKIP', icon: '⚡', name: 'Skip'}, {type: 'XP_BOOST', icon: '🔥', name: 'Boost'}, {type: 'CHALLENGE_KEY', icon: '🔑', name: 'Key'}].map(item => (
+              <div key={item.type} className="item-slot">
+                <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+                <span className="text-muted" style={{ fontSize: '0.6rem', marginTop: 4 }}>{item.name}</span>
+                <span className="item-count">0</span>
               </div>
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width:`${(c.points/820)*100}%`, opacity: 0.9 - CATS.indexOf(c)*0.15 }}/>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <article className="panel">
+        <h2>Rank Progression</h2>
+        <div className="profile-level-header">
+          <span>{profile.total_points.toLocaleString()} / {(profile.level * 500).toLocaleString()} XP</span>
+          <span className="text-muted">Rank Up: {profile.player_rank} → {RANKS[RANKS.indexOf(profile.player_rank) + 1] || "MAX"}</span>
+        </div>
+        <div className="progress-track progress-track-thick">
+          <div className="progress-fill" style={{ width: `${xpPct}%` }} />
         </div>
       </article>
-
-      <PerformanceRadar
-        title="Performance Matrix"
-        data={[
-          { category:"Productivity", value:85, fullMark:100 },
-          { category:"Health",       value:72, fullMark:100 },
-          { category:"Learning",     value:68, fullMark:100 },
-          { category:"Consistency",  value:92, fullMark:100 },
-          { category:"Engagement",   value:78, fullMark:100 },
-          { category:"Growth",       value:81, fullMark:100 },
-        ]}
-        height={300}
-      />
 
       <Modal
-        isOpen={showEditModal}
-        title="Edit Profile"
-        onClose={()=>setShowEditModal(false)}
-        footer={
-          <>
-            <Button variant="secondary" onClick={()=>setShowEditModal(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleSave}>Save Changes</Button>
-          </>
-        }
+        isOpen={showEdit}
+        title="Hunter Re-Evaluation"
+        onClose={() => setShowEdit(false)}
+        footer={<><Button variant="secondary" onClick={() => setShowEdit(false)}>Cancel</Button>
+                 <Button variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Evaluating…" : "Update Record"}</Button></>}
       >
         <div className="form-group">
-          <label className="form-label">Display Name</label>
-          <input className="form-input" value={editData.name} onChange={e=>setEditData({...editData,name:e.target.value})}/>
+          <label className="form-label">Hunter Alias</label>
+          <input className="form-input" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Age</label>
+            <input type="number" className="form-input" value={editData.age} onChange={e => setEditData({ ...editData, age: parseInt(e.target.value) })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Chosen Class</label>
+            <select className="form-select" value={editData.player_class} onChange={e => setEditData({ ...editData, player_class: e.target.value })}>
+              {CLASSES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Weapon of Choice</label>
+            <input className="form-input" value={editData.weapon_of_choice} onChange={e => setEditData({ ...editData, weapon_of_choice: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Gear Style</label>
+            <select className="form-select" value={editData.gear_style} onChange={e => setEditData({ ...editData, gear_style: e.target.value })}>
+              <option>Modern</option>
+              <option>Medieval</option>
+              <option>Hybrid</option>
+              <option>Cybernetic</option>
+            </select>
+          </div>
         </div>
         <div className="form-group">
-          <label className="form-label">Bio</label>
-          <textarea className="form-textarea" value={editData.bio} onChange={e=>setEditData({...editData,bio:e.target.value})}/>
+          <label className="form-label">Personal Directive (Bio)</label>
+          <textarea className="form-textarea" value={editData.bio} onChange={e => setEditData({ ...editData, bio: e.target.value })} />
         </div>
       </Modal>
     </section>
