@@ -48,11 +48,13 @@ export function QuestsPage() {
       supabase.from("clan_members").select("clan_id, role").eq("user_id", user.id).maybeSingle(),
     ]);
 
-    // build tree for own tasks
-    const all: DBTask[] = (qRes ?? []).map(t => ({ ...t, subtasks: [] }));
-    const roots = all.filter(t => !t.parent_id);
-    roots.forEach(r => { r.subtasks = all.filter(t => t.parent_id === r.id); });
-    setTasks(roots);
+    // Build recursive unlimited-depth tree
+    const buildTree = (flat: DBTask[], parentId: string | null): DBTask[] =>
+      flat
+        .filter(t => t.parent_id === parentId)
+        .map(t => ({ ...t, subtasks: buildTree(flat, t.id) }));
+    const flat: DBTask[] = (qRes ?? []).map(t => ({ ...t, subtasks: [] }));
+    setTasks(buildTree(flat, null));
 
     // assigned-to-me tasks (flat, no subtask nesting needed)
     setAssignedTasks((aRes ?? []).map(t => ({ ...t, subtasks: [] })));

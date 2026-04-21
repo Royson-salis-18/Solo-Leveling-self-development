@@ -41,10 +41,18 @@ export function QuestItem({
     <div className="list-divider">
       <div
         className="quest-item-wrapper"
-        style={{ marginLeft: `${marginLeft}px` }}
+        style={{ marginLeft: `${marginLeft}px`, position: "relative" }}
         onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
       >
+        {/* Depth connector line */}
+        {depth > 0 && (
+          <div style={{
+            position: "absolute", left: -12, top: 0, bottom: 0,
+            width: 2, background: `rgba(168,168,255,${Math.max(0.06, 0.2 - depth * 0.04)})`,
+            borderRadius: 1,
+          }} />
+        )}
         {/* Expand / done indicator */}
         <div
           className="quest-checkbox"

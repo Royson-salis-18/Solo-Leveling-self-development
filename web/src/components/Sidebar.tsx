@@ -1,4 +1,4 @@
-import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords } from "lucide-react";
+import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 
@@ -7,6 +7,8 @@ const links = [
   { to: "/quests",      label: "Quests",      icon: ScrollText },
   { to: "/rewards",     label: "Rewards",     icon: Gift },
   { to: "/arena",       label: "Arena",       icon: Swords },
+  { to: "/social",      label: "Social",      icon: Users },
+  { to: "/challenges",  label: "Challenges",  icon: Target },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/profile",     label: "Profile",     icon: User },
 ];

@@ -28,7 +28,7 @@ export function ClansPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
-  const [formData, setFormData] = useState({ name: "", desc: "", inviteEmail: "" });
+  const [formData, setFormData] = useState({ name: "", desc: "", inviteHunterId: "" });
   const [saving, setSaving] = useState(false);
 
   const fetchClan = async () => {
@@ -85,22 +85,31 @@ export function ClansPage() {
   };
 
   const handleInvite = async () => {
-    if (!supabase || !user || !clan || !formData.inviteEmail.trim()) return;
+    if (!supabase || !user || !clan || !formData.inviteHunterId.trim()) return;
     setSaving(true);
     
-    // Check if user exists
-    const { data: targetId } = await supabase.rpc("get_user_id_by_email", { email_input: formData.inviteEmail });
+    const code = formData.inviteHunterId.trim();
+    const isFullUUID = code.length === 36 && code.includes("-");
+    let targetId: string | null = null;
+    if (isFullUUID) {
+      const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
+      targetId = prof?.user_id ?? null;
+    } else {
+      const { data: results } = await supabase.from("user_profiles").select("user_id").ilike("user_id", `${code}%`).limit(1);
+      targetId = results?.[0]?.user_id ?? null;
+    }
     
     if (targetId) {
-       // Logic to join instantly for now, or insert into clan_invites
+       if (targetId === user.id) { alert("You can't invite yourself."); setSaving(false); return; }
        await supabase.from("clan_members").insert({
           clan_id: clan.id,
           user_id: targetId,
           role: "member"
        });
+       await supabase.from("user_profiles").update({ clan_id: clan.id }).eq("user_id", targetId);
        fetchClan();
        setShowInvite(false);
-       setFormData({ ...formData, inviteEmail: "" });
+       setFormData({ ...formData, inviteHunterId: "" });
     } else {
        alert("Target hunter not found in system.");
     }
@@ -180,9 +189,10 @@ export function ClansPage() {
       <Modal isOpen={showInvite} title="Recruit Hunter" onClose={() => setShowInvite(false)}
         footer={<><Button variant="secondary" onClick={() => setShowInvite(false)}>Cancel</Button>
                  <Button variant="primary" onClick={handleInvite} disabled={saving}>Send Transmission</Button></>}>
-        <p className="text-xs text-muted mb-12">Enter the target's system email to send a clan recruitment request.</p>
+        <p className="text-xs text-muted mb-12">Enter the target's Hunter ID to send a clan recruitment request.</p>
         <div className="form-group">
-          <input className="form-input" placeholder="hunter@example.com" value={formData.inviteEmail} onChange={e => setFormData({...formData, inviteEmail: e.target.value})} />
+          <label className="form-label">Hunter ID</label>
+          <input className="form-input" placeholder="e.g. A3F6C21B or full UUID" value={formData.inviteHunterId} onChange={e => setFormData({...formData, inviteHunterId: e.target.value})} style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }} />
         </div>
       </Modal>
     </section>

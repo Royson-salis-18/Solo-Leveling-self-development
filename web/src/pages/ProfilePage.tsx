@@ -152,6 +152,15 @@ export function ProfilePage() {
             <span className="level-badge">LVL {profile.level}</span>
             <span className="class-badge" style={{ background: "rgba(255,255,255,0.08)", color: "#fff" }}>{profile.player_class}</span>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <span style={{
+              fontFamily: "monospace", fontSize: "0.68rem", letterSpacing: "0.1em",
+              color: "rgba(168,168,255,0.7)", background: "rgba(168,168,255,0.08)",
+              border: "1px solid rgba(168,168,255,0.18)", padding: "2px 8px", borderRadius: 6,
+            }}>
+              Hunter ID: {profile.user_id.slice(0, 8).toUpperCase()}
+            </span>
+          </div>
         </div>
         <div className="profile-stats-right">
           <div className="profile-stat-label">Total Mana</div>

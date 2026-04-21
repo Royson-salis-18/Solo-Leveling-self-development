@@ -148,7 +148,7 @@ export function LeaderboardPage() {
                         {isMe(u.user_id) ? "You" : u.name}
                         <span className="rank-badge rank-sm" style={{ marginLeft: 6 }}>{u.player_rank}</span>
                       </div>
-                      <div className="lb-row-sub">{u.player_class} · Lv.{u.level} · <em>{u.player_title}</em></div>
+                      <div className="lb-row-sub">{u.player_class} · Lv.{u.level} · <em>{u.player_title}</em> · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{u.user_id.slice(0,8).toUpperCase()}</span></div>
                     </div>
                     <div className="lb-row-xp">{u.total_points.toLocaleString()} <span className="text-xs text-muted">XP</span></div>
                   </div>

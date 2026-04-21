@@ -48,7 +48,7 @@ export function ArenaPage() {
 
   // form state
   const [form, setForm] = useState({
-    name: "", desc: "", email: "", minRank: "E",
+    name: "", desc: "", hunterId: "", minRank: "E",
     targetPts: 50, days: 2
   });
 
@@ -155,37 +155,53 @@ export function ArenaPage() {
     setSaving(false); setShowCreateGuild(false); setForm({ ...form, name: "", desc: "" }); fetchAll();
   };
 
-  const inviteByEmail = async (type: "clan" | "guild") => {
-    if (!supabase || !user || !form.email.trim()) return;
+  const inviteByHunterId = async (type: "clan" | "guild") => {
+    if (!supabase || !user || !form.hunterId.trim()) return;
     setSaving(true);
-    const { data: targetId } = await supabase.rpc("get_user_id_by_email", { email_input: form.email });
+    const code = form.hunterId.trim();
+    // Support both short 8-char code and full UUID
+    const isFullUUID = code.length === 36 && code.includes("-");
+    let targetId: string | null = null;
+    if (isFullUUID) {
+      const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
+      targetId = prof?.user_id ?? null;
+    } else {
+      const { data: results } = await supabase.from("user_profiles").select("user_id").ilike("user_id", `${code}%`).limit(1);
+      targetId = results?.[0]?.user_id ?? null;
+    }
     if (!targetId) { alert("Hunter not found in system."); setSaving(false); return; }
     if (targetId === user.id) { alert("You can't invite yourself."); setSaving(false); return; }
 
     if (type === "clan" && clan) {
       if (clanMembers.length >= 5) { alert("Clan is full (max 5)."); setSaving(false); return; }
-      // Add to clan_members
       const { error } = await supabase.from("clan_members").insert({ clan_id: clan.id, user_id: targetId, role: "member" });
       if (error) { alert("Invite failed: " + error.message); setSaving(false); return; }
-      // Update their profile with clan_id
       await supabase.from("user_profiles").update({ clan_id: clan.id }).eq("user_id", targetId);
-      // Record invite
-      await supabase.from("clan_invites").insert({ clan_id: clan.id, inviter_id: user.id, invitee_email: form.email, status: "accepted" });
+      await supabase.from("clan_invites").insert({ clan_id: clan.id, inviter_id: user.id, invitee_id: targetId, status: "accepted" });
       setShowInviteClan(false);
     } else if (type === "guild" && guild) {
       if (guildMembers.length >= 20) { alert("Guild is full (max 20)."); setSaving(false); return; }
-      // Update their profile with guild_id
       await supabase.from("user_profiles").update({ guild_id: guild.id }).eq("user_id", targetId);
       setShowInviteGuild(false);
     }
-    setSaving(false); setForm({ ...form, email: "" }); fetchAll();
+    setSaving(false); setForm({ ...form, hunterId: "" }); fetchAll();
   };
 
   const createChallenge = async () => {
-    if (!supabase || !user || !form.email.trim()) return;
+    if (!supabase || !user || !form.hunterId.trim()) return;
     setSaving(true);
-    const { data: opponentId } = await supabase.rpc("get_user_id_by_email", { email_input: form.email });
+    const code = form.hunterId.trim();
+    const isFullUUID = code.length === 36 && code.includes("-");
+    let opponentId: string | null = null;
+    if (isFullUUID) {
+      const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
+      opponentId = prof?.user_id ?? null;
+    } else {
+      const { data: results } = await supabase.from("user_profiles").select("user_id").ilike("user_id", `${code}%`).limit(1);
+      opponentId = results?.[0]?.user_id ?? null;
+    }
     if (!opponentId) { alert("Opponent not found."); setSaving(false); return; }
+    if (opponentId === user.id) { alert("You can't challenge yourself."); setSaving(false); return; }
     const { data: myProf } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
     const { data: opProf } = await supabase.from("user_profiles").select("total_points").eq("user_id", opponentId).single();
     const expires = new Date(Date.now() + form.days * 86400000).toISOString();
@@ -198,7 +214,7 @@ export function ArenaPage() {
       expires_at: expires,
       status: "active",
     });
-    setSaving(false); setShowNewChallenge(false); setForm({ ...form, email: "" }); fetchAll();
+    setSaving(false); setShowNewChallenge(false); setForm({ ...form, hunterId: "" }); fetchAll();
   };
 
   const leaveClan = async () => {
@@ -284,7 +300,7 @@ export function ArenaPage() {
                     <span className="text-sm font-700 truncate">{m.user_id === user?.id ? "You" : m.name}</span>
                     {m.role === "leader" && <Crown size={11} style={{ color: "#ffcc00", flexShrink: 0 }} />}
                   </div>
-                  <span className="text-xs text-muted">{m.player_class} · {m.player_rank}-Rank</span>
+                  <span className="text-xs text-muted">{m.player_class} · {m.player_rank}-Rank · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{m.user_id.slice(0,8).toUpperCase()}</span></span>
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-800" style={{ color: "#fff" }}>{(m.total_points || 0).toLocaleString()}</div>
@@ -341,7 +357,7 @@ export function ArenaPage() {
                 <div className="arena-avatar" style={{ borderColor: "#ffcc00" }}>{m.name?.[0]?.toUpperCase()}</div>
                 <div className="flex-col" style={{ flex: 1, minWidth: 0 }}>
                   <span className="text-sm font-700 truncate">{m.user_id === user?.id ? "You" : m.name}</span>
-                  <span className="text-xs text-muted">{m.player_class} · {m.player_rank}-Rank</span>
+                  <span className="text-xs text-muted">{m.player_class} · {m.player_rank}-Rank · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{m.user_id.slice(0,8).toUpperCase()}</span></span>
                 </div>
                 <div className="text-sm font-800">{(m.total_points || 0).toLocaleString()} <span className="text-xs text-muted">XP</span></div>
               </div>
@@ -488,19 +504,19 @@ export function ArenaPage() {
       {/* ── Invite Clan Modal ── */}
       <Modal isOpen={showInviteClan} title="Recruit to Clan" onClose={() => setShowInviteClan(false)}
         footer={<><Button variant="secondary" onClick={() => setShowInviteClan(false)}>Cancel</Button>
-                 <Button variant="primary" onClick={() => inviteByEmail("clan")} disabled={saving}>Transmit</Button></>}>
+                 <Button variant="primary" onClick={() => inviteByHunterId("clan")} disabled={saving}>Transmit</Button></>}>
         <p className="text-xs text-muted mb-12">Up to 5 members allowed. Current: {clanMembers.length}/5</p>
-        <div className="form-group"><label className="form-label">Hunter Email</label>
-          <input className="form-input" placeholder="hunter@domain.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+        <div className="form-group"><label className="form-label">Hunter ID</label>
+          <input className="form-input" placeholder="e.g. A3F6C21B or full UUID" value={form.hunterId} onChange={e => setForm({ ...form, hunterId: e.target.value })} style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }} /></div>
       </Modal>
 
       {/* ── Invite Guild Modal ── */}
       <Modal isOpen={showInviteGuild} title="Recruit to Guild" onClose={() => setShowInviteGuild(false)}
         footer={<><Button variant="secondary" onClick={() => setShowInviteGuild(false)}>Cancel</Button>
-                 <Button variant="primary" onClick={() => inviteByEmail("guild")} disabled={saving}>Transmit</Button></>}>
+                 <Button variant="primary" onClick={() => inviteByHunterId("guild")} disabled={saving}>Transmit</Button></>}>
         <p className="text-xs text-muted mb-12">Up to 20 members. Current: {guildMembers.length}/20</p>
-        <div className="form-group"><label className="form-label">Hunter Email</label>
-          <input className="form-input" placeholder="hunter@domain.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+        <div className="form-group"><label className="form-label">Hunter ID</label>
+          <input className="form-input" placeholder="e.g. A3F6C21B or full UUID" value={form.hunterId} onChange={e => setForm({ ...form, hunterId: e.target.value })} style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }} /></div>
       </Modal>
 
       {/* ── New 1v1 Challenge Modal ── */}
@@ -508,8 +524,8 @@ export function ArenaPage() {
         footer={<><Button variant="secondary" onClick={() => setShowNewChallenge(false)}>Cancel</Button>
                  <Button variant="primary" onClick={createChallenge} disabled={saving}>⚔️ Initiate Duel</Button></>}>
         <p className="text-xs text-muted mb-12">Both hunters must earn target XP from scratch within the time limit.</p>
-        <div className="form-group"><label className="form-label">Opponent Email</label>
-          <input className="form-input" placeholder="opponent@domain.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+        <div className="form-group"><label className="form-label">Opponent Hunter ID</label>
+          <input className="form-input" placeholder="e.g. A3F6C21B or full UUID" value={form.hunterId} onChange={e => setForm({ ...form, hunterId: e.target.value })} style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }} /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group"><label className="form-label">Target XP</label>
             <input type="number" className="form-input" value={form.targetPts} onChange={e => setForm({ ...form, targetPts: parseInt(e.target.value) || 50 })} /></div>
