@@ -8,6 +8,7 @@ import { Calendar }       from "../components/Calendar";
 import { Plus, Download, CalendarDays, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
+import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
@@ -78,8 +79,12 @@ export function QuestsPage() {
       const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
       const newPoints = Math.max(0, (prof?.total_points ?? 0) - totalPenalty);
       await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
+
+      // Auto-sync level / rank / title after penalty
+      const progression = await syncProgression(supabase, user.id);
       
       alert(`System Notice: ${overdueTasks.length} task(s) missed the deadline. Penalty: -${totalPenalty} XP.`);
+      showProgressionToast(progression);
       
       // Re-fetch since state changed
       return fetchQuests();
@@ -190,22 +195,30 @@ export function QuestsPage() {
     setFormData(EMPTY_FORM);
   };
 
+  // Recursively search the full task tree (unlimited depth)
+  const findTaskById = (nodes: DBTask[], id: string): DBTask | undefined => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      const found = findTaskById(node.subtasks, id);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
   const handleComplete = async (id: string, isDone: boolean) => {
     if (!supabase || !user) return;
     const completed_at = !isDone ? new Date().toISOString() : null;
     await supabase.from("tasks").update({ is_completed: !isDone, is_failed: false, completed_at }).eq("id", id);
 
     if (!isDone) {
-      // find task in own tasks OR assigned tasks
-      const allFlat = [
-        ...tasks,
-        ...tasks.flatMap(t => t.subtasks),
-        ...assignedTasks,
-      ];
-      const task = allFlat.find(t => t.id === id);
+      // Search full tree recursively so nested subtasks are found at any depth
+      const task = findTaskById(tasks, id) ?? assignedTasks.find(t => t.id === id);
       if (task) {
-        const pts = task.points;
-        // credit XP to the completing user (me)
+        const basePts = task.points;
+        // Apply XP_BOOST if available (2x multiplier)
+        const pts = await applyXpBoost(supabase, user.id, basePts);
+
+        // Credit XP to the completing user (me)
         const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
         await supabase.from("user_profiles").update({ total_points: (prof?.total_points ?? 0) + pts }).eq("user_id", user.id);
 
@@ -216,6 +229,10 @@ export function QuestsPage() {
         } else {
           await supabase.from("user_points").insert({ user_id: user.id, date: today, daily_points: pts });
         }
+
+        // Auto-sync level / rank / title after XP gain
+        const progression = await syncProgression(supabase, user.id);
+        showProgressionToast(progression);
       }
     }
     fetchQuests();

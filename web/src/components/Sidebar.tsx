@@ -1,6 +1,7 @@
 import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
+import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
 
 const links = [
   { to: "/",            label: "Dashboard",   icon: Home },
@@ -19,12 +20,12 @@ export function Sidebar() {
 
   const displayName = profile?.name ?? user?.email?.split("@")[0] ?? "Hunter";
   const initial     = displayName.charAt(0).toUpperCase();
-  const level       = (profile as any)?.level ?? 1;
   const xp          = (profile as any)?.total_points ?? 0;
   const playerClass = (profile as any)?.player_class ?? "None";
   const playerRank  = (profile as any)?.player_rank  ?? "E";
-  const xpToNext    = level * 500;
-  const xpPct       = Math.min((xp % 500) / 500, 1) * 100;
+  const level       = calcLevel(xp);
+  const xpToNext    = xpForLevel(level);
+  const xpPct       = calcXpProgress(xp);
 
   const handleLogout = async () => {
     await signOut();

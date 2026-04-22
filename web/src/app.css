@@ -679,6 +679,201 @@ button { font-family: inherit; }
 
 .auth-link:hover { color: var(--t1); }
 
+/* ═══════════════════════════════════════════════
+   REGISTER PAGE — premium scrollable card
+═══════════════════════════════════════════════ */
+.auth-wrap {
+  align-items: flex-start;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.reg-card {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(14,14,18,0.88);
+  backdrop-filter: var(--blur-xl);
+  -webkit-backdrop-filter: var(--blur-xl);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-xl);
+  padding: 40px 40px 36px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  animation: slideUp 0.45s cubic-bezier(0.34,1.3,0.64,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.reg-shimmer {
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  pointer-events: none;
+}
+
+/* Header */
+.reg-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.reg-logo-icon {
+  width: 56px; height: 56px;
+  border-radius: var(--r-md);
+  background: var(--glass-2);
+  border: 1px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--t2);
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-md), 0 0 40px rgba(255,255,255,0.05);
+}
+
+.reg-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: 0.10em;
+  margin-bottom: 6px;
+}
+
+.reg-subtitle {
+  font-size: 0.80rem;
+  color: var(--t3);
+  line-height: 1.5;
+}
+
+/* Form */
+.reg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.reg-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--t2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reg-input {
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  color: var(--t1);
+  font-family: inherit;
+  font-size: 0.88rem;
+  transition: all 0.18s;
+  outline: none;
+  width: 100%;
+}
+
+.reg-input::placeholder { color: var(--t4); }
+
+.reg-input:focus {
+  border-color: var(--border-2);
+  background: rgba(255,255,255,0.07);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+}
+
+.reg-input:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Two-column password row */
+.reg-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Class grid — 5 across, 2 rows */
+.reg-class-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.reg-class-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px 8px;
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-0);
+  color: var(--t3);
+  font-family: inherit;
+  font-size: 0.62rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.reg-class-chip:hover:not(:disabled) {
+  background: var(--glass-2);
+  border-color: var(--border-1);
+  color: var(--t2);
+  transform: translateY(-2px);
+}
+
+.reg-class-chip--active {
+  background: var(--glass-3) !important;
+  border-color: var(--border-2) !important;
+  color: var(--t1) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.reg-class-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+}
+
+.reg-class-chip--active .reg-class-icon { opacity: 1; }
+
+.reg-class-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.reg-class-hint {
+  font-size: 0.74rem;
+  color: var(--t3);
+  margin-top: 2px;
+}
+
+.reg-class-hint strong {
+  color: var(--t2);
+  font-weight: 600;
+}
+
+/* Divider for class section */
+.reg-divider {
+  height: 1px;
+  background: var(--border-0);
+  margin: 4px 0;
+}
+
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    TABS
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */

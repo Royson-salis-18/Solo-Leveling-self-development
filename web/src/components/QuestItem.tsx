@@ -105,8 +105,8 @@ export function QuestItem({
         {/* Actions */}
         {!readOnly && (
           <div className="flex-shrink-0 flex gap-4" style={{ opacity: isCompleted ? 0.4 : 1 }}>
-            {onComplete && (
-              <Button variant={isCompleted ? "secondary" : "success"} size="sm"
+            {onComplete && !isCompleted && (
+              <Button variant="success" size="sm"
                 onClick={() => onComplete(quest.id, isCompleted)}>
                 Done
               </Button>

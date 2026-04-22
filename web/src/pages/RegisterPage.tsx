@@ -1,7 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
-import { Brain } from "lucide-react";
+import { Brain, Shield, Zap, Sword, Heart, Star, Target, Eye, Cpu, Crown } from "lucide-react";
+
+const CLASSES: { name: string; icon: React.ReactNode; desc: string }[] = [
+  { name: "Assassin",       icon: <Sword  size={14} />, desc: "Shadow strikes" },
+  { name: "Warrior",        icon: <Shield size={14} />, desc: "Iron fortitude"  },
+  { name: "Mage",           icon: <Zap    size={14} />, desc: "Arcane mastery"  },
+  { name: "Healer",         icon: <Heart  size={14} />, desc: "Vital support"   },
+  { name: "Tank",           icon: <Shield size={14} />, desc: "Unbreakable"     },
+  { name: "Ranger",         icon: <Target size={14} />, desc: "Long-range"      },
+  { name: "Tamer",          icon: <Star   size={14} />, desc: "Beast command"   },
+  { name: "Necromancer",    icon: <Eye    size={14} />, desc: "Death arts"      },
+  { name: "Engineer",       icon: <Cpu    size={14} />, desc: "Techcraft"       },
+  { name: "Shadow Monarch", icon: <Crown  size={14} />, desc: "Apex dominance"  },
+];
 
 export function RegisterPage() {
   const [name,            setName]            = useState("");
@@ -19,15 +32,13 @@ export function RegisterPage() {
     if (isAuthenticated) navigate("/");
   }, [isAuthenticated, navigate]);
 
-  const CLASSES = ["Assassin", "Warrior", "Mage", "Tamer", "Healer", "Tank", "Ranger", "Necromancer", "Engineer", "Shadow Monarch"];
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!name.trim())               { setError("Name is required."); return; }
-    if (!email)                     { setError("Email is required."); return; }
-    if (password.length < 6)        { setError("Password must be at least 6 characters."); return; }
-    if (password !== confirmPassword){ setError("Passwords do not match."); return; }
+    if (!name.trim())                { setError("Hunter alias is required.");                  return; }
+    if (!email)                      { setError("System email is required.");                  return; }
+    if (password.length < 6)         { setError("Access key must be at least 6 characters.");  return; }
+    if (password !== confirmPassword) { setError("Access keys do not match.");                  return; }
     setIsLoading(true);
     try {
       await signUp(email, password, name.trim(), selectedClass);
@@ -41,89 +52,115 @@ export function RegisterPage() {
 
   return (
     <div className="auth-wrap">
-      <div className="auth-card auth-card--tall" style={{ maxWidth: 440 }}>
-        {/* Logo */}
-        <div className="auth-logo">
-          <div className="auth-logo-icon"><Brain size={22} strokeWidth={1.4} /></div>
-          <h1 className="auth-title">CHOOSE YOUR PATH</h1>
-          <p className="auth-subtitle">Initialize your hunter protocol</p>
+      <div className="reg-card">
+        {/* Top shimmer line */}
+        <div className="reg-shimmer" />
+
+        {/* Header */}
+        <div className="reg-header">
+          <div className="reg-logo-icon">
+            <Brain size={24} strokeWidth={1.4} />
+          </div>
+          <h1 className="reg-title">INITIALIZE HUNTER</h1>
+          <p className="reg-subtitle">Configure your protocol before entering the gate</p>
         </div>
 
-        <form onSubmit={handleRegister} className="auth-form">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="auth-field">
-              <label className="auth-label">Hunter Alias</label>
-              <input
-                id="reg-name"
-                type="text"
-                className="auth-input"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Alias"
-                disabled={isLoading}
-              />
-            </div>
-            <div className="auth-field">
-              <label className="auth-label">Hunter Class</label>
-              <select 
-                className="auth-input" 
-                value={selectedClass} 
-                onChange={e => setSelectedClass(e.target.value)}
-                disabled={isLoading}
-              >
-                {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
+        <form onSubmit={handleRegister} className="reg-form">
+
+          {/* Hunter Alias */}
+          <div className="reg-field">
+            <label className="reg-label" htmlFor="reg-name">Hunter Alias</label>
+            <input
+              id="reg-name"
+              type="text"
+              className="reg-input"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Enter your alias"
+              disabled={isLoading}
+              autoComplete="name"
+            />
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">System Email</label>
+          {/* System Email */}
+          <div className="reg-field">
+            <label className="reg-label" htmlFor="reg-email">System Email</label>
             <input
               id="reg-email"
               type="email"
-              className="auth-input"
+              className="reg-input"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="you@protocol.com"
+              placeholder="hunter@protocol.dev"
               disabled={isLoading}
+              autoComplete="email"
             />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="auth-field">
-              <label className="auth-label">Access Key</label>
+
+          {/* Passwords — side by side */}
+          <div className="reg-row">
+            <div className="reg-field">
+              <label className="reg-label" htmlFor="reg-password">Access Key</label>
               <input
                 id="reg-password"
                 type="password"
-                className="auth-input"
+                className="reg-input"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="••••••"
+                placeholder="Min. 6 chars"
                 disabled={isLoading}
+                autoComplete="new-password"
               />
             </div>
-            <div className="auth-field">
-              <label className="auth-label">Verify Key</label>
+            <div className="reg-field">
+              <label className="reg-label" htmlFor="reg-confirm">Verify Key</label>
               <input
                 id="reg-confirm"
                 type="password"
-                className="auth-input"
+                className="reg-input"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="••••••"
+                placeholder="Repeat key"
                 disabled={isLoading}
+                autoComplete="new-password"
               />
             </div>
           </div>
 
+          {/* Class Selector */}
+          <div className="reg-field">
+            <label className="reg-label">Hunter Class</label>
+            <div className="reg-class-grid">
+              {CLASSES.map(cls => (
+                <button
+                  key={cls.name}
+                  type="button"
+                  className={`reg-class-chip${selectedClass === cls.name ? " reg-class-chip--active" : ""}`}
+                  onClick={() => setSelectedClass(cls.name)}
+                  disabled={isLoading}
+                  title={cls.desc}
+                >
+                  <span className="reg-class-icon">{cls.icon}</span>
+                  <span className="reg-class-name">{cls.name}</span>
+                </button>
+              ))}
+            </div>
+            <p className="reg-class-hint">
+              Selected: <strong>{selectedClass}</strong> — {CLASSES.find(c => c.name === selectedClass)?.desc}
+            </p>
+          </div>
+
+          {/* Error */}
           {error && <div className="auth-error-msg">{error}</div>}
 
+          {/* Submit */}
           <button
             id="reg-submit"
             type="submit"
             className="auth-btn"
             disabled={isLoading}
           >
-            {isLoading ? "Synchronizing…" : "Initialize System"}
+            {isLoading ? "Synchronizing…" : "Initialize Hunter Protocol"}
           </button>
         </form>
 

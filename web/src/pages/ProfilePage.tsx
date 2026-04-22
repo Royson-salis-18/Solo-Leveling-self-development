@@ -5,6 +5,7 @@ import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { Edit3 } from "lucide-react";
+import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo, RANKS } from "../lib/levelEngine";
 
 type Profile = {
   user_id: string;
@@ -23,30 +24,7 @@ type Profile = {
   gear_style?: string;
 };
 
-const CLASS_CONFIG: Record<string, string[]> = {
-  "Assassin":    ["Street Shadow", "Ghost Agent", "Void Walker", "Silent Reaper", "Void Sovereign"],
-  "Warrior":     ["Street Brawler", "Combat Vet", "Vanguard", "Iron Conqueror", "War Lord"],
-  "Mage":        ["Code Weaver", "Apprentice", "Archmage", "Reality Glitcher", "Techno-Sage"],
-  "Tamer":       ["Handler", "Jockey", "Beast Lord", "Spectral Binder", "Primeval King"],
-  "Healer":      ["Field Medic", "Nano-Saint", "Guardian Angel", "World Tree Sage", "Life Bringer"],
-  "Tank":        ["Shield", "Fortress", "Indomitable", "Aegis Prime", "Eternal Bastion"],
-  "Ranger":      ["Scout", "Pathfinder", "Grid Sniper", "Windstrider", "Dimensional Tracker"],
-  "Necromancer": ["Glint Reaper", "Soul Collector", "Lich King", "Ender of Worlds", "Death Monarch"],
-  "Engineer":    ["Tinkerer", "Machinist", "Gear Soul", "Clockwork God", "Mech Overlord"],
-  "Shadow Monarch": ["Chosen One", "Shadow Lord", "Dark Sovereign", "Ruler of Shadows", "Eternal Monarch"]
-};
-
-const GET_TITLE = (cls: string, points: number) => {
-  const titles = CLASS_CONFIG[cls] || ["Rookie", "Hunter", "Elite", "Master", "Legend"];
-  if (points < 1000) return titles[0];
-  if (points < 3000) return titles[1];
-  if (points < 8000) return titles[2];
-  if (points < 20000) return titles[3];
-  return titles[4];
-};
-
-const CLASSES = Object.keys(CLASS_CONFIG);
-const RANKS   = ["E", "D", "C", "B", "A", "S"];
+const CLASSES = Object.keys(CLASS_TITLES);
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -95,7 +73,9 @@ export function ProfilePage() {
   const handleSave = async () => {
     if (!supabase || !user || !editData.name.trim()) return;
     setSaving(true);
-    const newTitle = GET_TITLE(editData.player_class, profile?.total_points || 0);
+    const newLevel = calcLevel(profile?.total_points || 0);
+    const newRank  = calcRank(newLevel);
+    const newTitle = calcTitle(editData.player_class, profile?.total_points || 0);
     const { data } = await supabase
       .from("user_profiles")
       .update({ 
@@ -103,6 +83,8 @@ export function ProfilePage() {
         bio: editData.bio, 
         player_class: editData.player_class, 
         player_title: newTitle,
+        player_rank: newRank,
+        level: newLevel,
         age: editData.age,
         weapon_of_choice: editData.weapon_of_choice,
         gear_style: editData.gear_style
@@ -129,8 +111,10 @@ export function ProfilePage() {
     </section>
   );
 
-  const xpPct   = Math.min((profile.total_points % 500) / 500, 1) * 100;
+  const computedLevel = calcLevel(profile.total_points);
+  const xpPct   = calcXpProgress(profile.total_points);
   const initial = profile.name.charAt(0).toUpperCase();
+  const nextRank = nextRankInfo(profile.player_rank);
 
   return (
     <section className="page">
@@ -202,8 +186,10 @@ export function ProfilePage() {
       <article className="panel">
         <h2>Rank Progression</h2>
         <div className="profile-level-header">
-          <span>{profile.total_points.toLocaleString()} / {(profile.level * 500).toLocaleString()} XP</span>
-          <span className="text-muted">Rank Up: {profile.player_rank} → {RANKS[RANKS.indexOf(profile.player_rank) + 1] || "MAX"}</span>
+          <span>{profile.total_points.toLocaleString()} / {(computedLevel * 500).toLocaleString()} XP · Lv.{computedLevel}</span>
+          <span className="text-muted">
+            {nextRank ? `Rank Up: ${profile.player_rank} → ${nextRank.rank} (at Lv.${nextRank.minLevel})` : `${profile.player_rank}-Rank (MAX)`}
+          </span>
         </div>
         <div className="progress-track progress-track-thick">
           <div className="progress-fill" style={{ width: `${xpPct}%` }} />

@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
+import { syncProgression, showProgressionToast } from "../lib/levelEngine";
 import { Plus, Trash2, Gift, Zap } from "lucide-react";
 
 type Reward = {
@@ -77,6 +78,9 @@ export function RewardsPage() {
     await supabase.from("user_profiles").update({ total_points: (profile?.total_points ?? 0) - reward.xp_cost }).eq("user_id", user.id);
     setRewards(rs => rs.map(r => r.id === reward.id ? { ...r, is_claimed: true } : r));
     setProfile(p => p ? { ...p, total_points: p.total_points - reward.xp_cost } : p);
+    // Auto-sync level / rank / title
+    const progression = await syncProgression(supabase, user.id);
+    showProgressionToast(progression);
   };
 
   const handleDeleteReward = async (id: string) => {
@@ -104,6 +108,9 @@ export function RewardsPage() {
     await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
     setPunishments(ps => ps.map(x => x.id === p.id ? { ...x, triggered: x.triggered + 1 } : x));
     setProfile(prof => prof ? { ...prof, total_points: newPoints } : prof);
+    // Auto-sync level / rank / title
+    const progression = await syncProgression(supabase, user.id);
+    showProgressionToast(progression);
   };
 
   const handleDeletePunishment = async (id: string) => {
