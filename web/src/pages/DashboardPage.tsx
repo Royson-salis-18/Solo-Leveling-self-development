@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
-  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid,
+  Cell, AreaChart, Area, CartesianGrid,
 } from "recharts";
 import { StatCard } from "../components/StatCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
+import { Sparkles, Skull } from "lucide-react";
 
 /* ─── types ─────────────────────────────────────────────────────── */
 type DashboardData = {
@@ -69,6 +71,7 @@ export function DashboardPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivityRow[]>([]);
   const [affiliations, setAffiliations] = useState<AffiliationRow[]>([]);
+  const [shadows, setShadows] = useState<any[]>([]);
   
   const [data, setData] = useState<DashboardData & { player_rank?: string, player_title?: string }>({
     activeCount: 0,
@@ -99,6 +102,7 @@ export function DashboardPage() {
           completedTasksRes,
           clanMembRes,
           guildMembRes,
+          shadowsRes,
         ] = await Promise.all([
           supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",false).eq("is_pending",false).eq("is_failed",false),
           supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",true),
@@ -109,29 +113,25 @@ export function DashboardPage() {
           supabase.from("tasks").select("category,points").eq("user_id",userId),
           supabase.from("tasks").select("id, title, is_completed, is_pending, is_failed, priority, xp_tier, category").eq("user_id",userId).eq("is_completed",false).eq("is_pending",false).order("created_at",{ascending:false}).limit(10),
           supabase.from("tasks").select("id, title, points, completed_at").eq("user_id",userId).eq("is_completed",true).order("completed_at",{ascending:false}).limit(5),
-          supabase.from("clan_members").select("clan_id, role").eq("user_id",userId),
-          supabase.from("guild_members").select("guild_id, role").eq("user_id",userId),
+          supabase.from("clan_members").select("clan_id, clans(name, id), role").eq("user_id",userId),
+          supabase.from("guild_members").select("guild_id, guilds(name, id), role").eq("user_id",userId),
+          supabase.from("shadows").select("*").eq("user_id", userId),
         ]);
 
         // Build affiliations
         const affils: AffiliationRow[] = [];
         if (clanMembRes.data?.length) {
-          const cids = clanMembRes.data.map((m:any) => m.clan_id);
-          const { data: clanRows } = await supabase.from("clans").select("id,name").in("id",cids);
-          (clanRows??[]).forEach((c:any) => {
-            const role = clanMembRes.data?.find((m:any)=>m.clan_id===c.id)?.role ?? "member";
-            affils.push({ id: c.id, name: c.name, role, type: "clan" });
+          (clanMembRes.data as any[]).forEach((m:any) => {
+            if (m.clans) affils.push({ id: m.clans.id, name: m.clans.name, role: m.role, type: "clan" });
           });
         }
         if (guildMembRes.data?.length) {
-          const gids = guildMembRes.data.map((m:any) => m.guild_id);
-          const { data: guildRows } = await supabase.from("guilds").select("id,name").in("id",gids);
-          (guildRows??[]).forEach((g:any) => {
-            const role = guildMembRes.data?.find((m:any)=>m.guild_id===g.id)?.role ?? "member";
-            affils.push({ id: g.id, name: g.name, role, type: "guild" });
+          (guildMembRes.data as any[]).forEach((m:any) => {
+            if (m.guilds) affils.push({ id: m.guilds.id, name: m.guilds.name, role: m.role, type: "guild" });
           });
         }
         setAffiliations(affils);
+        setShadows(shadowsRes.data ?? []);
 
         const catMap = new Map<string,number>();
         (tRes.data??[]).forEach((t:any) => catMap.set(t.category??"General",(catMap.get(t.category??"General")??0)+Number(t.points??0)));
@@ -192,6 +192,53 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* ── DYNAMIC SYSTEM MESSAGE BANNER ── */}
+      {(() => {
+        const messages = [
+          { tag: "SYSTEM", title: "Arise. The Hunt Begins.", text: "The shadows are waiting for your command. Complete your daily quests to grow stronger." },
+          { tag: "MONARCH", title: "The Sovereign's Decree", text: "A true Monarch doesn't wait for opportunity. They create it through consistency." },
+          { tag: "RAGNAROK", title: "Divine Bloodline: Su-ho's Era", text: "The power of the Monarch flows through his son. The new age has arrived." },
+          { tag: "ALERT", title: "Hidden Quest Triggered", text: "Quest: 'Unstoppable Momentum'. Complete 5 tasks today for a bonus XP multiplier." },
+          { tag: "STATUS", title: "System Analysis Complete", text: "Your mana levels are stabilizing. Current rank: " + data.player_rank + ". Next rank evaluation soon." },
+          { tag: "QUOTE", title: "Jin-Woo's Resolve", text: "\"I'm the only one who can level up. That is my strength and my curse.\"" },
+          { tag: "HINT", title: "Shadow Tactician", text: "Did you know? Epic shadows like Igris provide a permanent +7% passive XP boost." }
+        ];
+        // Use date-based index for "Message of the Day"
+        const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+        const msg = messages[dayOfYear % messages.length];
+
+        return (
+          <div className="panel purple-aura" style={{ 
+            marginBottom: 24, padding: "20px", 
+            background: "linear-gradient(90deg, rgba(168,168,255,0.15) 0%, rgba(0,0,0,0) 100%)",
+            border: "1px solid rgba(168,168,255,0.2)",
+            display: "flex", alignItems: "center", gap: 20, position: "relative", overflow: "hidden"
+          }}>
+            <div style={{
+              width: 50, height: 50, borderRadius: "50%", background: "rgba(168,168,255,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(168,168,255,0.4)",
+              boxShadow: "0 0 20px rgba(168,168,255,0.3)", flexShrink: 0
+            }}>
+              <Sparkles size={24} color="#a8a8ff" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "0.65rem", color: "#a8a8ff", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+                {msg.tag} MESSAGE
+              </div>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--t1)", marginBottom: 4 }}>{msg.title}</h3>
+              <p style={{ fontSize: "0.74rem", color: "var(--t3)", maxWidth: 500 }}>
+                {msg.text}
+              </p>
+            </div>
+            <div style={{
+              position: "absolute", right: -20, top: -20, opacity: 0.05
+            }}>
+              <Skull size={140} />
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── STAT CARDS ── */}
       <div className="stats-grid stats-grid-dashboard">
         <StatCard label="Active Quests"    value={data.activeCount}   subtitle="In progress" />
@@ -204,68 +251,98 @@ export function DashboardPage() {
       {/* ── PROGRESS / CHARTS ── */}
       {(data.weeklyHistory.length > 0 || data.categoryDistribution.length > 0) && (
         <div className="page-section">
-          <div className="section-label">Your Analytics</div>
-          <div className="dashboard-panels-row">
+          <div className="section-label">System Analytics</div>
+          <div className="dashboard-analytics-grid">
             
-            <div className="panel dashboard-panel-flex">
-              <div className="dashboard-panels-row">
-                {data.weeklyHistory.length > 0 && (
-                  <div>
-                    <div className="chart-label-wrapper">
-                      <span className="chart-label-text">Weekly XP</span>
-                    </div>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <BarChart data={data.weeklyHistory} barSize={12}>
-                        <XAxis dataKey="date" stroke="rgba(255,255,255,0.18)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.35)" }} tickLine={false} axisLine={false}/>
-                        <YAxis hide />
-                        <Tooltip {...TOOLTIP_STYLE} />
-                        <Bar dataKey="daily_points" fill="rgba(255,255,255,0.55)" radius={[4,4,0,0]}/>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-                {data.categoryDistribution.length > 0 && (
-                  <div>
-                    <div className="chart-label-wrapper">
-                      <span className="chart-label-text">By Category</span>
-                    </div>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <PieChart>
-                        <Pie data={data.categoryDistribution} dataKey="points" nameKey="category" outerRadius={50} innerRadius={30}>
-                          {data.categoryDistribution.map((_,i)=><Cell key={i} fill={CHART_COLORS[i%CHART_COLORS.length]}/>)}
-                        </Pie>
-                        <Tooltip {...TOOLTIP_STYLE}/>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+            {/* Weekly XP: High-Fidelity Wave */}
+            <div className="panel purple-aura analytic-card" style={{ minHeight: 320 }}>
+              <div className="chart-header">
+                <div className="chart-title">Weekly Mana Tide</div>
+                <div className="chart-val">{weeklyTotal} Total XP</div>
               </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={data.weeklyHistory} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                  <defs>
+                    <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.6}/>
+                      <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0.05}/>
+                    </linearGradient>
+                    <filter id="glow">
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(168,168,255,0.05)" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="rgba(168,168,255,0.3)" 
+                    tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }}
+                    axisLine={{ stroke: "rgba(168,168,255,0.2)" }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    stroke="rgba(168,168,255,0.3)" 
+                    tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }}
+                    axisLine={{ stroke: "rgba(168,168,255,0.2)" }}
+                    tickLine={false}
+                    domain={[0, 'dataMax + 100']}
+                  />
+                  <Tooltip {...TOOLTIP_STYLE} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="daily_points" 
+                    stroke="var(--accent-primary)" 
+                    strokeWidth={4} 
+                    fill="url(#waveGrad)" 
+                    animationDuration={2000}
+                    filter="url(#glow)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
 
-            {data.categoryDistribution.length > 0 && (
-              <div className="panel dashboard-panel-flex">
-                <div className="chart-label-wrapper">
-                  <span className="chart-label-text">Skill Matrix</span>
-                </div>
+            {/* Skill Matrix: Monarch Radar */}
+            <div className="panel analytic-card" style={{ minHeight: 320 }}>
+              <div className="chart-header">
+                <div className="chart-title">Sovereign Skill Matrix</div>
+                <div className="chart-val">{completionRate} Sync</div>
+              </div>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <PerformanceRadar
                   title=""
                   data={[
                     { category:"Work",        value: Math.round((data.categoryDistribution.find(c=>c.category==="Work")?.points||0)/8.2),    fullMark:100 },
                     { category:"Fitness",     value: Math.round((data.categoryDistribution.find(c=>c.category==="Fitness")?.points||0)/4.4),  fullMark:100 },
                     { category:"Learning",    value: Math.round((data.categoryDistribution.find(c=>c.category==="Learning")?.points||0)/3.2),fullMark:100 },
-                    { category:"Mindfulness", value: Math.round((data.categoryDistribution.find(c=>c.category==="Mindfulness")?.points||0)/2.6),fullMark:100 },
+                    { category:"Mind",        value: Math.round((data.categoryDistribution.find(c=>c.category==="Mindfulness")?.points||0)/2.6),fullMark:100 },
                     { category:"Finance",     value: Math.round((data.categoryDistribution.find(c=>c.category==="Finance")?.points||0)/2.6),fullMark:100 },
                     { category:"Social",      value: Math.round((data.categoryDistribution.find(c=>c.category==="Social")?.points||0)/2.6),fullMark:100 },
-                    { category:"Creative",    value: Math.round((data.categoryDistribution.find(c=>c.category==="Creative")?.points||0)/2.6),fullMark:100 },
-                    { category:"Consistency", value: Math.round(Number(completionRate.slice(0,-1))),                                          fullMark:100 },
                   ]}
-                  height={180}
+                  height={240}
                 />
               </div>
-            )}
+            </div>
+
           </div>
         </div>
       )}
+
+      <style>{`
+        .dashboard-analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .analytic-card { padding: 24px; display: flex; flex-direction: column; overflow: hidden; }
+        .chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .chart-title { font-size: 0.7rem; font-weight: 800; color: var(--t3); text-transform: uppercase; letter-spacing: 0.1em; }
+        .chart-val { font-size: 1.1rem; font-weight: 900; color: var(--t1); }
+        .chart-footer { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 4px; }
+        .day-tick { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+        .tick-bar { width: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; min-height: 4px; transition: height 1s; }
+        .day-tick span { font-size: 0.55rem; color: var(--t4); font-weight: 700; }
+        
+        .analytic-card:hover .tick-bar { background: var(--accent-primary); opacity: 0.4; }
+      `}</style>
 
       {/* ── EXPANDED ANALYTICS (30-day & Category XP) ── */}
       {(data.monthlyHistory.length > 0 || data.categoryDistribution.length > 0) && (
@@ -373,10 +450,58 @@ export function DashboardPage() {
         )}
       </div>
 
-      {/* ── AFFILIATIONS (below charts filler) ── */}
+      {/* ── ARMY OF SHADOWS ── */}
+      {shadows.length > 0 && (
+        <div className="page-section">
+          <div className="section-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Sparkles size={14} color="#a8a8ff" /> Army of Shadows (Passive Buffs)
+            </div>
+            <Link to="/collection" style={{ fontSize: "0.65rem", color: "#a8a8ff", textDecoration: "none" }}>View Army →</Link>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+            {shadows.map(s => {
+              const gradeColor = s.rarity === 'Legendary' ? '#ffa500' : 
+                                 s.rarity === 'Epic' ? '#a8a8ff' : 
+                                 s.rarity === 'Rare' ? '#60a5fa' : '#888';
+              const gradeName = s.rarity === 'Legendary' ? 'MARSHAL' : 
+                                s.rarity === 'Epic' ? 'COMMANDER' : 
+                                s.rarity === 'Rare' ? 'KNIGHT' : 'SOLDIER';
+              return (
+                <div key={s.id} className="panel shadow-card" style={{ 
+                  padding: "12px", textAlign: "center", 
+                  border: `1px solid ${gradeColor}44`,
+                  background: `${gradeColor}08`,
+                  boxShadow: s.rarity === 'Legendary' ? `0 0 20px ${gradeColor}11` : "none"
+                }}>
+                  <div style={{ 
+                    width: 44, height: 44, borderRadius: "50%", margin: "0 auto 8px",
+                    background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center",
+                    border: `1px solid ${gradeColor}66`,
+                    boxShadow: `0 0 10px ${gradeColor}33`
+                  }}>
+                    <Skull size={22} color={gradeColor} />
+                  </div>
+                  <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "var(--t1)" }}>{s.name}</div>
+                  <div style={{ fontSize: "0.58rem", color: gradeColor, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>{gradeName}</div>
+                  <div style={{ 
+                    fontSize: "0.62rem", color: "#34d399", marginTop: 8, 
+                    background: "rgba(52,211,153,0.1)", padding: "2px 8px", borderRadius: 4, display: "inline-block", fontWeight: 700
+                  }}>
+                    +{Math.round(s.bonus_value * 100)}% XP
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── AFFILIATIONS ── */}
       {affiliations.length > 0 && (
         <div className="page-section">
           <div className="section-label">Guild &amp; Clan Affiliations</div>
+
           <div className="panel">
             <div className="flex-col gap-10">
               {affiliations.map(a => (

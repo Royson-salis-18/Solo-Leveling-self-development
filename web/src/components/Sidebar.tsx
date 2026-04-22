@@ -1,4 +1,4 @@
-import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target, BookOpen } from "lucide-react";
+import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target, BookOpen, Bell, Flame, Backpack } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
@@ -6,6 +6,7 @@ import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
 const links = [
   { to: "/",            label: "Dashboard",   icon: Home },
   { to: "/quests",      label: "Quests",      icon: ScrollText },
+  { to: "/collection",  label: "Collection",  icon: Backpack },
   { to: "/rewards",     label: "Rewards",     icon: Gift },
   { to: "/arena",       label: "Arena",       icon: Swords },
   { to: "/social",      label: "Social",      icon: Users },
@@ -15,8 +16,11 @@ const links = [
   { to: "/profile",     label: "Profile",     icon: User },
 ];
 
+import { useNotifications } from "../lib/notificationContext";
+
 export function Sidebar() {
   const { signOut, profile, user } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const displayName = profile?.name ?? user?.email?.split("@")[0] ?? "Hunter";
@@ -45,6 +49,25 @@ export function Sidebar() {
           <div className="sb-brand-title">SOLO LEVELING</div>
           <div className="sb-brand-sub">Second Brain 5.0</div>
         </div>
+        <div style={{ flex: 1 }} />
+        <button 
+          onClick={() => navigate("/notifications")}
+          style={{ 
+            position: "relative",
+            background: "none", border: "none", cursor: "pointer", 
+            color: unreadCount > 0 ? "#a8a8ff" : "var(--t3)",
+            padding: 8, display: "flex", alignItems: "center"
+          }}
+        >
+          <Bell size={20} />
+          {unreadCount > 0 && (
+            <span style={{
+              position: "absolute", top: 4, right: 4,
+              width: 8, height: 8, borderRadius: "50%",
+              background: "#ff4444", border: "2px solid var(--sidebar-bg)"
+            }} />
+          )}
+        </button>
       </div>
 
       {/* ── Nav ── */}
@@ -98,6 +121,11 @@ export function Sidebar() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                 <span style={{ fontSize: "0.6rem", color: "#a8a8ff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", background: "rgba(168,168,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>{playerClass}</span>
                 <span style={{ fontSize: "0.6rem", color: "var(--t3)", fontWeight: 700, background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{playerRank}-Rank</span>
+                {(profile as any)?.streak_count > 0 && (
+                  <span style={{ fontSize: "0.6rem", color: "#ffa030", fontWeight: 700, background: "rgba(255,160,48,0.1)", padding: "1px 5px", borderRadius: 4, display: "flex", alignItems: "center", gap: 2 }}>
+                    <Flame size={10} /> {(profile as any).streak_count}
+                  </span>
+                )}
               </div>
             </div>
           </div>

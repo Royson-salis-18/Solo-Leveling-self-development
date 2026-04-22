@@ -278,26 +278,96 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    id: "rewards",
+    id: "army-of-shadows",
+    icon: Swords,
+    title: "Army of Shadows",
+    subtitle: "Extraction & Passive Buffs",
+    color: "#a8a8ff",
+    content: (
+      <div className="guide-content">
+        <h4>Arise! Extraction Basics</h4>
+        <p>
+          Completing high-tier tasks triggers a chance for <strong>Shadow Extraction</strong>. 
+          The higher the XP tier, the more powerful the shadow you can summon:
+        </p>
+        <ul>
+          <li><strong>Mid/High Tasks</strong>: Regular Infantry, High Orcs, Knights</li>
+          <li><strong>Super Tasks</strong>: Elite Knights, Commanders (Igris, Tank)</li>
+          <li><strong>Legendary Tasks</strong>: Marshal Grade (Beru, Bellion)</li>
+        </ul>
+        <h4>Passive Buffs</h4>
+        <p>
+          Each shadow in your army provides a permanent <strong>XP Multiplier</strong>. 
+          Epic shadows can boost your mana gain by up to 10% per shadow.
+        </p>
+        <div className="guide-callout guide-callout-tip">
+          <Star size={14} />
+          <span>Collect them all in the <strong>Collection</strong> page to maximize your leveling speed.</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "arsenal-vault",
     icon: Gift,
+    title: "Arsenal & Vault",
+    subtitle: "Weapons and Ancient Artifacts",
+    color: "#3b82f6",
+    content: (
+      <div className="guide-content">
+        <h4>The Arsenal (Weapons)</h4>
+        <p>
+          Weapons are rare rewards for consistent high-performance. They are categorized by rank 
+          (E to S) and include daggers, longswords, and more.
+        </p>
+        <h4>The Vault (Artifacts)</h4>
+        <p>
+          Artifacts are ancient relics like the <strong>Rulers' Authority</strong>. They provide unique 
+          System benefits, such as task skips or penalty protection.
+        </p>
+        <p>
+          View your full discovery progress in the <strong>Collection</strong> tab to see what you're missing.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "ragnarok-era",
+    icon: Zap,
+    title: "Ragnarok: The New Era",
+    subtitle: "Legacy of the Shadow Monarch",
+    color: "#ff6b6b",
+    content: (
+      <div className="guide-content">
+        <p>
+          The system has evolved. The power of the Monarch now flows through his bloodline. 
+          <strong>Solo Leveling: Ragnarok</strong> content is now integrated:
+        </p>
+        <ul>
+          <li><strong>Sung Su-ho's Gear</strong>: Discover artifacts belonging to the Monarch's son.</li>
+          <li><strong>Divine Bloodline</strong>: Unlock the special S-Rank passive to transcend normal limits.</li>
+          <li><strong>Ragnarok Shadows</strong>: New entities like Kira and Sid can now be extracted.</li>
+        </ul>
+      </div>
+    ),
+  },
+  {
+    id: "rewards",
+    icon: Star,
     title: "Rewards & Inventory",
-    subtitle: "What you earn along the way",
+    subtitle: "System Gifts and Loot",
     color: "#f472b6",
     content: (
       <div className="guide-content">
         <p>
-          As you level up and complete milestones, you unlock <strong>rewards</strong> in your inventory.
+          As you level up and complete milestones, the System grants <strong>Rewards</strong>.
           These include:
         </p>
         <ul>
-          <li><strong>Task Skips</strong> — Instantly complete a task without doing it (limited supply!)</li>
-          <li><strong>XP Boosts</strong> — Temporarily multiply your XP earnings</li>
-          <li><strong>Titles</strong> — Special titles displayed on your profile</li>
+          <li><strong>System Gifts</strong>: Random loot boxes containing weapons or artifacts.</li>
+          <li><strong>Task Skips</strong>: Instantly complete a task using the System's power.</li>
+          <li><strong>XP Boosters</strong>: Temporarily double your Mana gain.</li>
         </ul>
-        <p>
-          Check the <strong>Rewards</strong> page to see what's available and the <strong>Challenges</strong> page
-          for daily/weekly objectives that grant bonus items.
-        </p>
       </div>
     ),
   },

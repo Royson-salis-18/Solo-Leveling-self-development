@@ -14,6 +14,7 @@ const EMPTY_FORM = {
   title: "", category: "General", description: "",
   deadline: "", time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,   // user_id to assign to (empty = self)
+  is_recurring: false,
 };
 
 export function QuestsPage() {
@@ -139,6 +140,7 @@ export function QuestsPage() {
       xp_tier: task.xp_tier || "Low",
       parentId: task.parent_id,
       assignTo: task.assigned_to ?? "",
+      is_recurring: task.is_recurring ?? false,
     });
     setShowModal(true);
   };
@@ -170,6 +172,7 @@ export function QuestsPage() {
       xp_tier:     formData.xp_tier,
       parent_id:   formData.parentId,
       assigned_to: formData.assignTo || null,
+      is_recurring: formData.is_recurring,
     };
 
     if (editQuest) {
@@ -221,6 +224,73 @@ export function QuestsPage() {
         // Auto-sync level / rank / title after XP gain
         const progression = await syncProgression(supabase, user.id);
         showProgressionToast(progression);
+
+        // --- NEW: Randomized Shadow Extraction (Arise!) ---
+        const getShadowPool = (tier: string) => {
+          if (tier === "Legendary") return [
+            { name: "Kamish", rarity: "Legendary", bonus: 0.15 },
+            { name: "Bellion", rarity: "Legendary", bonus: 0.12 },
+            { name: "Gray", rarity: "Legendary", bonus: 0.14 },
+            { name: "Beru", rarity: "Epic", bonus: 0.08 }
+          ];
+          if (tier === "Super") return [
+            { name: "Igris", rarity: "Epic", bonus: 0.07 },
+            { name: "Tusk", rarity: "Epic", bonus: 0.07 },
+            { name: "Min Byung-gu", rarity: "Epic", bonus: 0.10 },
+            { name: "Kaisel", rarity: "Epic", bonus: 0.06 }
+          ];
+          if (tier === "High") return [
+            { name: "Iron", rarity: "Rare", bonus: 0.04 },
+            { name: "Kira", rarity: "Rare", bonus: 0.05 },
+            { name: "Tank", rarity: "Rare", bonus: 0.04 }
+          ];
+          if (tier === "Mid") return [
+            { name: "Sid", rarity: "Rare", bonus: 0.03 },
+            { name: "High Orc Warrior", rarity: "Common", bonus: 0.02 },
+            { name: "Shadow Archer", rarity: "Common", bonus: 0.01 }
+          ];
+          return [
+            { name: "Shadow Infantry", rarity: "Common", bonus: 0.01 },
+            { name: "Shadow Mage", rarity: "Common", bonus: 0.01 }
+          ];
+        };
+
+        const tier = task.xp_tier || "Low";
+        const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
+        const roll = Math.random();
+
+        if (roll <= chances[tier]) {
+          const pool = getShadowPool(tier);
+          const shadow = pool[Math.floor(Math.random() * pool.length)];
+          
+          const { error } = await supabase.from("shadows").insert({
+            user_id: user.id,
+            name: shadow.name,
+            rarity: shadow.rarity,
+            bonus_type: "xp_boost",
+            bonus_value: shadow.bonus
+          });
+
+          if (!error) {
+            alert(`✨ ARISE! You have extracted a [${shadow.rarity}] grade shadow: ${shadow.name}! Check your army on the Dashboard.`);
+          } else {
+            console.error("Shadow extraction error:", error);
+          }
+        } else if (tier === "Super" || tier === "Legendary") {
+          alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
+        }
+
+        // --- NEW: Recurring Logic ---
+        if (task.is_recurring) {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const nextDeadline = tomorrow.toISOString().split("T")[0];
+          await supabase.from("tasks").update({ 
+            is_completed: false, 
+            completed_at: null,
+            deadline: nextDeadline 
+          }).eq("id", id);
+        }
       }
     }
     fetchQuests();
@@ -445,6 +515,19 @@ export function QuestsPage() {
             <input type="time" className="form-input" value={formData.time}
               onChange={e => setFormData({ ...formData, time: e.target.value })} />
           </div>
+        </div>
+
+        <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+          <input 
+            type="checkbox" 
+            id="recurring" 
+            checked={formData.is_recurring} 
+            onChange={e => setFormData({ ...formData, is_recurring: e.target.checked })}
+            style={{ width: 16, height: 16, accentColor: "#a8a8ff" }}
+          />
+          <label htmlFor="recurring" className="form-label" style={{ margin: 0, cursor: "pointer" }}>
+            Daily Routine (Auto-reset every day)
+          </label>
         </div>
 
         {/* Leader-only: assign to clan member */}

@@ -10,55 +10,69 @@ interface Props {
 }
 
 export function PerformanceRadar({ data, title, height = 320 }: Props) {
+  // Calculate relative max for "Relative Visualization"
+  const maxVal = Math.max(...data.map(d => d.value), 20); // Fallback to 20 if zero
+  const relativeDomain = [0, Math.ceil(maxVal * 1.1)];
+
   return (
-    <article className="panel">
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {title && (
-        <div className="radar-title-wrapper">
-          <span className="radar-title">{title}</span>
+        <div style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+          {title}
         </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
-        <RadarChart data={data} margin={{ top:16, right:24, bottom:16, left:24 }}>
+        <RadarChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }} outerRadius="80%">
           <defs>
-            <radialGradient id="acrylicFill" cx="50%" cy="50%" r="50%">
-              <stop offset="0%"   stopColor="rgba(255,255,255,0.18)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
-            </radialGradient>
+            <linearGradient id="purpleRadarFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity={0.6} />
+              <stop offset="100%" stopColor="var(--accent-secondary)" stopOpacity={0.1} />
+            </linearGradient>
           </defs>
-          <PolarGrid stroke="rgba(255,255,255,0.08)" gridType="polygon" />
+          
+          <PolarGrid 
+            stroke="rgba(168,168,255,0.15)" 
+            gridType="polygon" 
+          />
+          
           <PolarAngleAxis
             dataKey="category"
-            tick={{ fill:"rgba(255,255,255,0.40)", fontSize:11, fontFamily:"Inter, sans-serif", fontWeight:500 }}
+            tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 700, letterSpacing: "0.05em" }}
           />
+          
           <PolarRadiusAxis
-            angle={90} domain={[0, 100]}
-            tick={{ fill:"rgba(255,255,255,0.22)", fontSize:9 }}
-            stroke="rgba(255,255,255,0.05)"
+            angle={90} 
+            domain={relativeDomain}
+            tick={false}
+            axisLine={false}
           />
+          
           <Radar
-            name="Performance"
+            name="Hunter Stats"
             dataKey="value"
-            stroke="rgba(255,255,255,0.55)"
-            fill="url(#acrylicFill)"
+            stroke="var(--accent-primary)"
+            strokeWidth={2}
+            fill="url(#purpleRadarFill)"
             fillOpacity={1}
-            strokeWidth={1.5}
-            dot={{ fill:"rgba(255,255,255,0.7)", r:3, strokeWidth:0 }}
-            activeDot={{ r:5, fill:"rgba(255,255,255,0.95)", strokeWidth:0 }}
+            dot={{ fill: "var(--accent-primary)", r: 3, stroke: "white", strokeWidth: 1 }}
+            activeDot={{ r: 5, fill: "white", stroke: "var(--accent-primary)", strokeWidth: 2 }}
           />
+          
           <Tooltip
             contentStyle={{
-              background:"rgba(14,14,16,0.92)",
-              border:"1px solid rgba(255,255,255,0.12)",
-              borderRadius:"8px",
-              backdropFilter:"blur(16px)",
-              fontSize:"12px",
-              color:"rgba(255,255,255,0.80)",
-              boxShadow:"0 16px 40px rgba(0,0,0,0.5)",
+              background: "rgba(10,10,15,0.95)",
+              border: "1px solid var(--accent-primary)",
+              borderRadius: "8px",
+              backdropFilter: "blur(20px)",
+              fontSize: "12px",
+              color: "#fff",
+              boxShadow: "0 0 20px rgba(168,168,255,0.2)",
             }}
-            formatter={(v: any) => [`${v}%`, "Score"]}
+            formatter={(v: any) => [`${v} Points`, "Value"]}
           />
         </RadarChart>
       </ResponsiveContainer>
-    </article>
+    </div>
   );
 }
+

@@ -254,16 +254,30 @@ CREATE TABLE IF NOT EXISTS guild_events (
 );
 
 -- ==========================================
--- INVENTORY
+-- INVENTORY (Arsenal & Vault)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS inventory (
     id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    item_type      TEXT NOT NULL CHECK (item_type IN ('TASK_SKIP', 'XP_BOOST', 'CHALLENGE_KEY', 'REVIVE_TOKEN')),
+    name           TEXT NOT NULL,
+    description    TEXT,
+    item_type      TEXT NOT NULL, -- TASK_SKIP, XP_BOOST, WEAPON, ARTIFACT, TOOL
+    item_category  TEXT DEFAULT 'Consumable', -- Consumable, Weapon, Artifact, Tool
+    rarity         TEXT DEFAULT 'Common', -- Common, Rare, Epic, Legendary, S-Rank
     quantity       INTEGER DEFAULT 1,
-    acquired_at    TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE(user_id, item_type)
+    image_url      TEXT,
+    metadata       JSONB DEFAULT '{}'::jsonb, -- damage, defense, special stats
+    acquired_at    TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migrations for existing table
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS name          TEXT;
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS description   TEXT;
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS item_category TEXT DEFAULT 'Consumable';
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS rarity        TEXT DEFAULT 'Common';
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_url     TEXT;
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS metadata      JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE inventory DROP CONSTRAINT IF EXISTS inventory_item_type_check; -- Remove restrictive check
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -430,3 +444,49 @@ SELECT
     'Newcomer'
 FROM auth.users
 ON CONFLICT (user_id) DO NOTHING;
+
+-- ==========================================
+-- NOTIFICATIONS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS notifications (
+    id            UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id       UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    title         TEXT NOT NULL,
+    message       TEXT,
+    type          TEXT DEFAULT 'system', -- assignment, event, duel, system
+    link          TEXT,
+    is_read       BOOLEAN DEFAULT false,
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own notifications" ON notifications;
+CREATE POLICY "Users can manage own notifications" ON notifications FOR ALL USING (auth.uid() = user_id);
+
+
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS streak_count INTEGER DEFAULT 0;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS last_active_date DATE;
+
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE;
+
+
+-- ==========================================
+-- SHADOWS (Arise!)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS shadows (
+    id            UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id       UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    name          TEXT NOT NULL,
+    rarity        TEXT DEFAULT 'Common',
+    bonus_type    TEXT,
+    bonus_value   FLOAT,
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE shadows ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can see own shadows" ON shadows;
+CREATE POLICY "Users can see own shadows" ON shadows FOR ALL USING (auth.uid() = user_id);
+

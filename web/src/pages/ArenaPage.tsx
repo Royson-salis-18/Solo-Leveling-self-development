@@ -29,7 +29,7 @@ type Tab = typeof TABS[number];
 
 /* ─────────────────────── component ─────────────────────── */
 export function ArenaPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [tab, setTab]           = useState<Tab>("1v1 Duels");
   const [clan, setClan]         = useState<Clan | null>(null);
   const [guild, setGuild]       = useState<Guild | null>(null);
@@ -230,6 +230,16 @@ export function ArenaPage() {
       expires_at: expires,
       status: "active",
     });
+
+    // Notify opponent
+    await supabase.from("notifications").insert({
+      user_id: opponentId,
+      title: "New Challenge Issued!",
+      message: `${profile?.name || "A hunter"} has challenged you to a 1v1 Duel!`,
+      type: "duel",
+      link: "/challenges"
+    });
+
     setSaving(false); setShowNewChallenge(false); setForm({ ...form, hunterId: "" }); fetchAll();
   };
 
@@ -253,6 +263,16 @@ export function ArenaPage() {
       deadline:    aq.deadline || null,
       description: aq.description,
     });
+
+    // Notify member
+    await supabase.from("notifications").insert({
+      user_id: aq.assignTo,
+      title: "New Mission Assigned",
+      message: `Leader ${profile?.name || "of your clan"} has assigned you a new quest: ${aq.title}`,
+      type: "assignment",
+      link: "/quests"
+    });
+
     setSaving(false);
     setShowAssignQuest(false);
     setAq({ assignTo: "", title: "", category: "General", points: 10, priority: "Normal", deadline: "", description: "" });

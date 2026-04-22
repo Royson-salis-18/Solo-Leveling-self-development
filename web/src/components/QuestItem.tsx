@@ -18,6 +18,7 @@ export interface DBTask {
   time?: string | null;
   priority: string;
   assigned_to?: string | null;   // for clan/guild leader assignments
+  is_recurring?: boolean;
   subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
 }
 

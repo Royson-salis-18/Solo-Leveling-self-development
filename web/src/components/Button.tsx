@@ -10,6 +10,7 @@ interface ButtonProps {
   type?: "button" | "submit" | "reset";
   title?: string;
   id?: string;
+  style?: React.CSSProperties;
 }
 
 export function Button({
@@ -22,6 +23,7 @@ export function Button({
   type = "button",
   title,
   id,
+  style,
 }: ButtonProps) {
   const sizeClass = size === "sm" ? "btn-sm" : "";
   const variantClass = `btn-${variant}`;
@@ -34,6 +36,7 @@ export function Button({
       className={`btn ${variantClass} ${sizeClass} ${className}`}
       title={title}
       id={id}
+      style={style}
     >
       {children}
     </button>

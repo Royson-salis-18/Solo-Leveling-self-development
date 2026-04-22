@@ -99,7 +99,7 @@ export async function syncProgression(
 ): Promise<ProgressionResult | null> {
   const { data: prof } = await supabase
     .from("user_profiles")
-    .select("total_points, level, player_rank, player_title, player_class")
+    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date")
     .eq("user_id", userId)
     .single();
 
@@ -119,14 +119,30 @@ export async function syncProgression(
   const rankedUp     = RANKS.indexOf(newRank as any) > RANKS.indexOf(prevRank as any);
   const titleChanged = newTitle !== prevTitle;
 
+  // Streak logic
+  const today = new Date().toISOString().split("T")[0];
+  let newStreak = prof.streak_count ?? 0;
+  const lastActive = prof.last_active_date;
+
+  if (lastActive !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    if (lastActive === yesterday) {
+      newStreak += 1;
+    } else {
+      newStreak = 1; // Reset or start fresh
+    }
+  }
+
   // Only write if something actually changed
-  if (newLevel !== prevLevel || newRank !== prevRank || newTitle !== prevTitle) {
+  if (newLevel !== prevLevel || newRank !== prevRank || newTitle !== prevTitle || lastActive !== today) {
     await supabase
       .from("user_profiles")
       .update({
         level: newLevel,
         player_rank: newRank,
         player_title: newTitle,
+        streak_count: newStreak,
+        last_active_date: today,
       })
       .eq("user_id", userId);
   }
