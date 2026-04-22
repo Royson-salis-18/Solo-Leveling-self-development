@@ -5,7 +5,7 @@ import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { Edit3 } from "lucide-react";
-import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo, RANKS } from "../lib/levelEngine";
+import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
 
 type Profile = {
   user_id: string;
