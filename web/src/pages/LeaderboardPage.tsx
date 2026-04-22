@@ -38,20 +38,24 @@ export function LeaderboardPage() {
 
       setHunters(hRes.data ?? []);
 
-      // For guild XP: sum all user_profiles.total_points per guild_id
+      // For guild XP: sum via guild_members join user_profiles
       if (gRes.data?.length) {
-        const { data: guildProfs } = await supabase
-          .from("user_profiles").select("guild_id, total_points").not("guild_id", "is", null);
+        const { data: guildMemberRows } = await supabase
+          .from("guild_members").select("guild_id, user_id");
+        const { data: allProfs } = await supabase
+          .from("user_profiles").select("user_id, total_points");
+
         const guildXP = new Map<string, { xp: number; count: number }>();
-        (guildProfs ?? []).forEach((p: any) => {
-          const cur = guildXP.get(p.guild_id) ?? { xp: 0, count: 0 };
-          guildXP.set(p.guild_id, { xp: cur.xp + p.total_points, count: cur.count + 1 });
+        (guildMemberRows ?? []).forEach((gm: any) => {
+          const prof = allProfs?.find((p: any) => p.user_id === gm.user_id);
+          const cur  = guildXP.get(gm.guild_id) ?? { xp: 0, count: 0 };
+          guildXP.set(gm.guild_id, { xp: cur.xp + (prof?.total_points ?? 0), count: cur.count + 1 });
         });
         const gbData = (gRes.data ?? []).map(g => ({
           id: g.id, name: g.name,
           total_xp: guildXP.get(g.id)?.xp ?? 0,
           member_count: guildXP.get(g.id)?.count ?? 0,
-        })).filter(g => g.member_count >= 5)
+        }))
           .sort((a, b) => b.total_xp - a.total_xp);
         setGuilds(gbData);
       }
@@ -161,7 +165,7 @@ export function LeaderboardPage() {
           {tab === "Guilds" && (
             <div className="flex-col gap-14">
               {guilds.length === 0 ? (
-                <div className="panel panel-empty"><p className="text-muted text-sm">No guilds with 5+ members yet.</p></div>
+                <div className="panel panel-empty"><p className="text-muted text-sm">No guilds ranked yet.</p></div>
               ) : guilds.map((g, i) => (
                 <div key={g.id} className={`lb-group-card${i === 0 ? " lb-group-card--top" : ""}`}>
                   <div className="lb-group-rank">{i < 3 ? MEDALLION[i] : `#${i + 1}`}</div>

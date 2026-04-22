@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "./Button";
-import { CheckCircle, Trash2, Edit3, Plus, Zap } from "lucide-react";
+import { CheckCircle, Trash2, Edit3, Plus, Zap, AlertTriangle, Clock } from "lucide-react";
 
 export interface DBTask {
   id: string;
@@ -10,8 +10,10 @@ export interface DBTask {
   description: string;
   category: string;
   points: number;
+  xp_tier?: string;
   is_completed: boolean;
   is_failed?: boolean;
+  is_pending?: boolean;
   deadline: string | null;
   priority: string;
   assigned_to?: string | null;   // for clan/guild leader assignments
@@ -21,6 +23,8 @@ export interface DBTask {
 interface QuestItemProps {
   quest: DBTask;
   onComplete?:    (id: string, isDone: boolean) => void;
+  onPending?:     (id: string) => void;
+  onFail?:        (id: string) => void;
   onSkip?:        (id: string) => void;
   onDelete?:      (id: string) => void;
   onEdit?:        (quest: DBTask) => void;
@@ -30,20 +34,30 @@ interface QuestItemProps {
 }
 
 export function QuestItem({
-  quest, onComplete, onSkip, onDelete, onEdit, onAddSubtask,
+  quest, onComplete, onPending, onFail, onSkip, onDelete, onEdit, onAddSubtask,
   depth = 0, readOnly = false,
 }: QuestItemProps) {
   const [expanded, setExpanded] = useState(true);
   const isCompleted = quest.is_completed;
+  const isPending   = quest.is_pending && !isCompleted && !quest.is_failed;
   const marginLeft  = depth * 20;
   const hasChildren = quest.subtasks && quest.subtasks.length > 0;
+
+  const XP_TIER_COLOR: Record<string, string> = {
+    Legendary: "#ffd700", Super: "#c084fc", High: "#60a5fa", Mid: "#34d399", Low: "rgba(255,255,255,0.5)"
+  };
+  const tierColor = XP_TIER_COLOR[quest.xp_tier ?? "Low"] ?? "rgba(255,255,255,0.5)";
 
   return (
     <div className="list-divider">
       <div
         className="quest-item-wrapper"
-        style={{ marginLeft: `${marginLeft}px`, position: "relative" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
+        style={{
+          marginLeft: `${marginLeft}px`, position: "relative",
+          borderLeft: isPending ? "2px solid rgba(255,160,0,0.6)" : undefined,
+          background: isPending ? "rgba(255,140,0,0.04)" : undefined,
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = isPending ? "rgba(255,140,0,0.08)" : "rgba(255,255,255,0.025)")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
       >
         {/* Depth connector line */}
@@ -70,8 +84,14 @@ export function QuestItem({
 
         {/* Content */}
         <div className="quest-content">
-          <div className={`quest-title${isCompleted ? " quest-title-completed" : ""}`} style={{ color: quest.is_failed ? '#ff4444' : undefined, textDecoration: quest.is_failed ? 'line-through' : undefined }}>
+          <div className={`quest-title${isCompleted ? " quest-title-completed" : ""}`} style={{ color: quest.is_failed ? '#ff4444' : isPending ? '#ffa030' : undefined, textDecoration: quest.is_failed ? 'line-through' : undefined }}>
             {quest.title}
+            {isPending && (
+              <span style={{ marginLeft: 8, fontSize: "0.6rem", color: "#ffa030", fontWeight: 700,
+                background: "rgba(255,160,0,0.12)", padding: "1px 6px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <AlertTriangle size={9} /> PENDING
+              </span>
+            )}
             {quest.assigned_to && (
               <span style={{ marginLeft: 8, fontSize: "0.6rem", color: "#a8a8ff", fontWeight: 700,
                 background: "rgba(168,168,255,0.12)", padding: "1px 6px", borderRadius: 4 }}>
@@ -81,8 +101,11 @@ export function QuestItem({
           </div>
           <div className="quest-meta">
             <span className="quest-point-badge">{quest.category}</span>
-            {quest.priority !== "Normal" && (
+            {quest.priority !== "Normal" && quest.priority !== "Low" && (
               <span className={`tag${quest.priority === "URGENT" ? " tag-urgent" : ""}`}>{quest.priority}</span>
+            )}
+            {quest.xp_tier && quest.xp_tier !== "Low" && (
+              <span className="tag" style={{ color: tierColor, borderColor: tierColor, opacity: 0.85 }}>{quest.xp_tier} XP</span>
             )}
             {quest.deadline && (
               <span className="text-xs text-muted">
@@ -98,33 +121,59 @@ export function QuestItem({
         </div>
 
         {/* XP badge */}
-        <div className={`quest-xp-badge${isCompleted ? " quest-xp-badge-completed" : ""}`} style={{ color: quest.is_failed ? '#ff4444' : undefined, borderColor: quest.is_failed ? '#ff4444' : undefined }}>
-          {quest.is_failed ? `-${quest.points} XP (FAILED)` : `+${quest.points} XP`}
+        <div className={`quest-xp-badge${isCompleted ? " quest-xp-badge-completed" : ""}`} style={{
+          color: quest.is_failed ? '#ff4444' : isPending ? '#ffa030' : tierColor,
+          borderColor: quest.is_failed ? '#ff4444' : isPending ? 'rgba(255,160,0,0.3)' : undefined
+        }}>
+          {quest.is_failed ? `-${quest.points} XP` : isPending ? `±${quest.points} XP` : `+${quest.points} XP`}
         </div>
 
         {/* Actions */}
         {!readOnly && (
           <div className="flex-shrink-0 flex gap-4" style={{ opacity: isCompleted ? 0.4 : 1 }}>
-            {onComplete && !isCompleted && (
+            {/* Pending tasks: Resolve (done) or Fail */}
+            {isPending && onComplete && (
+              <Button variant="success" size="sm"
+                onClick={() => onComplete(quest.id, false)}
+                title="Mark as completed — salvage XP">
+                Resolve
+              </Button>
+            )}
+            {isPending && onFail && (
+              <Button variant="danger" size="sm"
+                onClick={() => onFail(quest.id)}
+                title="Mark as failed — take XP penalty">
+                Fail
+              </Button>
+            )}
+            {/* Active tasks: Done, Pending, Skip, Subtask, Edit, Delete */}
+            {onComplete && !isCompleted && !isPending && (
               <Button variant="success" size="sm"
                 onClick={() => onComplete(quest.id, isCompleted)}>
                 Done
               </Button>
             )}
-            {!isCompleted && onSkip && (
+            {onPending && !isCompleted && !isPending && (
+              <Button variant="secondary" size="sm"
+                onClick={() => onPending(quest.id)}
+                title="Mark as pending — defer for later">
+                <Clock size={12} /> Pending
+              </Button>
+            )}
+            {!isCompleted && !isPending && onSkip && (
               <Button variant="secondary" size="sm"
                 onClick={() => onSkip(quest.id)}
                 title="Skip quest (uses ⚡ item)">
                 <Zap size={12} />
               </Button>
             )}
-            {!isCompleted && onAddSubtask && (
+            {!isCompleted && !isPending && onAddSubtask && (
               <Button variant="secondary" size="sm"
                 onClick={() => onAddSubtask(quest.id)} title="Add subtask">
                 <Plus size={12} />
               </Button>
             )}
-            {!isCompleted && onEdit && (
+            {!isCompleted && !isPending && onEdit && (
               <Button variant="secondary" size="sm"
                 onClick={() => onEdit(quest)} title="Edit">
                 <Edit3 size={12} />
@@ -153,6 +202,8 @@ export function QuestItem({
               key={sub.id}
               quest={sub}
               onComplete={onComplete}
+              onPending={onPending}
+              onFail={onFail}
               onSkip={onSkip}
               onDelete={onDelete}
               onEdit={onEdit}

@@ -24,8 +24,24 @@ CREATE TABLE IF NOT EXISTS clans (
     name           TEXT NOT NULL,
     description    TEXT DEFAULT '',
     leader_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    total_xp       INTEGER DEFAULT 0,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- ==========================================
+-- MULTIPLE GUILDS/CLANS SUPPORT
+-- ==========================================
+CREATE TABLE IF NOT EXISTS guild_members (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    guild_id       UUID REFERENCES guilds(id) ON DELETE CASCADE NOT NULL,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    role           TEXT DEFAULT 'member' CHECK (role IN ('leader', 'officer', 'member')),
+    joined_at      TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(guild_id, user_id)
+);
+
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS total_xp INTEGER DEFAULT 0;
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS total_xp INTEGER DEFAULT 0;
 
 -- ==========================================
 -- USER PROFILES
@@ -86,6 +102,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 -- Add any missing columns to existing tasks table
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_failed   BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_pending  BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS xp_tier     TEXT DEFAULT 'Low';
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS area        TEXT;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS time        TEXT;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_id   UUID REFERENCES tasks(id) ON DELETE CASCADE;
@@ -280,6 +298,12 @@ DROP POLICY IF EXISTS "Authenticated read clan members"      ON clan_members;
 DROP POLICY IF EXISTS "Clan members can manage membership"   ON clan_members;
 CREATE POLICY "Authenticated read clan members"    ON clan_members FOR SELECT USING (auth.uid() IS NOT NULL);
 CREATE POLICY "Clan members can manage membership" ON clan_members FOR ALL    USING (auth.uid() IS NOT NULL);
+
+ALTER TABLE guild_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated read guild members" ON guild_members;
+DROP POLICY IF EXISTS "Guild members can manage membership" ON guild_members;
+CREATE POLICY "Authenticated read guild members"    ON guild_members FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Guild members can manage membership" ON guild_members FOR ALL    USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Users can manage clan invites" ON clan_invites;
 CREATE POLICY "Users can manage clan invites" ON clan_invites FOR ALL USING (auth.uid() IS NOT NULL);

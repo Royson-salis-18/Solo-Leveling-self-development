@@ -12,7 +12,7 @@ import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/leve
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
-  deadline: "", priority: "Normal", parentId: null as string | null,
+  deadline: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,   // user_id to assign to (empty = self)
 };
 
@@ -27,7 +27,7 @@ export function QuestsPage() {
   const [showModal,    setShowModal]    = useState(false);
   const [showNLP,      setShowNLP]      = useState(false);
   const [showCal,      setShowCal]      = useState(false);
-  const [activeTab,    setActiveTab]    = useState<"active" | "completed" | "assigned">("active");
+  const [activeTab,    setActiveTab]    = useState<"active" | "pending" | "completed" | "assigned">("active");
   const [editQuest,    setEditQuest]    = useState<DBTask | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formData,     setFormData]     = useState(EMPTY_FORM);
@@ -54,39 +54,16 @@ export function QuestsPage() {
       flat
         .filter(t => t.parent_id === parentId)
         .map(t => ({ ...t, subtasks: buildTree(flat, t.id) }));
-    // Check for overdue tasks to automatically fail them
+    // Check for overdue tasks to automatically mark pending
     const today = new Date().toISOString().split("T")[0];
     const flat: DBTask[] = (qRes ?? []).map(t => ({ ...t, subtasks: [] }));
-    const overdueTasks = flat.filter(t => !t.is_completed && !t.is_failed && t.deadline && t.deadline < today);
+    const overdueTasks = flat.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < today);
 
     if (overdueTasks.length > 0) {
       const overdueIds = overdueTasks.map(t => t.id);
-      await supabase.from("tasks").update({ is_completed: true, is_failed: true }).in("id", overdueIds);
-      
-      const totalPenalty = overdueTasks.reduce((sum, t) => sum + (t.points || 10), 0);
-      
-      // Log punishments
-      await supabase.from("punishments").insert(
-        overdueTasks.map(t => ({
-          user_id: user.id,
-          name: `Missed Deadline: ${t.title}`,
-          xp_penalty: t.points || 10,
-          triggered: 1
-        }))
-      );
-
-      // Deduct XP
-      const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-      const newPoints = Math.max(0, (prof?.total_points ?? 0) - totalPenalty);
-      await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
-
-      // Auto-sync level / rank / title after penalty
-      const progression = await syncProgression(supabase, user.id);
-      
-      alert(`System Notice: ${overdueTasks.length} task(s) missed the deadline. Penalty: -${totalPenalty} XP.`);
-      showProgressionToast(progression);
-      
-      // Re-fetch since state changed
+      // Only mark pending — no XP penalty yet. Penalty fires on explicit "Fail" click.
+      await supabase.from("tasks").update({ is_pending: true }).in("id", overdueIds);
+      // Re-fetch to reflect new pending state
       return fetchQuests();
     }
 
@@ -128,11 +105,13 @@ export function QuestsPage() {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
-    const isDone = activeTab === "completed";
     return tasks.filter(t => {
-      // Failed tasks go to completed tab
-      const matchStatus = isDone ? (t.is_completed || t.is_failed) : (!t.is_completed && !t.is_failed);
-      const matchDate   = !selectedDate || t.deadline === selectedDate;
+      let matchStatus = false;
+      if (activeTab === "completed") matchStatus = !!(t.is_completed || t.is_failed);
+      else if (activeTab === "pending") matchStatus = !t.is_completed && !t.is_failed && !!t.is_pending;
+      else if (activeTab === "active") matchStatus = !t.is_completed && !t.is_failed && !t.is_pending;
+
+      const matchDate = !selectedDate || t.deadline === selectedDate;
       return matchStatus && matchDate;
     });
   }, [tasks, activeTab, selectedDate]);
@@ -152,19 +131,21 @@ export function QuestsPage() {
       description: task.description,
       deadline: task.deadline ?? "",
       priority: task.priority,
+      xp_tier: task.xp_tier || "Low",
       parentId: task.parent_id,
       assignTo: task.assigned_to ?? "",
     });
     setShowModal(true);
   };
 
-  const getStandardPoints = (priority: string) => {
-    switch (priority) {
-      case "URGENT": return 75;
-      case "Medium": return 40;
-      case "Normal": return 20;
-      case "Low":    return 10;
-      default:       return 20;
+  const getXpByTier = (tier: string) => {
+    switch (tier) {
+      case "Legendary": return 250;
+      case "Super": return 100;
+      case "High": return 50;
+      case "Mid": return 25;
+      case "Low": return 10;
+      default: return 10;
     }
   };
 
@@ -176,10 +157,11 @@ export function QuestsPage() {
       user_id:     targetUser === user.id ? user.id : user.id, // creator is always self
       title:       formData.title,
       category:    formData.category,
-      points:      getStandardPoints(formData.priority),
+      points:      getXpByTier(formData.xp_tier),
       description: formData.description,
       deadline:    formData.deadline || null,
       priority:    formData.priority,
+      xp_tier:     formData.xp_tier,
       parent_id:   formData.parentId,
       assigned_to: formData.assignTo || null,
     };
@@ -238,6 +220,47 @@ export function QuestsPage() {
     fetchQuests();
   };
 
+  /** User explicitly marks a pending task as FAILED → deduct XP penalty */
+  const handleFail = async (id: string) => {
+    if (!supabase || !user) return;
+    const task = findTaskById(tasks, id);
+    if (!task) return;
+    const penalty = task.points || 10;
+
+    await supabase.from("tasks").update({ is_failed: true, is_pending: false, is_completed: true }).eq("id", id);
+
+    // Log punishment
+    await supabase.from("punishments").insert({
+      user_id: user.id,
+      name: `Failed Quest: ${task.title}`,
+      xp_penalty: penalty,
+      triggered: 1,
+    });
+
+    // Deduct XP
+    const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
+    const newPoints = Math.max(0, (prof?.total_points ?? 0) - penalty);
+    await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
+
+    // Deduct from daily log too
+    const today = new Date().toISOString().split("T")[0];
+    const { data: log } = await supabase.from("user_points").select("daily_points").eq("user_id", user.id).eq("date", today).maybeSingle();
+    if (log) {
+      await supabase.from("user_points").update({ daily_points: Math.max(0, log.daily_points - penalty) }).eq("user_id", user.id).eq("date", today);
+    }
+
+    const progression = await syncProgression(supabase, user.id);
+    showProgressionToast(progression);
+    fetchQuests();
+  };
+
+  /** Manually mark an active task as pending (deferred) */
+  const handlePending = async (id: string) => {
+    if (!supabase) return;
+    await supabase.from("tasks").update({ is_pending: true }).eq("id", id);
+    fetchQuests();
+  };
+
   const handleDelete = async (id: string) => {
     if (!supabase) return;
     await supabase.from("tasks").delete().eq("id", id);
@@ -257,10 +280,11 @@ export function QuestsPage() {
       user_id:     user.id,
       title:       t.title,
       category:    t.category   || "General",
-      points:      t.points || getStandardPoints(t.priority || "Normal"),
+      points:      t.points || getXpByTier(t.xp_tier || "Low"),
       description: t.description || "",
       deadline:    t.deadline   || null,
       priority:    t.priority   || "Normal",
+      xp_tier:     t.xp_tier    || "Low",
     }));
     await supabase.from("tasks").insert(items);
     fetchQuests();
@@ -300,13 +324,15 @@ export function QuestsPage() {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="tabs">
         <div className={`tab${activeTab === "active" ? " active" : ""}`} onClick={() => setActiveTab("active")}>
-          Active <span className="badge-counter">{tasks.filter(t => !t.is_completed).length}</span>
+          Active <span className="badge-counter">{tasks.filter(t => !t.is_completed && !t.is_pending && !t.is_failed).length}</span>
+        </div>
+        <div className={`tab${activeTab === "pending" ? " active" : ""}`} onClick={() => setActiveTab("pending")}>
+          Pending <span className="badge-counter">{tasks.filter(t => t.is_pending && !t.is_completed).length}</span>
         </div>
         <div className={`tab${activeTab === "completed" ? " active" : ""}`} onClick={() => setActiveTab("completed")}>
-          Completed <span className="badge-counter">{tasks.filter(t => t.is_completed).length}</span>
+          Completed <span className="badge-counter">{tasks.filter(t => t.is_completed || t.is_failed).length}</span>
         </div>
         {assignedTasks.length > 0 && (
           <div className={`tab${activeTab === "assigned" ? " active" : ""}`} onClick={() => setActiveTab("assigned")}>
@@ -338,6 +364,8 @@ export function QuestsPage() {
               key={q.id}
               quest={q}
               onComplete={(id) => handleComplete(id, q.is_completed)}
+              onPending={handlePending}
+              onFail={handleFail}
               onSkip={hasSkipItem ? handleSkip : undefined}
               onDelete={handleDelete}
               onEdit={handleOpenEdit}
@@ -372,7 +400,7 @@ export function QuestsPage() {
             onChange={e => setFormData({ ...formData, title: e.target.value })} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <div className="form-group">
             <label className="form-label">Category</label>
             <select className="form-select" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
@@ -380,12 +408,22 @@ export function QuestsPage() {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Priority & XP</label>
+            <label className="form-label">Urgency</label>
             <select className="form-select" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
+              <option value="Low">Low</option>
+              <option value="Normal">Normal</option>
+              <option value="High">High</option>
+              <option value="URGENT">URGENT</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">XP Tier</label>
+            <select className="form-select" value={formData.xp_tier} onChange={e => setFormData({ ...formData, xp_tier: e.target.value })}>
               <option value="Low">Low (+10 XP)</option>
-              <option value="Normal">Normal (+20 XP)</option>
-              <option value="Medium">Medium (+40 XP)</option>
-              <option value="URGENT">URGENT (+75 XP)</option>
+              <option value="Mid">Mid (+25 XP)</option>
+              <option value="High">High (+50 XP)</option>
+              <option value="Super">Super (+100 XP)</option>
+              <option value="Legendary">Legendary (+250 XP)</option>
             </select>
           </div>
         </div>
