@@ -166,7 +166,7 @@ export function ArenaPage() {
       const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
       targetId = prof?.user_id ?? null;
     } else {
-      const { data: results } = await supabase.from("user_profiles").select("user_id").ilike("user_id", `${code}%`).limit(1);
+      const { data: results } = await supabase.from("user_profiles").select("user_id").eq("hunter_code", code.toUpperCase()).limit(1);
       targetId = results?.[0]?.user_id ?? null;
     }
     if (!targetId) { alert("Hunter not found in system."); setSaving(false); return; }
@@ -197,7 +197,7 @@ export function ArenaPage() {
       const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
       opponentId = prof?.user_id ?? null;
     } else {
-      const { data: results } = await supabase.from("user_profiles").select("user_id").ilike("user_id", `${code}%`).limit(1);
+      const { data: results } = await supabase.from("user_profiles").select("user_id").eq("hunter_code", code.toUpperCase()).limit(1);
       opponentId = results?.[0]?.user_id ?? null;
     }
     if (!opponentId) { alert("Opponent not found."); setSaving(false); return; }
@@ -458,7 +458,7 @@ export function ArenaPage() {
             {t === "Clan"     && <Shield size={14} />}
             {t === "Guild"    && <Trophy size={14} />}
             {t}
-            {t === "Clan" && challenges.length > 0 && tab !== t && (
+            {t === "1v1 Duels" && challenges.length > 0 && tab !== t && (
               <span className="arena-tab-badge">{challenges.length}</span>
             )}
           </button>

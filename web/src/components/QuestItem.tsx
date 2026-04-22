@@ -11,6 +11,7 @@ export interface DBTask {
   category: string;
   points: number;
   is_completed: boolean;
+  is_failed?: boolean;
   deadline: string | null;
   priority: string;
   assigned_to?: string | null;   // for clan/guild leader assignments
@@ -69,7 +70,7 @@ export function QuestItem({
 
         {/* Content */}
         <div className="quest-content">
-          <div className={`quest-title${isCompleted ? " quest-title-completed" : ""}`}>
+          <div className={`quest-title${isCompleted ? " quest-title-completed" : ""}`} style={{ color: quest.is_failed ? '#ff4444' : undefined, textDecoration: quest.is_failed ? 'line-through' : undefined }}>
             {quest.title}
             {quest.assigned_to && (
               <span style={{ marginLeft: 8, fontSize: "0.6rem", color: "#a8a8ff", fontWeight: 700,
@@ -97,8 +98,8 @@ export function QuestItem({
         </div>
 
         {/* XP badge */}
-        <div className={`quest-xp-badge${isCompleted ? " quest-xp-badge-completed" : ""}`}>
-          +{quest.points} XP
+        <div className={`quest-xp-badge${isCompleted ? " quest-xp-badge-completed" : ""}`} style={{ color: quest.is_failed ? '#ff4444' : undefined, borderColor: quest.is_failed ? '#ff4444' : undefined }}>
+          {quest.is_failed ? `-${quest.points} XP (FAILED)` : `+${quest.points} XP`}
         </div>
 
         {/* Actions */}

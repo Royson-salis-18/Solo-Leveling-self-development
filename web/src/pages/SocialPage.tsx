@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Button } from "../components/Button";
-import { Check, X, Search, Copy, CheckCheck, Users, UserPlus, Clock } from "lucide-react";
+import { Check, X, Search, Copy, CheckCheck, Users, UserPlus, Clock, MessageSquare, Send } from "lucide-react";
 
 type Friend = {
   id: string;
@@ -25,6 +25,12 @@ export function SocialPage() {
   const [searching, setSearching]     = useState(false);
   const [msg, setMsg]                 = useState("");
   const [copied, setCopied]           = useState(false);
+  const [activeTab, setActiveTab]     = useState<"social" | "tavern">("social");
+  
+  // Tavern states
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput]       = useState("");
+  const [chatLoading, setChatLoading]   = useState(false);
 
   /* ── Hunter Code: first 8 chars of UUID, uppercase ── */
   const hunterCode = user?.id?.slice(0, 8).toUpperCase() ?? "--------";
@@ -77,7 +83,37 @@ export function SocialPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [user]);
+  const fetchChat = async () => {
+    if (!supabase) return;
+    const { data: msgs } = await supabase
+      .from("global_chat")
+      .select("*, user_profiles(name, player_rank, hunter_code)")
+      .order("created_at", { ascending: true })
+      .limit(100);
+    setChatMessages(msgs ?? []);
+  };
+
+  useEffect(() => { 
+    fetchData(); 
+    fetchChat();
+    
+    // Simple polling for chat
+    const interval = setInterval(fetchChat, 5000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleSendChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !user || !chatInput.trim()) return;
+    setChatLoading(true);
+    await supabase.from("global_chat").insert({
+      user_id: user.id,
+      message: chatInput.trim()
+    });
+    setChatInput("");
+    setChatLoading(false);
+    fetchChat();
+  };
 
   /* ── Send friend request by Hunter Code ── */
   const handleSendRequest = async () => {
@@ -99,11 +135,11 @@ export function SocialPage() {
         .maybeSingle();
       targetId = prof?.user_id ?? null;
     } else {
-      // Search by prefix (Hunter Code = first 8 chars)
+      // Search by exact Hunter Code Match
       const { data: results } = await supabase
         .from("user_profiles")
         .select("user_id")
-        .ilike("user_id", `${code}%`)
+        .eq("hunter_code", code.toUpperCase())
         .limit(1);
       targetId = results?.[0]?.user_id ?? null;
     }
@@ -182,7 +218,18 @@ export function SocialPage() {
         <p className="text-xs text-muted">Connect with other hunters</p>
       </div>
 
-      {/* ── Your Hunter ID ── */}
+      <div className="tabs" style={{ marginBottom: 24 }}>
+        <div className={`tab${activeTab === "social" ? " active" : ""}`} onClick={() => setActiveTab("social")}>
+          <Users size={14} /> Companions
+        </div>
+        <div className={`tab${activeTab === "tavern" ? " active" : ""}`} onClick={() => setActiveTab("tavern")}>
+          <MessageSquare size={14} /> The Tavern
+        </div>
+      </div>
+
+      {activeTab === "social" ? (
+        <>
+          {/* ── Your Hunter ID ── */}
       <article className="panel" style={{
         background: "linear-gradient(135deg, rgba(168,168,255,0.06) 0%, rgba(255,255,255,0.03) 100%)",
         border: "1px solid rgba(168,168,255,0.2)",
@@ -413,6 +460,71 @@ export function SocialPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </article>
+      )}
+      </>
+      ) : (
+        /* ── THE TAVERN (GLOBAL CHAT) ── */
+        <article className="panel" style={{ display: 'flex', flexDirection: 'column', height: '65vh', padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
+            <div className="flex gap-8" style={{ alignItems: "center" }}>
+              <MessageSquare size={16} className="text-accent" />
+              <h2 style={{ margin: 0 }}>The Tavern</h2>
+            </div>
+            <p className="text-xs text-muted mt-4">Global communication channel for all Awakened hunters.</p>
+          </div>
+          
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {chatMessages.length === 0 ? (
+              <div className="text-center text-muted text-xs py-20 mt-20 opacity-50">
+                It's quiet in the tavern... Send a message to break the silence.
+              </div>
+            ) : (
+              chatMessages.map(m => (
+                <div key={m.id} style={{ display: 'flex', gap: '12px', opacity: m.user_id === user?.id ? 1 : 0.8 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                    background: `${rankColor(m.user_profiles?.player_rank)}15`,
+                    border: `1px solid ${rankColor(m.user_profiles?.player_rank)}44`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: "0.85rem", color: rankColor(m.user_profiles?.player_rank),
+                  }}>
+                    {m.user_profiles?.name?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginBottom: '4px' }}>
+                      <span className="font-600 outline-text text-sm" style={{ color: rankColor(m.user_profiles?.player_rank) }}>
+                        {m.user_profiles?.name}
+                      </span>
+                      <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>
+                        #{m.user_profiles?.hunter_code} • {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                    </div>
+                    <div className="text-sm" style={{ lineHeight: 1.4, color: 'var(--t2)', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '0 8px 8px 8px' }}>
+                      {m.message}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          
+          <div style={{ padding: '16px', background: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <form onSubmit={handleSendChat} style={{ display: 'flex', gap: '10px' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Speak to the tavern..."
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                disabled={chatLoading}
+                style={{ flex: 1 }}
+              />
+              <Button variant="primary" onClick={() => {}} disabled={chatLoading || !chatInput.trim()}>
+                 <Send size={14} />
+              </Button>
+            </form>
           </div>
         </article>
       )}

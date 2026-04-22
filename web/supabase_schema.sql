@@ -1,14 +1,12 @@
 -- ============================================================
--- SOLO LEVELING — DEEP RPG SYSTEM V3 (REPAIR)
+-- SOLO LEVELING — COMPREHENSIVE SCHEMA WITH PUNISHMENT LOGIC
+-- AND EXISTING USER SUPPORT
 -- ============================================================
 
 -- 1. CLEAN SLATE: Remove all old tables and functions
 -- Note: Dropping the table CASCADE automatically removes its triggers and policies.
 DROP TRIGGER IF EXISTS trg_new_user ON auth.users;
 DROP FUNCTION IF EXISTS handle_new_user CASCADE;
-DROP FUNCTION IF EXISTS set_updated_at CASCADE;
-DROP FUNCTION IF EXISTS check_clan_member_limit CASCADE;
-DROP FUNCTION IF EXISTS get_user_id_by_email CASCADE;
 
 DROP TABLE IF EXISTS clan_invites  CASCADE;
 DROP TABLE IF EXISTS clan_members  CASCADE;
@@ -25,286 +23,285 @@ DROP TABLE IF EXISTS user_profiles CASCADE;
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. BIG GUILDS (5–20 members)
+-- ==========================================
+-- GUILDS & CLANS
+-- ==========================================
 CREATE TABLE guilds (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         TEXT NOT NULL UNIQUE,
-  description  TEXT NOT NULL DEFAULT '',
-  leader_id    UUID NOT NULL REFERENCES auth.users(id),
-  banner_url   TEXT,
-  min_rank     TEXT DEFAULT 'E',
-  member_count INTEGER DEFAULT 0,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name           TEXT NOT NULL,
+    description    TEXT DEFAULT '',
+    leader_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    member_count   INTEGER DEFAULT 1,
+    min_rank       TEXT DEFAULT 'E',
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 3. CLANS (3–5 members)
 CREATE TABLE clans (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         TEXT NOT NULL UNIQUE,
-  description  TEXT NOT NULL DEFAULT '',
-  leader_id    UUID NOT NULL REFERENCES auth.users(id),
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name           TEXT NOT NULL,
+    description    TEXT DEFAULT '',
+    leader_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 4. USER PROFILES
+-- ==========================================
+-- USER PROFILES
+-- ==========================================
 CREATE TABLE user_profiles (
-  user_id      UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name         TEXT NOT NULL DEFAULT 'Hunter',
-  bio          TEXT NOT NULL DEFAULT 'E-Rank Hunter',
-  player_class TEXT NOT NULL DEFAULT 'None',
-  player_rank  TEXT NOT NULL DEFAULT 'E',
-  player_title TEXT NOT NULL DEFAULT 'Rookie',
-  level        INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
-  total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0),
-  guild_id     UUID REFERENCES guilds(id) ON DELETE SET NULL,
-  clan_id      UUID REFERENCES clans(id) ON DELETE SET NULL,
-  is_boosted   BOOLEAN NOT NULL DEFAULT FALSE,
-  boost_expires TIMESTAMPTZ,
-  age          INTEGER,
-  weapon_of_choice TEXT DEFAULT 'None',
-  gear_style   TEXT DEFAULT 'Hybrid',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    email          TEXT UNIQUE,
+    hunter_code    TEXT UNIQUE,
+    name           TEXT NOT NULL DEFAULT 'Hunter',
+    avatar_url     TEXT,
+    bio            TEXT DEFAULT '',
+    level          INTEGER DEFAULT 1,
+    total_points   INTEGER DEFAULT 0,
+    player_class   TEXT DEFAULT 'Warrior',
+    player_rank    TEXT DEFAULT 'E',
+    player_title   TEXT DEFAULT 'Newcomer',
+    guild_id       UUID REFERENCES guilds(id) ON DELETE SET NULL,
+    clan_id        UUID REFERENCES clans(id) ON DELETE SET NULL,
+    is_boosted     BOOLEAN DEFAULT FALSE,
+    age            INTEGER DEFAULT 18,
+    weapon_of_choice TEXT DEFAULT 'Starter Blade',
+    gear_style     TEXT DEFAULT 'Hybrid',
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 5. CLAN MEMBERS (explicit membership + role)
-CREATE TABLE clan_members (
-  id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  clan_id   UUID NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
-  user_id   UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role      TEXT NOT NULL DEFAULT 'member',
-  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(clan_id, user_id)
-);
-
--- 6. CLAN INVITES
-CREATE TABLE clan_invites (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  clan_id       UUID NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
-  inviter_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  invitee_email TEXT NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'pending',
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 7. CORE TABLES
+-- ==========================================
+-- TASKS / QUESTS
+-- ==========================================
 CREATE TABLE tasks (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  parent_id    UUID REFERENCES tasks(id) ON DELETE CASCADE,
-  assigned_to  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  title        TEXT NOT NULL,
-  description  TEXT NOT NULL DEFAULT '',
-  category     TEXT NOT NULL DEFAULT 'General',
-  points       INTEGER NOT NULL DEFAULT 10 CHECK (points > 0),
-  priority     TEXT NOT NULL DEFAULT 'Normal',
-  is_completed BOOLEAN NOT NULL DEFAULT FALSE,
-  deadline     DATE,
-  completed_at TIMESTAMPTZ,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    email          TEXT,
+    title          TEXT NOT NULL,
+    description    TEXT DEFAULT '',
+    category       TEXT DEFAULT 'General',
+    points         INTEGER DEFAULT 10,
+    is_completed   BOOLEAN DEFAULT FALSE,
+    is_failed      BOOLEAN DEFAULT FALSE, -- <-- Determines if deadline was missed!
+    priority       TEXT DEFAULT 'Normal',
+    area           TEXT,
+    deadline       DATE,
+    time           TEXT,
+    completed_at   TIMESTAMP WITH TIME ZONE,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    parent_id      UUID REFERENCES tasks(id) ON DELETE CASCADE,
+    assigned_to    UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
+-- ==========================================
+-- SOCIAL / FRIENDSHIP
+-- ==========================================
+CREATE TABLE friendship (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    requester_id   UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    receiver_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    status         TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(requester_id, receiver_id)
+);
+
+-- ==========================================
+-- TAVERN (GLOBAL CHAT)
+-- ==========================================
+CREATE TABLE global_chat (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    message        TEXT NOT NULL,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==========================================
+-- POINTS, PUNISHMENTS & REWARDS
+-- ==========================================
 CREATE TABLE user_points (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  date         DATE NOT NULL DEFAULT CURRENT_DATE,
-  daily_points INTEGER NOT NULL DEFAULT 0,
-  UNIQUE(user_id, date)
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    email          TEXT,
+    date           DATE NOT NULL,
+    daily_points   INTEGER DEFAULT 0,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(user_id, date)
 );
 
 CREATE TABLE rewards (
-  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
-  xp_cost    INTEGER NOT NULL DEFAULT 100,
-  tier       TEXT NOT NULL DEFAULT 'instant',
-  is_claimed BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    name           TEXT NOT NULL,
+    xp_cost        INTEGER DEFAULT 100,
+    tier           TEXT DEFAULT 'instant' CHECK (tier IN ('instant', 'medium', 'major')),
+    is_claimed     BOOLEAN DEFAULT FALSE,
+    claimed_at     TIMESTAMP WITH TIME ZONE,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 CREATE TABLE punishments (
-  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
-  xp_penalty INTEGER NOT NULL DEFAULT 25,
-  triggered  INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    name           TEXT NOT NULL,
+    xp_penalty     INTEGER DEFAULT 25,
+    triggered      INTEGER DEFAULT 0,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 8. SOCIAL FRIENDSHIP
-CREATE TABLE friendship (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  requester_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  receiver_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  status       TEXT NOT NULL DEFAULT 'pending',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(requester_id, receiver_id)
+-- ==========================================
+-- CLAN & GUILD MEMBERS
+-- ==========================================
+CREATE TABLE clan_members (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    clan_id        UUID REFERENCES clans(id) ON DELETE CASCADE NOT NULL,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    role           TEXT DEFAULT 'member' CHECK (role IN ('leader', 'officer', 'member')),
+    joined_at      TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(clan_id, user_id)
 );
 
--- 9. INVENTORY (special items)
-CREATE TABLE inventory (
-  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  item_type  TEXT NOT NULL,
-  name       TEXT NOT NULL,
-  quantity   INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 0),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE clan_invites (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    clan_id        UUID REFERENCES clans(id) ON DELETE CASCADE NOT NULL,
+    inviter_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    invitee_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    status         TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 10. COMPETITIVE CHALLENGES
+-- ==========================================
+-- CHALLENGES / DUELS
+-- ==========================================
 CREATE TABLE challenges (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  creator_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  opponent_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  target_points     INTEGER NOT NULL DEFAULT 100,
-  creator_start_pts INTEGER NOT NULL DEFAULT 0,
-  opponent_start_pts INTEGER NOT NULL DEFAULT 0,
-  start_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  expires_at        TIMESTAMPTZ NOT NULL,
-  status            TEXT NOT NULL DEFAULT 'active',
-  winner_id         UUID REFERENCES auth.users(id),
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                 UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    creator_id         UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    opponent_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    target_points      INTEGER DEFAULT 50,
+    creator_start_pts  INTEGER DEFAULT 0,
+    opponent_start_pts INTEGER DEFAULT 0,
+    expires_at         TIMESTAMP WITH TIME ZONE NOT NULL,
+    status             TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'expired')),
+    winner_id          UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at         TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==========================================
+-- INVENTORY
+-- ==========================================
+CREATE TABLE inventory (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    item_type      TEXT NOT NULL CHECK (item_type IN ('TASK_SKIP', 'XP_BOOST', 'CHALLENGE_KEY', 'REVIVE_TOKEN')),
+    quantity       INTEGER DEFAULT 1,
+    acquired_at    TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(user_id, item_type)
 );
 
 -- ============================================================
--- ROW LEVEL SECURITY
+-- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================
-ALTER TABLE guilds        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clans         ENABLE ROW LEVEL SECURITY;
+
+-- Enable RLS on all tables
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clan_members  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clan_invites  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_points   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE rewards       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE punishments   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE friendship    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE inventory     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE challenges    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_points    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE friendship     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rewards        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE punishments    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clans          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clan_members   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clan_invites   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guilds         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE challenges     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE global_chat    ENABLE ROW LEVEL SECURITY;
 
--- Guilds & Clans: public read, leader write
-DROP POLICY IF EXISTS "everyone_view_guilds" ON guilds;
-CREATE POLICY "everyone_view_guilds" ON guilds FOR SELECT USING (true);
-DROP POLICY IF EXISTS "leaders_edit_guilds" ON guilds;
-CREATE POLICY "leaders_edit_guilds"  ON guilds FOR ALL   USING (auth.uid() = leader_id);
-DROP POLICY IF EXISTS "everyone_view_clans" ON clans;
-CREATE POLICY "everyone_view_clans"  ON clans  FOR SELECT USING (true);
-DROP POLICY IF EXISTS "leaders_edit_clans" ON clans;
-CREATE POLICY "leaders_edit_clans"   ON clans  FOR ALL   USING (auth.uid() = leader_id);
+-- Profiles
+CREATE POLICY "Users can manage own profile" ON user_profiles FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Authenticated users can read all profiles" ON user_profiles FOR SELECT USING (auth.uid() IS NOT NULL);
 
--- Profiles: own profile full access, everyone can read
-DROP POLICY IF EXISTS "own_profile" ON user_profiles;
-CREATE POLICY "own_profile"    ON user_profiles FOR ALL    USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "public_profiles" ON user_profiles;
-CREATE POLICY "public_profiles" ON user_profiles FOR SELECT USING (true);
+-- Tasks
+CREATE POLICY "Users can manage own tasks" ON tasks FOR ALL USING (auth.uid() = user_id OR auth.uid() = assigned_to);
 
--- Clan members: everyone reads, inclusive insert
-DROP POLICY IF EXISTS "view_all_clan_members" ON clan_members;
-CREATE POLICY "view_all_clan_members"  ON clan_members FOR SELECT USING (true);
-DROP POLICY IF EXISTS "insert_clan_members" ON clan_members;
-CREATE POLICY "insert_clan_members"    ON clan_members FOR INSERT WITH CHECK (true);
-DROP POLICY IF EXISTS "delete_clan_members" ON clan_members;
-CREATE POLICY "delete_clan_members"    ON clan_members FOR DELETE USING (auth.uid() = user_id);
+-- Points, Rewards, Punishments, Inventory
+CREATE POLICY "Users can manage own points" ON user_points FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own rewards" ON rewards FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own punishments" ON punishments FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own inventory" ON inventory FOR ALL USING (auth.uid() = user_id);
 
--- Clan invites: leaders manage
-DROP POLICY IF EXISTS "manage_clan_invites" ON clan_invites;
-CREATE POLICY "manage_clan_invites" ON clan_invites FOR ALL USING (auth.uid() = inviter_id);
+-- Friendships & Chat
+CREATE POLICY "Users can manage own friendships" ON friendship FOR ALL USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
 
--- Tasks: own + assigned-to-me readable
-DROP POLICY IF EXISTS "own_tasks" ON tasks;
-CREATE POLICY "own_tasks"      ON tasks FOR ALL    USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "assigned_tasks" ON tasks;
-CREATE POLICY "assigned_tasks" ON tasks FOR SELECT USING (auth.uid() = assigned_to);
-DROP POLICY IF EXISTS "complete_assigned_tasks" ON tasks;
-CREATE POLICY "complete_assigned_tasks" ON tasks FOR UPDATE USING (auth.uid() = assigned_to);
+CREATE POLICY "Authenticated read chat" ON global_chat FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Authenticated post chat" ON global_chat FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Other tables: own rows only
-DROP POLICY IF EXISTS "own_points" ON user_points;
-CREATE POLICY "own_points"      ON user_points  FOR ALL USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "own_rewards" ON rewards;
-CREATE POLICY "own_rewards"     ON rewards      FOR ALL USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "own_punishments" ON punishments;
-CREATE POLICY "own_punishments" ON punishments  FOR ALL USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "own_inventory" ON inventory;
-CREATE POLICY "own_inventory"   ON inventory    FOR ALL USING (auth.uid() = user_id);
+-- Clans & Guilds
+CREATE POLICY "Authenticated read clans" ON clans FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Leaders can manage clans" ON clans FOR ALL USING (auth.uid() = leader_id);
+CREATE POLICY "Users can create clans" ON clans FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
--- Friendship: both parties can see, requester can manage
-DROP POLICY IF EXISTS "own_friendships" ON friendship;
-CREATE POLICY "own_friendships" ON friendship FOR ALL USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
+CREATE POLICY "Authenticated read clan members" ON clan_members FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Clan members can manage membership" ON clan_members FOR ALL USING (auth.uid() IS NOT NULL);
 
--- Challenges: both participants can see
-DROP POLICY IF EXISTS "own_challenges" ON challenges;
-CREATE POLICY "own_challenges" ON challenges FOR ALL USING (auth.uid() = creator_id OR auth.uid() = opponent_id);
+CREATE POLICY "Users can manage clan invites" ON clan_invites FOR ALL USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Authenticated read guilds" ON guilds FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Leaders can manage guilds" ON guilds FOR ALL USING (auth.uid() = leader_id);
+CREATE POLICY "Users can create guilds" ON guilds FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Challenges
+CREATE POLICY "Users can see own challenges" ON challenges FOR SELECT USING (auth.uid() = creator_id OR auth.uid() = opponent_id);
+CREATE POLICY "Users can create challenges" ON challenges FOR INSERT WITH CHECK (auth.uid() = creator_id);
+CREATE POLICY "Users can update own challenges" ON challenges FOR UPDATE USING (auth.uid() = creator_id OR auth.uid() = opponent_id);
 
 -- ============================================================
--- INDEXES
--- ============================================================
-CREATE INDEX IF NOT EXISTS idx_tasks_user_id     ON tasks(user_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
-CREATE INDEX IF NOT EXISTS idx_cm_clan_id        ON clan_members(clan_id);
-CREATE INDEX IF NOT EXISTS idx_cm_user_id        ON clan_members(user_id);
-
--- ============================================================
--- TRIGGERS & FUNCTIONS
+-- HELPER FUNCTIONS
 -- ============================================================
 
 -- Auto-create profile on sign-up
-CREATE OR REPLACE FUNCTION handle_new_user()
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.user_profiles (user_id, name, player_class)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'player_class', 'Warrior')
-  )
-  ON CONFLICT (user_id) DO NOTHING;
-  RETURN NEW;
+    INSERT INTO public.user_profiles (user_id, email, hunter_code, name, player_class, player_rank, player_title)
+    VALUES (
+        NEW.id,
+        NEW.email,
+        UPPER(SUBSTRING(NEW.id::text FROM 1 FOR 8)),
+        COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+        COALESCE(NEW.raw_user_meta_data->>'player_class', 'Warrior'),
+        'E',
+        'Newcomer'
+    )
+    ON CONFLICT (user_id) DO NOTHING;
+    RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP TRIGGER IF EXISTS trg_new_user ON auth.users;
 CREATE TRIGGER trg_new_user
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Updated_at trigger
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+-- Look up user profile by Hunter Code (first N chars of UUID)
+CREATE OR REPLACE FUNCTION get_profile_by_hunter_code(hunter_code_input TEXT)
+RETURNS TABLE(user_id UUID, name TEXT, player_class TEXT, player_rank TEXT, level INTEGER)
+LANGUAGE sql SECURITY DEFINER
+AS $$
+    SELECT user_id, name, player_class, player_rank, level
+    FROM user_profiles
+    WHERE hunter_code = UPPER(hunter_code_input)
+    LIMIT 1;
 $$;
 
-DROP TRIGGER IF EXISTS trg_up_updated_at ON user_profiles;
-CREATE TRIGGER trg_up_updated_at
-  BEFORE UPDATE ON user_profiles
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- Clan max 5 members
-CREATE OR REPLACE FUNCTION check_clan_member_limit()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF (SELECT COUNT(*) FROM clan_members WHERE clan_id = NEW.clan_id) >= 5 THEN
-    RAISE EXCEPTION 'Clan is at maximum capacity (5 members).';
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_clan_limit ON clan_members;
-CREATE TRIGGER trg_clan_limit
-  BEFORE INSERT ON clan_members
-  FOR EACH ROW EXECUTE FUNCTION check_clan_member_limit();
-
--- RPC: find user ID by email (SECURITY DEFINER to access auth.users)
-CREATE OR REPLACE FUNCTION get_user_id_by_email(email_input TEXT)
-RETURNS UUID AS $$
-  SELECT id FROM auth.users WHERE email = email_input LIMIT 1;
-$$ LANGUAGE sql SECURITY DEFINER;
-
 -- ============================================================
--- BACKFILL: create profiles for existing users
+-- BACKFILL: RE-CREATE PROFILES FOR EXISTING AUTH USERS
+-- (Crucial since tables were dropped but auth.users still exist)
 -- ============================================================
-INSERT INTO public.user_profiles (user_id, name)
-SELECT id, COALESCE(raw_user_meta_data->>'name', split_part(email, '@', 1))
+INSERT INTO public.user_profiles (user_id, email, hunter_code, name, player_class, player_rank, player_title)
+SELECT 
+    id, 
+    email,
+    UPPER(SUBSTRING(id::text FROM 1 FOR 8)),
+    COALESCE(raw_user_meta_data->>'name', split_part(email, '@', 1)),
+    COALESCE(raw_user_meta_data->>'player_class', 'Warrior'),
+    'E',
+    'Newcomer'
 FROM auth.users
 ON CONFLICT (user_id) DO NOTHING;

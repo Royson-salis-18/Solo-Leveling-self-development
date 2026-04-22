@@ -95,7 +95,7 @@ export function ClansPage() {
       const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
       targetId = prof?.user_id ?? null;
     } else {
-      const { data: results } = await supabase.from("user_profiles").select("user_id").ilike("user_id", `${code}%`).limit(1);
+      const { data: results } = await supabase.from("user_profiles").select("user_id").eq("hunter_code", code.toUpperCase()).limit(1);
       targetId = results?.[0]?.user_id ?? null;
     }
     

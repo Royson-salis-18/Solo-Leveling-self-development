@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 
 const EMPTY_FORM = {
-  title: "", category: "General", points: 10, description: "",
+  title: "", category: "General", description: "",
   deadline: "", priority: "Normal", parentId: null as string | null,
   assignTo: "" as string,   // user_id to assign to (empty = self)
 };
@@ -53,7 +53,38 @@ export function QuestsPage() {
       flat
         .filter(t => t.parent_id === parentId)
         .map(t => ({ ...t, subtasks: buildTree(flat, t.id) }));
+    // Check for overdue tasks to automatically fail them
+    const today = new Date().toISOString().split("T")[0];
     const flat: DBTask[] = (qRes ?? []).map(t => ({ ...t, subtasks: [] }));
+    const overdueTasks = flat.filter(t => !t.is_completed && !t.is_failed && t.deadline && t.deadline < today);
+
+    if (overdueTasks.length > 0) {
+      const overdueIds = overdueTasks.map(t => t.id);
+      await supabase.from("tasks").update({ is_completed: true, is_failed: true }).in("id", overdueIds);
+      
+      const totalPenalty = overdueTasks.reduce((sum, t) => sum + (t.points || 10), 0);
+      
+      // Log punishments
+      await supabase.from("punishments").insert(
+        overdueTasks.map(t => ({
+          user_id: user.id,
+          name: `Missed Deadline: ${t.title}`,
+          xp_penalty: t.points || 10,
+          triggered: 1
+        }))
+      );
+
+      // Deduct XP
+      const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
+      const newPoints = Math.max(0, (prof?.total_points ?? 0) - totalPenalty);
+      await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
+      
+      alert(`System Notice: ${overdueTasks.length} task(s) missed the deadline. Penalty: -${totalPenalty} XP.`);
+      
+      // Re-fetch since state changed
+      return fetchQuests();
+    }
+
     setTasks(buildTree(flat, null));
 
     // assigned-to-me tasks (flat, no subtask nesting needed)
@@ -94,7 +125,8 @@ export function QuestsPage() {
   const filteredTasks = useMemo(() => {
     const isDone = activeTab === "completed";
     return tasks.filter(t => {
-      const matchStatus = t.is_completed === isDone;
+      // Failed tasks go to completed tab
+      const matchStatus = isDone ? (t.is_completed || t.is_failed) : (!t.is_completed && !t.is_failed);
       const matchDate   = !selectedDate || t.deadline === selectedDate;
       return matchStatus && matchDate;
     });
@@ -112,7 +144,6 @@ export function QuestsPage() {
     setFormData({
       title:    task.title,
       category: task.category,
-      points:   task.points,
       description: task.description,
       deadline: task.deadline ?? "",
       priority: task.priority,
@@ -120,6 +151,16 @@ export function QuestsPage() {
       assignTo: task.assigned_to ?? "",
     });
     setShowModal(true);
+  };
+
+  const getStandardPoints = (priority: string) => {
+    switch (priority) {
+      case "URGENT": return 75;
+      case "Medium": return 40;
+      case "Normal": return 20;
+      case "Low":    return 10;
+      default:       return 20;
+    }
   };
 
   const handleSave = async () => {
@@ -130,7 +171,7 @@ export function QuestsPage() {
       user_id:     targetUser === user.id ? user.id : user.id, // creator is always self
       title:       formData.title,
       category:    formData.category,
-      points:      Math.max(1, formData.points),
+      points:      getStandardPoints(formData.priority),
       description: formData.description,
       deadline:    formData.deadline || null,
       priority:    formData.priority,
@@ -152,7 +193,7 @@ export function QuestsPage() {
   const handleComplete = async (id: string, isDone: boolean) => {
     if (!supabase || !user) return;
     const completed_at = !isDone ? new Date().toISOString() : null;
-    await supabase.from("tasks").update({ is_completed: !isDone, completed_at }).eq("id", id);
+    await supabase.from("tasks").update({ is_completed: !isDone, is_failed: false, completed_at }).eq("id", id);
 
     if (!isDone) {
       // find task in own tasks OR assigned tasks
@@ -199,7 +240,7 @@ export function QuestsPage() {
       user_id:     user.id,
       title:       t.title,
       category:    t.category   || "General",
-      points:      t.points     || 10,
+      points:      t.points || getStandardPoints(t.priority || "Normal"),
       description: t.description || "",
       deadline:    t.deadline   || null,
       priority:    t.priority   || "Normal",
@@ -322,24 +363,20 @@ export function QuestsPage() {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Priority</label>
+            <label className="form-label">Priority & XP</label>
             <select className="form-select" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
-              {["Low", "Normal", "Medium", "URGENT"].map(p => <option key={p}>{p}</option>)}
+              <option value="Low">Low (+10 XP)</option>
+              <option value="Normal">Normal (+20 XP)</option>
+              <option value="Medium">Medium (+40 XP)</option>
+              <option value="URGENT">URGENT (+75 XP)</option>
             </select>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div className="form-group">
-            <label className="form-label">XP Reward</label>
-            <input type="number" className="form-input" value={formData.points}
-              onChange={e => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Deadline</label>
-            <input type="date" className="form-input" value={formData.deadline}
-              onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
-          </div>
+        <div className="form-group">
+          <label className="form-label">Deadline</label>
+          <input type="date" className="form-input" value={formData.deadline}
+            onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
         </div>
 
         {/* Leader-only: assign to clan member */}
