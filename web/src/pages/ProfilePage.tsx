@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { Edit3, Shield, Swords, Zap, Brain, Activity, Award, Calendar, Hash, Target, Sparkles, Medal } from "lucide-react";
+import { Edit3, Shield, Swords, Zap, Brain, Activity, Calendar, Hash, Sparkles, Medal } from "lucide-react";
 import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
 
 type Profile = {
@@ -98,7 +98,6 @@ export function ProfilePage() {
     setShowEdit(false);
   };
 
-  const navigate = useNavigate();
 
   if (loading) return <section className="page"><div className="panel panel-empty text-muted text-sm">Synchronizing with System…</div></section>;
   
