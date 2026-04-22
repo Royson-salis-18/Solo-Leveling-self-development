@@ -1,4 +1,4 @@
-import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target } from "lucide-react";
+import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target, BookOpen } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
@@ -11,6 +11,7 @@ const links = [
   { to: "/social",      label: "Social",      icon: Users },
   { to: "/challenges",  label: "Challenges",  icon: Target },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { to: "/guide",       label: "Guide",       icon: BookOpen },
   { to: "/profile",     label: "Profile",     icon: User },
 ];
 

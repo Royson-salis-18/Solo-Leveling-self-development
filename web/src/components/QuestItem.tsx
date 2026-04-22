@@ -15,6 +15,7 @@ export interface DBTask {
   is_failed?: boolean;
   is_pending?: boolean;
   deadline: string | null;
+  time?: string | null;
   priority: string;
   assigned_to?: string | null;   // for clan/guild leader assignments
   subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
@@ -108,8 +109,10 @@ export function QuestItem({
               <span className="tag" style={{ color: tierColor, borderColor: tierColor, opacity: 0.85 }}>{quest.xp_tier} XP</span>
             )}
             {quest.deadline && (
-              <span className="text-xs text-muted">
-                Due {new Date(quest.deadline + "T00:00:00").toLocaleDateString()}
+              <span className="text-xs text-muted flex gap-2 items-center">
+                <Clock size={10} />
+                {new Date(quest.deadline + "T00:00:00").toLocaleDateString()}
+                {quest.time && ` @ ${quest.time}`}
               </span>
             )}
             {quest.description && (

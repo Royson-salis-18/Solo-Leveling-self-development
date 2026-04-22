@@ -19,6 +19,10 @@ type Challenge = {
   creator_name: string; opponent_name: string;
   creator_pts: number; opponent_pts: number;
 };
+type GroupEvent = {
+  id: string; title: string; description: string; event_type: string;
+  xp_reward: number; start_time: string; end_time: string; status: string;
+};
 
 const TABS = ["1v1 Duels", "Clan", "Guild"] as const;
 type Tab = typeof TABS[number];
@@ -32,6 +36,8 @@ export function ArenaPage() {
   const [clanMembers, setClanMembers]   = useState<Member[]>([]);
   const [guildMembers, setGuildMembers] = useState<Member[]>([]);
   const [challenges, setChallenges]     = useState<Challenge[]>([]);
+  const [clanEvents, setClanEvents]     = useState<GroupEvent[]>([]);
+  const [guildEvents, setGuildEvents]   = useState<GroupEvent[]>([]);
   const [isLeader,  setIsLeader]  = useState(false);
   const [loading, setLoading]   = useState(true);
 
@@ -58,6 +64,10 @@ export function ArenaPage() {
     points: 10, priority: "Normal", deadline: "", description: ""
   });
 
+  const [eventForm, setEventForm] = useState({
+    title: "", description: "", type: "Rally", reward: 50, days: 3, opponentId: ""
+  });
+
   /* ── fetch everything ── */
   const fetchAll = async () => {
     if (!supabase || !user) return;
@@ -68,11 +78,13 @@ export function ArenaPage() {
       .from("clan_members").select("clan_id").eq("user_id", user.id).maybeSingle();
 
     if (clanMembership) {
-      const [{ data: clanData }, { data: clanMR }] = await Promise.all([
+      const [{ data: clanData }, { data: clanMR }, { data: cEvents }] = await Promise.all([
         supabase.from("clans").select("*").eq("id", clanMembership.clan_id).single(),
         supabase.from("clan_members").select("user_id, role").eq("clan_id", clanMembership.clan_id),
+        supabase.from("clan_events").select("*").eq("clan_id", clanMembership.clan_id).eq("status", "active"),
       ]);
       setClan(clanData);
+      setClanEvents(cEvents ?? []);
       if (clanMR) {
         const uids = clanMR.map((m: any) => m.user_id);
         const { data: profs } = await supabase.from("user_profiles").select("*").in("user_id", uids);
@@ -85,18 +97,22 @@ export function ArenaPage() {
         const myRole = clanMR.find((m: any) => m.user_id === user?.id)?.role;
         setIsLeader(myRole === "leader" || myRole === "officer");
       }
-    } else { setClan(null); setIsLeader(false); }
+    } else { setClan(null); setIsLeader(false); setClanEvents([]); }
 
     // Guild membership
     const { data: guildMembership } = await supabase
       .from("user_profiles").select("guild_id").eq("user_id", user.id).maybeSingle();
 
     if (guildMembership?.guild_id) {
-      const { data: guildData } = await supabase.from("guilds").select("*").eq("id", guildMembership.guild_id).single();
+      const [{ data: guildData }, { data: guildProfs }, { data: gEvents }] = await Promise.all([
+        supabase.from("guilds").select("*").eq("id", guildMembership.guild_id).single(),
+        supabase.from("user_profiles").select("*").eq("guild_id", guildMembership.guild_id),
+        supabase.from("guild_events").select("*").eq("guild_id", guildMembership.guild_id).eq("status", "active")
+      ]);
       setGuild(guildData);
-      const { data: guildProfs } = await supabase.from("user_profiles").select("*").eq("guild_id", guildMembership.guild_id);
       setGuildMembers((guildProfs ?? []).sort((a: any, b: any) => b.total_points - a.total_points));
-    } else { setGuild(null); }
+      setGuildEvents(gEvents ?? []);
+    } else { setGuild(null); setGuildEvents([]); }
 
     // Challenges
     const { data: chals } = await supabase.from("challenges")
@@ -242,6 +258,44 @@ export function ArenaPage() {
     setAq({ assignTo: "", title: "", category: "General", points: 10, priority: "Normal", deadline: "", description: "" });
   };
 
+  const createEvent = async (group: "clan" | "guild") => {
+    if (!supabase || !user) return;
+    setSaving(true);
+    const table = group === "clan" ? "clan_events" : "guild_events";
+    const groupId = group === "clan" ? clan?.id : guild?.id;
+    if (!groupId || !eventForm.title.trim()) { setSaving(false); return; }
+
+    const start = new Date().toISOString();
+    const end = new Date(Date.now() + eventForm.days * 86400000).toISOString();
+
+    const payload = {
+      creator_id: user.id,
+      title: eventForm.title,
+      description: eventForm.description,
+      event_type: eventForm.type,
+      xp_reward: eventForm.reward,
+      start_time: start,
+      end_time: end,
+      status: "active"
+    };
+
+    if (group === "clan") {
+      (payload as any).clan_id = groupId;
+      if (eventForm.type === "War" && eventForm.opponentId.trim()) (payload as any).opponent_clan_id = eventForm.opponentId.trim();
+    } else {
+      (payload as any).guild_id = groupId;
+      if (eventForm.type === "War" && eventForm.opponentId.trim()) (payload as any).opponent_guild_id = eventForm.opponentId.trim();
+    }
+
+    await supabase.from(table).insert(payload);
+    
+    setSaving(false);
+    if (group === "clan") setShowNewClanEvent(false);
+    else setShowNewGuildEvent(false);
+    setEventForm({ title: "", description: "", type: "Rally", reward: 50, days: 3, opponentId: "" });
+    fetchAll();
+  };
+
   /* ── helpers ── */
   const timeLeft = (iso: string) => {
     const ms = new Date(iso).getTime() - Date.now();
@@ -309,6 +363,32 @@ export function ArenaPage() {
               </div>
             ))}
           </div>
+
+          {/* Active Events */}
+          {clanEvents.length > 0 && (
+            <div className="mt-16">
+              <div className="text-xs text-muted uppercase tracking-widest mb-8">Active Events</div>
+              <div className="flex-col gap-8">
+                {clanEvents.map(e => (
+                  <div key={e.id} className="panel panel-no-pad" style={{ padding: 12, borderLeft: "3px solid #ffcc00", background: "rgba(255,255,255,0.02)" }}>
+                    <div className="flex-between">
+                      <div>
+                        <div className="text-sm font-700">{e.title}</div>
+                        <div className="text-xs text-muted">{e.description}</div>
+                      </div>
+                      <div className="text-right">
+                        <span className="tag" style={{ color: "#ffcc00", borderColor: "rgba(255,204,0,0.3)" }}>{e.event_type}</span>
+                        <div className="text-xs font-700 mt-4" style={{ color: "#34d399" }}>+{e.xp_reward} XP</div>
+                      </div>
+                    </div>
+                    <div className="text-xs mt-8" style={{ color: "var(--t3)" }}>
+                      <Timer size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle", marginBottom: 2 }}/> {timeLeft(e.end_time)} remaining
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -366,6 +446,32 @@ export function ArenaPage() {
               <div className="text-xs text-muted text-center py-8">+{guildMembers.length - 10} more members</div>
             )}
           </div>
+
+          {/* Active Events */}
+          {guildEvents.length > 0 && (
+            <div className="mt-16">
+              <div className="text-xs text-muted uppercase tracking-widest mb-8">Active Events</div>
+              <div className="flex-col gap-8">
+                {guildEvents.map(e => (
+                  <div key={e.id} className="panel panel-no-pad" style={{ padding: 12, borderLeft: "3px solid #ffcc00", background: "rgba(255,255,255,0.02)" }}>
+                    <div className="flex-between">
+                      <div>
+                        <div className="text-sm font-700">{e.title}</div>
+                        <div className="text-xs text-muted">{e.description}</div>
+                      </div>
+                      <div className="text-right">
+                        <span className="tag" style={{ color: "#ffcc00", borderColor: "rgba(255,204,0,0.3)" }}>{e.event_type}</span>
+                        <div className="text-xs font-700 mt-4" style={{ color: "#34d399" }}>+{e.xp_reward} XP</div>
+                      </div>
+                    </div>
+                    <div className="text-xs mt-8" style={{ color: "var(--t3)" }}>
+                      <Timer size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle", marginBottom: 2 }}/> {timeLeft(e.end_time)} remaining
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -551,7 +657,7 @@ export function ArenaPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group"><label className="form-label">Category</label>
             <select className="form-select" value={aq.category} onChange={e => setAq({ ...aq, category: e.target.value })}>
-              {["General","Work","Health","Learning","Personal"].map(c => <option key={c}>{c}</option>)}
+              {["General","Work","Fitness","Learning","Academics","Mindfulness","Finance","Social","Creative","Errands"].map(c => <option key={c}>{c}</option>)}
             </select></div>
           <div className="form-group"><label className="form-label">Priority</label>
             <select className="form-select" value={aq.priority} onChange={e => setAq({ ...aq, priority: e.target.value })}>
@@ -571,15 +677,51 @@ export function ArenaPage() {
       {/* ── Clan Event Modal ── */}
       <Modal isOpen={showNewClanEvent} title="Create Clan Event" onClose={() => setShowNewClanEvent(false)}
         footer={<><Button variant="secondary" onClick={() => setShowNewClanEvent(false)}>Cancel</Button>
-                 <Button variant="primary" disabled>Coming Soon</Button></>}>
-        <p className="text-sm text-muted">Clan-wide missions and inter-clan wars are coming soon. The Grid is being prepped.</p>
+                 <Button variant="primary" onClick={() => createEvent("clan")} disabled={saving || !eventForm.title}>Launch Event</Button></>}>
+        <p className="text-xs text-muted mb-12">Rally your clan for a shared objective or prepare for war.</p>
+        <div className="form-group"><label className="form-label">Event Title</label>
+          <input className="form-input" placeholder="e.g. Weekend Boss Raid" value={eventForm.title} onChange={e => setEventForm({ ...eventForm, title: e.target.value })} /></div>
+        <div className="form-group"><label className="form-label">Description</label>
+          <textarea className="form-textarea" value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group"><label className="form-label">Type</label>
+            <select className="form-select" value={eventForm.type} onChange={e => setEventForm({ ...eventForm, type: e.target.value })}>
+              {["Rally", "Raid", "War", "Training"].map(t => <option key={t}>{t}</option>)}
+            </select></div>
+          <div className="form-group"><label className="form-label">XP Reward (Per Member)</label>
+            <input type="number" className="form-input" value={eventForm.reward} onChange={e => setEventForm({ ...eventForm, reward: parseInt(e.target.value) || 50 })} /></div>
+        </div>
+        {eventForm.type === "War" && (
+          <div className="form-group"><label className="form-label">Target Opponent Clan ID</label>
+            <input className="form-input" placeholder="Enter target Clan ID" value={eventForm.opponentId} onChange={e => setEventForm({ ...eventForm, opponentId: e.target.value })} style={{ fontFamily: 'monospace' }} /></div>
+        )}
+        <div className="form-group"><label className="form-label">Duration (days)</label>
+          <input type="number" min={1} max={14} className="form-input" value={eventForm.days} onChange={e => setEventForm({ ...eventForm, days: parseInt(e.target.value) || 3 })} /></div>
       </Modal>
 
       {/* ── Guild Event Modal ── */}
       <Modal isOpen={showNewGuildEvent} title="Create Guild Event" onClose={() => setShowNewGuildEvent(false)}
         footer={<><Button variant="secondary" onClick={() => setShowNewGuildEvent(false)}>Cancel</Button>
-                 <Button variant="primary" disabled>Coming Soon</Button></>}>
-        <p className="text-sm text-muted">Guild raids and cross-guild tournaments are being constructed.</p>
+                 <Button variant="primary" onClick={() => createEvent("guild")} disabled={saving || !eventForm.title}>Launch Event</Button></>}>
+        <p className="text-xs text-muted mb-12">Organize large-scale operations for your entire guild.</p>
+        <div className="form-group"><label className="form-label">Event Title</label>
+          <input className="form-input" placeholder="e.g. Server-Wide Tournament" value={eventForm.title} onChange={e => setEventForm({ ...eventForm, title: e.target.value })} /></div>
+        <div className="form-group"><label className="form-label">Description</label>
+          <textarea className="form-textarea" value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group"><label className="form-label">Type</label>
+            <select className="form-select" value={eventForm.type} onChange={e => setEventForm({ ...eventForm, type: e.target.value })}>
+              {["Rally", "Raid", "Tournament", "War"].map(t => <option key={t}>{t}</option>)}
+            </select></div>
+          <div className="form-group"><label className="form-label">XP Reward (Per Member)</label>
+            <input type="number" className="form-input" value={eventForm.reward} onChange={e => setEventForm({ ...eventForm, reward: parseInt(e.target.value) || 100 })} /></div>
+        </div>
+        {eventForm.type === "War" && (
+          <div className="form-group"><label className="form-label">Target Opponent Guild ID</label>
+            <input className="form-input" placeholder="Enter target Guild ID" value={eventForm.opponentId} onChange={e => setEventForm({ ...eventForm, opponentId: e.target.value })} style={{ fontFamily: 'monospace' }} /></div>
+        )}
+        <div className="form-group"><label className="form-label">Duration (days)</label>
+          <input type="number" min={1} max={30} className="form-input" value={eventForm.days} onChange={e => setEventForm({ ...eventForm, days: parseInt(e.target.value) || 7 })} /></div>
       </Modal>
     </section>
   );

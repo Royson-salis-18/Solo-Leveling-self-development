@@ -12,7 +12,7 @@ import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/leve
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
-  deadline: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
+  deadline: "", time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,   // user_id to assign to (empty = self)
 };
 
@@ -46,7 +46,7 @@ export function QuestsPage() {
       supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("inventory").select("*").eq("user_id", user.id).eq("item_type", "TASK_SKIP").gt("quantity", 0),
       supabase.from("tasks").select("*").eq("assigned_to", user.id).neq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("clan_members").select("clan_id, role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("clan_members").select("clan_id, role").eq("user_id", user.id),
     ]);
 
     // Build recursive unlimited-depth tree
@@ -73,13 +73,17 @@ export function QuestsPage() {
     setAssignedTasks((aRes ?? []).map(t => ({ ...t, subtasks: [] })));
     setInventory(iRes ?? []);
 
-    // if user is a clan leader, load clan members for assignment dropdown
-    if (membership?.role === "leader" || membership?.role === "officer") {
+    // if user is a clan leader in ANY clan, load clan members for assignment dropdown
+    const memberships = membership || [];
+    const leaderRoles = memberships.filter((m: any) => m.role === "leader" || m.role === "officer");
+    
+    if (leaderRoles.length > 0) {
       setIsLeader(true);
+      const clanIds = leaderRoles.map((m: any) => m.clan_id);
       const { data: members } = await supabase
-        .from("clan_members").select("user_id").eq("clan_id", membership.clan_id);
+        .from("clan_members").select("user_id").in("clan_id", clanIds);
       if (members) {
-        const uids = members.map((m: any) => m.user_id).filter((id: string) => id !== user.id);
+        const uids = Array.from(new Set(members.map((m: any) => m.user_id).filter((id: string) => id !== user.id)));
         const { data: profs } = await supabase.from("user_profiles").select("user_id, name").in("user_id", uids);
         setClanMembers(profs ?? []);
       }
@@ -130,6 +134,7 @@ export function QuestsPage() {
       category: task.category,
       description: task.description,
       deadline: task.deadline ?? "",
+      time: task.time ?? "",
       priority: task.priority,
       xp_tier: task.xp_tier || "Low",
       parentId: task.parent_id,
@@ -160,6 +165,7 @@ export function QuestsPage() {
       points:      getXpByTier(formData.xp_tier),
       description: formData.description,
       deadline:    formData.deadline || null,
+      time:        formData.time || null,
       priority:    formData.priority,
       xp_tier:     formData.xp_tier,
       parent_id:   formData.parentId,
@@ -404,7 +410,7 @@ export function QuestsPage() {
           <div className="form-group">
             <label className="form-label">Category</label>
             <select className="form-select" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-              {["General", "Work", "Health", "Learning", "Personal"].map(c => <option key={c}>{c}</option>)}
+              {["General", "Work", "Fitness", "Learning", "Academics", "Mindfulness", "Finance", "Social", "Creative", "Errands"].map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div className="form-group">
@@ -428,10 +434,17 @@ export function QuestsPage() {
           </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">Deadline</label>
-          <input type="date" className="form-input" value={formData.deadline}
-            onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Deadline</label>
+            <input type="date" className="form-input" value={formData.deadline}
+              onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Time</label>
+            <input type="time" className="form-input" value={formData.time}
+              onChange={e => setFormData({ ...formData, time: e.target.value })} />
+          </div>
         </div>
 
         {/* Leader-only: assign to clan member */}

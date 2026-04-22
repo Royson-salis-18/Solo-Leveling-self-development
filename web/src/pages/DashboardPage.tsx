@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid,
 } from "recharts";
 import { StatCard } from "../components/StatCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
@@ -16,6 +16,7 @@ type DashboardData = {
   totalXp: number;
   level: number;
   weeklyHistory: Array<{ date: string; daily_points: number }>;
+  monthlyHistory: Array<{ date: string; daily_points: number }>;
   categoryDistribution: Array<{ category: string; points: number }>;
 };
 
@@ -75,6 +76,7 @@ export function DashboardPage() {
     completedCount: 0,
     totalXp: 0, level: 1,
     weeklyHistory: [],
+    monthlyHistory: [],
     categoryDistribution: [],
     player_rank: "E",
     player_title: "Newcomer"
@@ -90,7 +92,8 @@ export function DashboardPage() {
           { count: cc },
           { count: pc },
           uRes, 
-          pRes, 
+          pRes,
+          mRes,
           tRes,
           activeTasksRes,
           completedTasksRes,
@@ -102,6 +105,7 @@ export function DashboardPage() {
           supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_pending",true).eq("is_completed",false),
           supabase.from("user_profiles").select("total_points,level,player_rank,player_title").eq("user_id",userId).maybeSingle(),
           supabase.from("user_points").select("date,daily_points").eq("user_id",userId).order("date",{ascending:true}).limit(7),
+          supabase.from("user_points").select("date,daily_points").eq("user_id",userId).order("date",{ascending:true}).limit(30),
           supabase.from("tasks").select("category,points").eq("user_id",userId),
           supabase.from("tasks").select("id, title, is_completed, is_pending, is_failed, priority, xp_tier, category").eq("user_id",userId).eq("is_completed",false).eq("is_pending",false).order("created_at",{ascending:false}).limit(10),
           supabase.from("tasks").select("id, title, points, completed_at").eq("user_id",userId).eq("is_completed",true).order("completed_at",{ascending:false}).limit(5),
@@ -142,6 +146,7 @@ export function DashboardPage() {
           player_rank: uRes.data?.player_rank ?? "E",
           player_title: uRes.data?.player_title ?? "Newcomer",
           weeklyHistory: (pRes.data??[]).map((d:any)=>({ date:String(d.date).slice(5), daily_points:Number(d.daily_points??0) })),
+          monthlyHistory: (mRes.data??[]).map((d:any)=>({ date:String(d.date).slice(5), daily_points:Number(d.daily_points??0) })),
           categoryDistribution: catDist,
         });
 
@@ -193,6 +198,7 @@ export function DashboardPage() {
         <StatCard label="Pending"          value={data.pendingCount}  subtitle="Needs resolve" />
         <StatCard label="Completed"        value={data.completedCount} subtitle="All time" />
         <StatCard label="Weekly XP"        value={weeklyTotal}        subtitle="Points earned" />
+        <StatCard label="Completion Rate"  value={completionRate}     subtitle="Success ratio" />
       </div>
 
       {/* ── PROGRESS / CHARTS ── */}
@@ -245,14 +251,80 @@ export function DashboardPage() {
                   title=""
                   data={[
                     { category:"Work",        value: Math.round((data.categoryDistribution.find(c=>c.category==="Work")?.points||0)/8.2),    fullMark:100 },
-                    { category:"Health",      value: Math.round((data.categoryDistribution.find(c=>c.category==="Health")?.points||0)/4.4),  fullMark:100 },
+                    { category:"Fitness",     value: Math.round((data.categoryDistribution.find(c=>c.category==="Fitness")?.points||0)/4.4),  fullMark:100 },
                     { category:"Learning",    value: Math.round((data.categoryDistribution.find(c=>c.category==="Learning")?.points||0)/3.2),fullMark:100 },
-                    { category:"Personal",    value: Math.round((data.categoryDistribution.find(c=>c.category==="Personal")?.points||0)/2.6),fullMark:100 },
+                    { category:"Mindfulness", value: Math.round((data.categoryDistribution.find(c=>c.category==="Mindfulness")?.points||0)/2.6),fullMark:100 },
+                    { category:"Finance",     value: Math.round((data.categoryDistribution.find(c=>c.category==="Finance")?.points||0)/2.6),fullMark:100 },
+                    { category:"Social",      value: Math.round((data.categoryDistribution.find(c=>c.category==="Social")?.points||0)/2.6),fullMark:100 },
+                    { category:"Creative",    value: Math.round((data.categoryDistribution.find(c=>c.category==="Creative")?.points||0)/2.6),fullMark:100 },
                     { category:"Consistency", value: Math.round(Number(completionRate.slice(0,-1))),                                          fullMark:100 },
-                    { category:"Momentum",    value: Math.min(weeklyTotal/20, 100),                                                           fullMark:100 },
                   ]}
                   height={180}
                 />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── EXPANDED ANALYTICS (30-day & Category XP) ── */}
+      {(data.monthlyHistory.length > 0 || data.categoryDistribution.length > 0) && (
+        <div className="page-section">
+          <div className="section-label">Extended Analytics</div>
+          <div className="dashboard-panels-row" style={{ alignItems: "stretch" }}>
+            
+            {/* 30-Day XP Trend */}
+            {data.monthlyHistory.length > 0 && (
+              <div className="panel dashboard-panel-flex">
+                <div className="chart-label-wrapper">
+                  <span className="chart-label-text">30-Day Momentum</span>
+                  <span style={{ fontSize: "0.66rem", color: "var(--t3)" }}>{data.monthlyHistory.length} days tracked</span>
+                </div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={data.monthlyHistory} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="rgba(168,168,255,0.5)" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="rgba(168,168,255,0.1)" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.30)" }} tickLine={false} axisLine={false} interval={Math.floor(data.monthlyHistory.length/6)} />
+                    <YAxis stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.30)" }} tickLine={false} axisLine={false} />
+                    <Tooltip {...TOOLTIP_STYLE} />
+                    <Area type="monotone" dataKey="daily_points" stroke="#a8a8ff" strokeWidth={1.5} fill="url(#xpGrad)" dot={false} activeDot={{ r: 4, fill: "#a8a8ff" }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Category XP Bar */}
+            {data.categoryDistribution.length > 0 && (
+              <div className="panel dashboard-panel-flex">
+                <div className="chart-label-wrapper">
+                  <span className="chart-label-text">XP By Life Area</span>
+                  <span style={{ fontSize: "0.66rem", color: "rgba(255,160,0,0.6)" }}>Academics weighted ×0.5</span>
+                </div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart
+                    data={data.categoryDistribution
+                      .map(c => ({ ...c, weighted: c.category === "Academics" ? Math.round(c.points * 0.5) : c.points }))
+                      .sort((a,b) => b.weighted - a.weighted)
+                    }
+                    margin={{ top: 4, right: 4, bottom: 20, left: -20 }}
+                    barSize={18}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                    <XAxis dataKey="category" stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.40)" }} tickLine={false} axisLine={false} />
+                    <YAxis stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.30)" }} tickLine={false} axisLine={false} />
+                    <Tooltip {...TOOLTIP_STYLE} />
+                    <Bar dataKey="weighted" radius={[4,4,0,0]}>
+                      {data.categoryDistribution.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
           </div>

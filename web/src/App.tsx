@@ -12,6 +12,7 @@ import { SocialPage }        from "./pages/SocialPage";
 import { ChallengesPage }    from "./pages/ChallengesPage";
 import { LoginPage }         from "./pages/LoginPage";
 import { RegisterPage }      from "./pages/RegisterPage";
+import { GuidePage }         from "./pages/GuidePage";
 import "./app.css";
 
 function AppContent() {
@@ -38,6 +39,7 @@ function AppContent() {
                   <Route path="/challenges"  element={<ChallengesPage />} />
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route path="/profile"     element={<ProfilePage />} />
+                  <Route path="/guide"       element={<GuidePage />} />
                   <Route path="*"            element={<Navigate to="/" replace />} />
                 </Routes>
               </main>

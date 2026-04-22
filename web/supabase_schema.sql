@@ -216,6 +216,44 @@ CREATE TABLE IF NOT EXISTS challenges (
 );
 
 -- ==========================================
+-- CLAN EVENTS (Wars, Raids, Rallies)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS clan_events (
+    id                 UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    clan_id            UUID REFERENCES clans(id) ON DELETE CASCADE NOT NULL,
+    creator_id         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    title              TEXT NOT NULL,
+    description        TEXT DEFAULT '',
+    event_type         TEXT DEFAULT 'Rally' CHECK (event_type IN ('War', 'Raid', 'Rally', 'Tournament', 'Training')),
+    opponent_clan_id   UUID REFERENCES clans(id) ON DELETE SET NULL,  -- for War/Tournament
+    xp_reward          INTEGER DEFAULT 50,
+    start_time         TIMESTAMP WITH TIME ZONE,
+    end_time           TIMESTAMP WITH TIME ZONE,
+    status             TEXT DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'active', 'completed', 'cancelled')),
+    winner_clan_id     UUID REFERENCES clans(id) ON DELETE SET NULL,
+    created_at         TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==========================================
+-- GUILD EVENTS (Tournaments, Guild Wars)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS guild_events (
+    id                 UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    guild_id           UUID REFERENCES guilds(id) ON DELETE CASCADE NOT NULL,
+    creator_id         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    title              TEXT NOT NULL,
+    description        TEXT DEFAULT '',
+    event_type         TEXT DEFAULT 'Rally' CHECK (event_type IN ('War', 'Raid', 'Rally', 'Tournament', 'Training')),
+    opponent_guild_id  UUID REFERENCES guilds(id) ON DELETE SET NULL,
+    xp_reward          INTEGER DEFAULT 100,
+    start_time         TIMESTAMP WITH TIME ZONE,
+    end_time           TIMESTAMP WITH TIME ZONE,
+    status             TEXT DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'active', 'completed', 'cancelled')),
+    winner_guild_id    UUID REFERENCES guilds(id) ON DELETE SET NULL,
+    created_at         TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==========================================
 -- INVENTORY
 -- ==========================================
 CREATE TABLE IF NOT EXISTS inventory (
@@ -245,6 +283,8 @@ ALTER TABLE guilds         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE challenges     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE global_chat    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clan_events    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guild_events   ENABLE ROW LEVEL SECURITY;
 
 -- Drop and recreate policies so they stay idempotent
 -- (Policies can't use IF NOT EXISTS, so we drop-if-exists first)
@@ -322,6 +362,17 @@ DROP POLICY IF EXISTS "Users can update own challenges" ON challenges;
 CREATE POLICY "Users can see own challenges"    ON challenges FOR SELECT USING  (auth.uid() = creator_id OR auth.uid() = opponent_id);
 CREATE POLICY "Users can create challenges"     ON challenges FOR INSERT WITH CHECK (auth.uid() = creator_id);
 CREATE POLICY "Users can update own challenges" ON challenges FOR UPDATE USING  (auth.uid() = creator_id OR auth.uid() = opponent_id);
+
+-- Events
+DROP POLICY IF EXISTS "Authenticated users can read clan events" ON clan_events;
+DROP POLICY IF EXISTS "Clan members can manage clan events"      ON clan_events;
+CREATE POLICY "Authenticated users can read clan events" ON clan_events FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Clan members can manage clan events"      ON clan_events FOR ALL    USING (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Authenticated users can read guild events" ON guild_events;
+DROP POLICY IF EXISTS "Guild members can manage guild events"      ON guild_events;
+CREATE POLICY "Authenticated users can read guild events" ON guild_events FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Guild members can manage guild events"      ON guild_events FOR ALL    USING (auth.uid() IS NOT NULL);
 
 -- ============================================================
 -- HELPER FUNCTIONS
