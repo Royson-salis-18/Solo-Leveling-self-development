@@ -4,8 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { Edit3, Shield, Swords, Zap, Brain, Activity, Calendar, Hash, Sparkles, Medal } from "lucide-react";
+import { Edit3, Shield, Swords, Zap, Brain, Activity, Calendar, Hash, Sparkles, Medal, Skull } from "lucide-react";
 import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
+import { AuraCard } from "../components/AuraCard";
 
 type Profile = {
   user_id: string;
@@ -115,17 +116,24 @@ export function ProfilePage() {
   const xpPct   = calcXpProgress(profile.total_points);
   const initial = profile.name.charAt(0).toUpperCase();
   const nextRank = nextRankInfo(profile.player_rank);
+  const roleClass =
+    profile.player_class?.toLowerCase().includes("assassin") ? "role-assassin" :
+    profile.player_class?.toLowerCase().includes("mage") ? "role-mage" :
+    profile.player_class?.toLowerCase().includes("tank") ? "role-tank" :
+    profile.player_class?.toLowerCase().includes("archer") ? "role-archer" :
+    profile.player_class?.toLowerCase().includes("warrior") ? "role-warrior" :
+    "role-default";
 
   // Derived Combat Stats
   const stats = [
     { label: "Strength", icon: Swords, value: computedLevel * 2 + 10, color: "#f87171" },
-    { label: "Agility", icon: Zap, value: Math.floor(computedLevel * 1.5) + 8, color: "#60a5fa" },
+    { label: "Agility", icon: Zap, value: Math.floor(computedLevel * 1.5) + 8, color: "#c4b5fd" },
     { label: "Intelligence", icon: Brain, value: Math.floor(computedLevel * 1.2) + 5, color: "#a78bfa" },
     { label: "Vitality", icon: Activity, value: computedLevel * 2 + 15, color: "#34d399" },
   ];
 
   return (
-    <section className="page" style={{ position: "relative" }}>
+    <section className={`page ${roleClass}`} style={{ position: "relative" }}>
       
       {/* ── PROFILE HEADER ── */}
       <div className="page-header">
@@ -143,22 +151,27 @@ export function ProfilePage() {
         </Button>
       </div>
 
-      <div className="profile-hero panel shadow-aura" style={{ 
-        padding: "40px", display: "flex", gap: 40, alignItems: "center",
-        background: "rgba(15, 15, 15, 0.7)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        marginBottom: 32, borderRadius: "var(--r-xl)", position: "relative", overflow: "hidden",
-        '--rarity-color': 'var(--accent-secondary)'
-      } as any}>
+      <div
+        className="profile-hero panel ds-glass ds-glass-shine ds-aura ds-aura--role ds-hero ds-hero-bg ds-power-tint"
+        style={{
+          padding: "40px",
+          display: "flex",
+          gap: 40,
+          alignItems: "center",
+          marginBottom: 32,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
         <div className="hero-decor-hex" />
         
         <div style={{ position: "relative", flexShrink: 0 }}>
-          <div className="profile-avatar-large" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)" }}>{initial}</div>
+          <div className="profile-avatar-large" style={{ background: "rgba(0,0,0,0.38)", backdropFilter: "blur(10px)", borderColor: "color-mix(in oklab, var(--role-accent) 40%, rgba(255,255,255,0.12))" }}>{initial}</div>
           <div className="rank-badge-hero">{profile.player_rank}</div>
         </div>
 
         <div style={{ flex: 1, zIndex: 1 }}>
-          <div className="monarch-label-hero" style={{ color: "var(--accent-secondary)" }}>{profile.player_title}</div>
+          <div className="monarch-label-hero" style={{ color: "var(--role-accent-2)" }}>{profile.player_title}</div>
           <h1 className="profile-hero-name-v2">{profile.name}</h1>
           <div className="hero-tags">
             <span className="hero-tag" style={{ background: "rgba(255,255,255,0.05)" }}>LVL {profile.level}</span>
@@ -172,7 +185,7 @@ export function ProfilePage() {
           </p>
         </div>
 
-        <div className="hunter-license-card-v2" style={{ background: "rgba(10,10,10,0.8)", borderColor: "rgba(255,255,255,0.1)", borderRadius: "var(--r-lg)" }}>
+        <div className="hunter-license-card-v2 ds-solid ds-aura ds-aura--role ds-scanlines" style={{ borderRadius: "var(--r-lg)" }}>
            <div className="license-id">#{profile.user_id.slice(0,8).toUpperCase()}</div>
            <div className="license-items">
              <div className="lic-item"><Calendar size={11} /> <span>{profile.created_at ? new Date(profile.created_at).toLocaleDateString() : "2026"}</span></div>
@@ -213,19 +226,59 @@ export function ProfilePage() {
             </div>
 
             <h2 className="section-title-alt" style={{ marginTop: 32 }}><Zap size={14} /> Active Skills</h2>
-            <div className="skills-grid-v2">
-              <div className="skill-chip-v2" style={{ '--skill-color': 'var(--accent-primary)' } as any}>
-                <span className="skill-name">Mutilation</span>
-                <span className="skill-lv">LV. 4</span>
-              </div>
-              <div className="skill-chip-v2" style={{ '--skill-color': 'var(--accent-secondary)' } as any}>
-                <span className="skill-name">Shadow Extraction</span>
-                <span className="skill-lv">MAX</span>
-              </div>
-              <div className="skill-chip-v2" style={{ '--skill-color': 'var(--accent-red-orc)' } as any}>
-                <span className="skill-name">Bloodlust</span>
-                <span className="skill-lv">LV. 2</span>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+              <AuraCard
+                name="Mutilation"
+                rankLabel="LV. 4"
+                rarityColor="#f87171"
+                isCollected={true}
+                effectType="flame"
+                col={[[255, 80, 80], [220, 40, 40], [255, 120, 60]]}
+                glow="240,60,60"
+                icon={<Swords size={22} />}
+                sub="Berserker Slash"
+                label="SKILL"
+              />
+              <AuraCard
+                name="Shadow Extraction"
+                rankLabel="MAX"
+                rarityColor="#a8a8ff"
+                isCollected={true}
+                effectType="shadow"
+                col={[[80, 20, 220], [60, 0, 180], [100, 40, 240]]}
+                glow="70,10,200"
+                icon={<Skull size={22} />}
+                sub="Arise Command"
+                label="SKILL"
+              />
+              <AuraCard
+                name="Bloodlust"
+                rankLabel="LV. 2"
+                rarityColor="#dc2626"
+                isCollected={true}
+                effectType="smoke"
+                col={[[200, 0, 30], [170, 0, 20], [230, 20, 50]]}
+                glow="200,0,30"
+                icon={<Zap size={22} />}
+                sub="Combat Frenzy"
+                label="SKILL"
+              />
+            </div>
+
+            <h2 className="section-title-alt" style={{ marginTop: 32 }}><Swords size={14} /> Primary Arsenal</h2>
+            <div style={{ maxWidth: '280px' }}>
+              <AuraCard
+                name={profile.weapon_of_choice || "Starter Blade"}
+                rankLabel={profile.player_rank + "-Rank"}
+                rarityColor="var(--accent-primary)"
+                isCollected={true}
+                effectType="lightning"
+                col={[[100, 180, 255], [60, 100, 255], [150, 220, 255]]}
+                glow="100,160,255"
+                icon={<Swords size={24} />}
+                sub="Soul-bound weapon of the Monarch."
+                label="WEAPON"
+              />
             </div>
           </article>
         </div>
@@ -281,12 +334,20 @@ export function ProfilePage() {
             </div>
           </article>
 
-          <article className="panel" style={{ marginTop: 20, background: "rgba(168,168,255,0.02)" }}>
+          <article className="panel" style={{ marginTop: 20, background: "transparent", border: 'none', padding: 0 }}>
             <h2 className="section-title-alt"><Hash size={14} /> Active Directive</h2>
-            <div className="active-directive-card">
-              <div className="directive-tag">PRIORITY: ALPHA</div>
-              <p className="directive-text">Continue daily mana accumulation. Hidden gate coordinates will be revealed upon Level 5 saturation.</p>
-            </div>
+            <AuraCard
+              name="Directive: Alpha"
+              rankLabel="CRITICAL"
+              rarityColor="#ff6b6b"
+              isCollected={true}
+              effectType="smoke"
+              col={[[255, 107, 107], [200, 50, 50], [255, 150, 150]]}
+              glow="255,100,100"
+              icon={<Hash size={24} />}
+              sub="Continue daily mana accumulation. Hidden gate coordinates will be revealed upon Level 5 saturation."
+              label="SYSTEM"
+            />
           </article>
         </div>
 

@@ -46,7 +46,7 @@ export function QuestItem({
   const hasChildren = quest.subtasks && quest.subtasks.length > 0;
 
   const XP_TIER_COLOR: Record<string, string> = {
-    Legendary: "#ffd700", Super: "#c084fc", High: "#60a5fa", Mid: "#34d399", Low: "rgba(255,255,255,0.5)"
+    Legendary: "#ffd700", Super: "#c084fc", High: "#c4b5fd", Mid: "#34d399", Low: "rgba(255,255,255,0.5)"
   };
   const tierColor = XP_TIER_COLOR[quest.xp_tier ?? "Low"] ?? "rgba(255,255,255,0.5)";
 

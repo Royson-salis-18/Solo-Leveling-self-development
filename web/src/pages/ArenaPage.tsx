@@ -390,7 +390,7 @@ export function ArenaPage() {
               <div className="text-xs text-muted uppercase tracking-widest mb-8">Active Events</div>
               <div className="flex-col gap-8">
                 {clanEvents.map(e => (
-                  <div key={e.id} className="panel panel-no-pad" style={{ padding: 12, borderLeft: "3px solid #ffcc00", background: "rgba(255,255,255,0.02)" }}>
+                  <div key={e.id} className="glass-panel panel-no-pad" style={{ padding: 12, borderLeft: "3px solid #ffcc00", background: "rgba(255,255,255,0.02)" }}>
                     <div className="flex-between">
                       <div>
                         <div className="text-sm font-700">{e.title}</div>
@@ -473,7 +473,7 @@ export function ArenaPage() {
               <div className="text-xs text-muted uppercase tracking-widest mb-8">Active Events</div>
               <div className="flex-col gap-8">
                 {guildEvents.map(e => (
-                  <div key={e.id} className="panel panel-no-pad" style={{ padding: 12, borderLeft: "3px solid #ffcc00", background: "rgba(255,255,255,0.02)" }}>
+                  <div key={e.id} className="glass-panel panel-no-pad" style={{ padding: 12, borderLeft: "3px solid #ffcc00", background: "rgba(255,255,255,0.02)" }}>
                     <div className="flex-between">
                       <div>
                         <div className="text-sm font-700">{e.title}</div>
@@ -527,7 +527,7 @@ export function ArenaPage() {
             const leading   = myPts >= theirPts;
 
             return (
-              <div key={c.id} className="duel-card">
+              <div key={c.id} className="glass-panel duel-card" style={{ padding: "16px" }}>
                 <div className="duel-header">
                   <div className="flex gap-6 text-xs text-muted">
                     <Timer size={12} /> {timeLeft(c.expires_at)} left
@@ -592,7 +592,7 @@ export function ArenaPage() {
       </div>
 
       {loading ? (
-        <div className="panel panel-empty text-muted text-sm">Scanning arena grid…</div>
+        <div className="glass-panel panel-empty text-muted text-sm">Scanning arena grid…</div>
       ) : (
         <>
           {tab === "1v1 Duels" && <DuelsSection />}

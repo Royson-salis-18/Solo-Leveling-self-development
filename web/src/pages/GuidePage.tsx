@@ -65,7 +65,7 @@ const SECTIONS: Section[] = [
           <tbody>
             <tr><td>Low</td><td className="text-muted">+10</td><td>Quick errands, routine chores</td></tr>
             <tr><td>Mid</td><td style={{color:"#34d399"}}>+25</td><td>Meaningful daily tasks</td></tr>
-            <tr><td>High</td><td style={{color:"#60a5fa"}}>+50</td><td>Important milestones</td></tr>
+            <tr><td>High</td><td style={{color:"#c4b5fd"}}>+50</td><td>Important milestones</td></tr>
             <tr><td>Super</td><td style={{color:"#a78bfa"}}>+100</td><td>Major achievements</td></tr>
             <tr><td>Legendary</td><td style={{color:"#ffcc00"}}>+250</td><td>Life-changing accomplishments</td></tr>
           </tbody>
@@ -129,7 +129,7 @@ const SECTIONS: Section[] = [
           </div>
           <ChevronRight size={14} className="guide-flow-arrow" />
           <div className="guide-flow-step">
-            <CheckCircle size={16} style={{color:"#60a5fa"}} />
+            <CheckCircle size={16} style={{color:"#c4b5fd"}} />
             <div>
               <strong>Resolve / Fail</strong>
               <span>You choose the outcome</span>
@@ -376,7 +376,7 @@ const SECTIONS: Section[] = [
     icon: Award,
     title: "Reading Your Dashboard",
     subtitle: "Understanding your stats",
-    color: "#60a5fa",
+    color: "#c4b5fd",
     content: (
       <div className="guide-content">
         <h4>Key Metrics</h4>

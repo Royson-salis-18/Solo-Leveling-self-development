@@ -1,0 +1,344 @@
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07070c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:28px 18px;overflow-x:hidden}
+
+.section-label{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,0.25);text-transform:uppercase;margin:0 0 14px;font-weight:500}
+.divider{height:1px;background:rgba(255,255,255,0.05);margin:32px 0}
+
+/* ── GOOEY BG CANVAS ── */
+#goo-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:1}
+
+.content{position:relative;z-index:1}
+
+/* ── SCHEME CARDS ── */
+.schemes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:0}
+.scheme-card{border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .3s ease}
+.scheme-card:hover{transform:translateY(-3px)}
+.scheme-swatch{height:90px;position:relative;display:flex;align-items:flex-end;padding:12px}
+.scheme-swatch-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.scheme-meta{padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-top:none;border-radius:0 0 16px 16px}
+.scheme-name{font-size:13px;font-weight:600;color:rgba(255,255,255,0.8);margin-bottom:3px}
+.scheme-desc{font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:.3px}
+.scheme-dots{display:flex;gap:5px;margin-top:8px}
+.dot{width:14px;height:14px;border-radius:50%}
+
+/* ── GLASS CARDS ── */
+.glass-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.glass-card{border-radius:18px;padding:22px 18px 18px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;overflow:hidden;transition:transform .3s ease,box-shadow .3s ease;cursor:pointer;min-height:150px;display:flex;flex-direction:column;justify-content:flex-end}
+.glass-card:hover{transform:translateY(-4px)}
+.glass-card::before{content:'';position:absolute;inset:0;border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,0.07) 0%,rgba(255,255,255,0) 60%);pointer-events:none;z-index:1}
+.gc-label{font-size:8px;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;opacity:.4;color:#fff;position:relative;z-index:2}
+.gc-name{font-size:15px;font-weight:700;color:rgba(255,255,255,.85);position:relative;z-index:2;margin-bottom:3px}
+.gc-sub{font-size:10px;color:rgba(255,255,255,.3);position:relative;z-index:2}
+.gc-rank{position:absolute;top:16px;right:14px;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.25);font-weight:600;z-index:2}
+
+/* ── GRADIENT SWATCHES ── */
+.grad-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.grad-swatch{height:70px;border-radius:12px;position:relative;overflow:hidden;cursor:pointer;transition:transform .2s}
+.grad-swatch:hover{transform:scale(1.03)}
+.grad-label{position:absolute;bottom:8px;left:10px;font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:rgba(255,255,255,.7)}
+
+/* ── TEXT GRADIENT STYLES ── */
+.text-grad-row{display:flex;flex-wrap:wrap;gap:10px}
+.tg-pill{padding:8px 16px;border-radius:30px;border:1px solid rgba(255,255,255,.08);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:opacity .2s}
+.tg-pill:hover{opacity:.75}
+
+/* ── BORDER SAMPLES ── */
+.border-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.border-card{border-radius:14px;padding:14px;height:70px;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:500}
+
+/* copied toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.1);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);border-radius:30px;padding:8px 18px;font-size:12px;color:rgba(255,255,255,.7);pointer-events:none;opacity:0;transition:opacity .3s;z-index:999}
+.toast.show{opacity:1}
+</style>
+
+<canvas id="goo-canvas"></canvas>
+
+<div class="content">
+
+<div class="section-label">Background — black goo system</div>
+<p style="font-size:11px;color:rgba(255,255,255,.2);margin-bottom:18px;letter-spacing:.3px">Live animated — flowing across the whole page</p>
+
+<div class="divider"></div>
+
+<div class="section-label">Colour schemes</div>
+<div class="schemes-grid" id="schemes-grid"></div>
+
+<div class="divider"></div>
+
+<div class="section-label">Glass card variants</div>
+<div class="glass-grid" id="glass-grid"></div>
+
+<div class="divider"></div>
+
+<div class="section-label">Gradient palette</div>
+<div class="grad-grid" id="grad-grid"></div>
+
+<div class="divider"></div>
+
+<div class="section-label">Text gradients</div>
+<div class="text-grad-row" id="tg-row"></div>
+
+<div class="divider"></div>
+
+<div class="section-label">Border & glow accents</div>
+<div class="border-row" id="border-row"></div>
+
+</div>
+
+<div class="toast" id="toast">copied!</div>
+
+<script>
+/* ══ GOO SYSTEM ══════════════════════════════════════ */
+const gc = document.getElementById('goo-canvas');
+const gctx = gc.getContext('2d');
+let GW, GH;
+function resizeGoo(){GW=gc.width=window.innerWidth;GH=gc.height=Math.max(window.innerHeight,document.body.scrollHeight)}
+window.addEventListener('resize',resizeGoo);
+setTimeout(resizeGoo,200);
+
+const BLOBS = Array.from({length:7},(_,i)=>({
+  x:Math.random()*800, y:Math.random()*800,
+  vx:(Math.random()-.5)*.18, vy:(Math.random()-.5)*.18,
+  r:120+Math.random()*200,
+  phase:Math.random()*Math.PI*2,
+  speed:0.004+Math.random()*0.006
+}));
+
+const TENDRILS = Array.from({length:12},()=>({
+  pts:[],
+  x:Math.random()*800, y:Math.random()*900,
+  angle:Math.random()*Math.PI*2,
+  speed:0.003+Math.random()*0.005,
+  length:60+Math.random()*120,
+  width:2+Math.random()*5,
+  alpha:0.06+Math.random()*0.1,
+  wobble:Math.random()*Math.PI*2
+}));
+
+let gt=0;
+function drawGoo(){
+  gt++;
+  gctx.clearRect(0,0,GW,GH);
+
+  /* blobs */
+  for(const b of BLOBS){
+    b.phase+=b.speed;
+    b.x+=b.vx+Math.sin(b.phase*0.7)*0.3;
+    b.y+=b.vy+Math.cos(b.phase*0.5)*0.3;
+    if(b.x<-b.r)b.x=GW+b.r;
+    if(b.x>GW+b.r)b.x=-b.r;
+    if(b.y<-b.r)b.y=GH+b.r;
+    if(b.y>GH+b.r)b.y=-b.r;
+    const pulse=0.85+Math.sin(b.phase)*0.15;
+    const rr=b.r*pulse;
+    const g=gctx.createRadialGradient(b.x,b.y,0,b.x,b.y,rr);
+    g.addColorStop(0,'rgba(0,0,0,0.55)');
+    g.addColorStop(0.5,'rgba(0,0,0,0.25)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    gctx.fillStyle=g;
+    gctx.beginPath();gctx.arc(b.x,b.y,rr,0,Math.PI*2);gctx.fill();
+  }
+
+  /* tendrils — gooey dripping strings */
+  for(const td of TENDRILS){
+    td.wobble+=td.speed;
+    td.angle+=Math.sin(td.wobble)*0.008;
+    const pts=[];
+    let cx=td.x,cy=td.y;
+    const segs=12;
+    for(let i=0;i<segs;i++){
+      const t2=i/segs;
+      const wx=Math.sin(td.wobble+t2*3)*20*(1-t2);
+      pts.push([cx+wx,cy]);
+      cy+=td.length/segs;
+      cx+=Math.sin(td.wobble*0.5+i)*3;
+    }
+    /* drip blob at tip */
+    const tip=pts[pts.length-1];
+    const blobR=(td.width*1.8)*(0.7+Math.sin(td.wobble*2)*0.3);
+    const bg=gctx.createRadialGradient(tip[0],tip[1],0,tip[0],tip[1],blobR*2);
+    bg.addColorStop(0,`rgba(0,0,0,${td.alpha*1.5})`);
+    bg.addColorStop(1,'rgba(0,0,0,0)');
+    gctx.fillStyle=bg;
+    gctx.beginPath();gctx.arc(tip[0],tip[1],blobR*2,0,Math.PI*2);gctx.fill();
+
+    /* string */
+    gctx.beginPath();
+    gctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++){
+      const [px,py]=pts[i-1],[nx,ny]=pts[i];
+      gctx.quadraticCurveTo(px,py,(px+nx)/2,(py+ny)/2);
+    }
+    /* variable width — fat at top, tapers to drip */
+    for(let i=0;i<pts.length-1;i++){
+      const t2=i/(pts.length-1);
+      const w=td.width*(1-t2*0.7);
+      gctx.lineWidth=w;
+      gctx.strokeStyle=`rgba(0,0,0,${td.alpha*(1-t2*0.3)})`;
+      gctx.beginPath();
+      gctx.moveTo(pts[i][0],pts[i][1]);
+      gctx.lineTo(pts[i+1][0],pts[i+1][1]);
+      gctx.stroke();
+    }
+
+    /* wander */
+    td.x+=Math.sin(td.wobble*0.3)*0.4;
+    td.y+=Math.cos(td.wobble*0.2)*0.15;
+    if(td.x<-50)td.x=GW+50;
+    if(td.x>GW+50)td.x=-50;
+    if(td.y<-td.length)td.y=GH;
+    if(td.y>GH+td.length)td.y=-td.length;
+  }
+  requestAnimationFrame(drawGoo);
+}
+drawGoo();
+
+/* ══ DATA ══════════════════════════════════════════ */
+const SCHEMES=[
+  {name:'Shadow Monarch',desc:'Obsidian depths, violet soul',
+   swatch:'linear-gradient(135deg,#0d0015,#1a0035,#0a0008)',
+   swatchLabel:'SHADOW',labelColor:'#b088ff',
+   dots:['#0d0015','#2a0060','#7700cc','#c0aaff','#1a001a']},
+  {name:'Orc Disaster',desc:'Blood iron, ember dark',
+   swatch:'linear-gradient(135deg,#120000,#2a0500,#0f0000)',
+   swatchLabel:'FLAME',labelColor:'#ff7755',
+   dots:['#120000','#3d0a00','#cc2200','#ff7755','#1a0600']},
+  {name:'Storm Sovereign',desc:'Deep ocean, electric night',
+   swatch:'linear-gradient(135deg,#000814,#00152e,#000a1a)',
+   swatchLabel:'LIGHTNING',labelColor:'#5599ff',
+   dots:['#000814','#001845','#0044cc','#5599ff','#000d22']},
+  {name:'Death Miasma',desc:'Ash, cold smoke, void',
+   swatch:'linear-gradient(135deg,#080808,#111115,#080c08)',
+   swatchLabel:'SMOKE',labelColor:'#aaaaaa',
+   dots:['#080808','#18181c','#444448','#aaaaaa','#0c0c10']},
+  {name:'Divine Monarch',desc:'Gilded dark, ember glow',
+   swatch:'linear-gradient(135deg,#100800,#1e1000,#0f0500)',
+   swatchLabel:'RADIANT',labelColor:'#ffcc44',
+   dots:['#100800','#2e1800','#cc7700','#ffcc44','#1a0d00']},
+  {name:'Poison Haze',desc:'Toxic venom, dark green',
+   swatch:'linear-gradient(135deg,#020d04,#001808,#020a02)',
+   swatchLabel:'TOXIC',labelColor:'#44ff77',
+   dots:['#020d04','#002e10','#007722','#44ff77','#011808']},
+];
+
+const GLASS_CARDS=[
+  {label:'shadow',name:'Arise',sub:'Extract the fallen',rank:'S-RANK',
+   bg:'rgba(60,0,140,0.12)',border:'rgba(120,60,255,0.2)',accent:'#9966ff'},
+  {label:'flame',name:'Orc Monarch',sub:'Genocide march',rank:'A-RANK',
+   bg:'rgba(180,30,0,0.1)',border:'rgba(255,80,20,0.2)',accent:'#ff6633'},
+  {label:'lightning',name:'Storm Domain',sub:'Thunder sovereign',rank:'S-RANK',
+   bg:'rgba(0,60,200,0.1)',border:'rgba(40,120,255,0.2)',accent:'#4488ff'},
+  {label:'smoke',name:'Miasma Lord',sub:'Plague domain',rank:'B-RANK',
+   bg:'rgba(80,80,90,0.1)',border:'rgba(140,140,150,0.18)',accent:'#aaaacc'},
+  {label:'radiant',name:'Divine King',sub:'Celestial authority',rank:'NATIONAL',
+   bg:'rgba(160,90,0,0.1)',border:'rgba(255,170,0,0.2)',accent:'#ffaa22'},
+  {label:'toxic',name:'Poison Haze',sub:'Venom sovereign',rank:'A-RANK',
+   bg:'rgba(0,120,30,0.1)',border:'rgba(0,210,60,0.18)',accent:'#33ee66'},
+];
+
+const GRADS=[
+  {label:'void',g:'linear-gradient(135deg,#0d0015 0%,#1a0035 50%,#0a0008 100%)'},
+  {label:'ember',g:'linear-gradient(135deg,#120000 0%,#3d0a00 50%,#cc2200 100%)'},
+  {label:'abyss',g:'linear-gradient(135deg,#000814 0%,#001845 50%,#0044cc 100%)'},
+  {label:'ash',g:'linear-gradient(135deg,#080808 0%,#1c1c20 50%,#444448 100%)'},
+  {label:'gilt',g:'linear-gradient(135deg,#100800 0%,#2e1800 50%,#cc7700 100%)'},
+  {label:'venom',g:'linear-gradient(135deg,#020d04 0%,#002e10 50%,#007722 100%)'},
+  {label:'crimson',g:'linear-gradient(135deg,#0f0008 0%,#2a0018 50%,#aa0044 100%)'},
+  {label:'frost',g:'linear-gradient(135deg,#040a10 0%,#001020 50%,#003355 100%)'},
+  {label:'obsidian',g:'linear-gradient(135deg,#050505 0%,#0d0d10 50%,#1a1a22 100%)'},
+  {label:'aurora',g:'linear-gradient(135deg,#020818 0%,#0a1a10 40%,#100820 100%)'},
+];
+
+const TEXT_GRADS=[
+  {text:'Shadow Monarch',g:'linear-gradient(90deg,#9966ff,#cc88ff,#7700cc)'},
+  {text:'Orc Disaster',g:'linear-gradient(90deg,#ff4422,#ff8844,#cc1100)'},
+  {text:'Storm Sovereign',g:'linear-gradient(90deg,#2266ff,#66aaff,#0033cc)'},
+  {text:'Death Miasma',g:'linear-gradient(90deg,#888899,#ccccdd,#555566)'},
+  {text:'Divine Monarch',g:'linear-gradient(90deg,#ffaa00,#ffdd66,#cc7700)'},
+  {text:'Blood Rage',g:'linear-gradient(90deg,#cc0044,#ff4488,#880022)'},
+];
+
+const BORDERS=[
+  {label:'shadow glow',style:'border:1px solid rgba(120,60,255,0.3)',shadow:'box-shadow:0 0 12px rgba(100,40,220,0.2),inset 0 0 12px rgba(80,0,180,0.08)'},
+  {label:'flame edge',style:'border:1px solid rgba(255,80,20,0.3)',shadow:'box-shadow:0 0 12px rgba(255,50,0,0.15),inset 0 0 12px rgba(200,30,0,0.08)'},
+  {label:'arc light',style:'border:1px solid rgba(40,120,255,0.3)',shadow:'box-shadow:0 0 12px rgba(20,80,255,0.15),inset 0 0 12px rgba(0,60,200,0.08)'},
+  {label:'ash mist',style:'border:1px solid rgba(140,140,150,0.2)',shadow:'box-shadow:0 0 10px rgba(100,100,110,0.1)'},
+  {label:'gilt edge',style:'border:1px solid rgba(255,170,0,0.3)',shadow:'box-shadow:0 0 12px rgba(220,140,0,0.15),inset 0 0 12px rgba(160,90,0,0.08)'},
+  {label:'venom',style:'border:1px solid rgba(0,210,60,0.25)',shadow:'box-shadow:0 0 10px rgba(0,180,50,0.12)'},
+];
+
+/* ══ RENDER ══════════════════════════════════════════ */
+function showToast(txt){
+  const t=document.getElementById('toast');
+  t.textContent=txt+' copied';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1600);
+}
+
+/* Schemes */
+const sg=document.getElementById('schemes-grid');
+SCHEMES.forEach(s=>{
+  const d=document.createElement('div');
+  d.className='scheme-card';
+  d.innerHTML=`
+    <div class="scheme-swatch" style="background:${s.swatch}">
+      <span class="scheme-swatch-label" style="color:${s.labelColor}">${s.swatchLabel}</span>
+    </div>
+    <div class="scheme-meta">
+      <div class="scheme-name">${s.name}</div>
+      <div class="scheme-desc">${s.desc}</div>
+      <div class="scheme-dots">${s.dots.map(c=>`<div class="dot" style="background:${c};border:1px solid rgba(255,255,255,0.1)"></div>`).join('')}</div>
+    </div>`;
+  d.onclick=()=>showToast(s.swatch);
+  sg.appendChild(d);
+});
+
+/* Glass cards */
+const gg=document.getElementById('glass-grid');
+GLASS_CARDS.forEach(c=>{
+  const d=document.createElement('div');
+  d.className='glass-card';
+  d.style.cssText=`background:${c.bg};border:1px solid ${c.border};box-shadow:0 0 20px ${c.border.replace('0.2','0.08')}`;
+  d.innerHTML=`
+    <span class="gc-rank">${c.rank}</span>
+    <div class="gc-label" style="color:${c.accent};opacity:0.7">${c.label}</div>
+    <div class="gc-name">${c.name}</div>
+    <div class="gc-sub">${c.sub}</div>`;
+  d.onclick=()=>showToast(`background:${c.bg}; border:1px solid ${c.border}`);
+  gg.appendChild(d);
+});
+
+/* Gradients */
+const grd=document.getElementById('grad-grid');
+GRADS.forEach(g=>{
+  const d=document.createElement('div');
+  d.className='grad-swatch';
+  d.style.background=g.g;
+  d.innerHTML=`<span class="grad-label">${g.label}</span>`;
+  d.onclick=()=>showToast(g.g);
+  grd.appendChild(d);
+});
+
+/* Text gradients */
+const tgr=document.getElementById('tg-row');
+TEXT_GRADS.forEach(tg=>{
+  const d=document.createElement('div');
+  d.className='tg-pill';
+  d.style.cssText=`background:linear-gradient(90deg,rgba(255,255,255,0.03),rgba(255,255,255,0.06));background-clip:unset`;
+  d.innerHTML=`<span style="background:${tg.g};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${tg.text}</span>`;
+  d.onclick=()=>showToast(`background:${tg.g};-webkit-background-clip:text;-webkit-text-fill-color:transparent`);
+  tgr.appendChild(d);
+});
+
+/* Borders */
+const br=document.getElementById('border-row');
+BORDERS.forEach(b=>{
+  const d=document.createElement('div');
+  d.className='border-card';
+  d.setAttribute('style',`${b.style};${b.shadow};background:rgba(255,255,255,0.02)`);
+  d.textContent=b.label;
+  d.onclick=()=>showToast(`${b.style}; ${b.shadow}`);
+  br.appendChild(d);
+});
+</script>

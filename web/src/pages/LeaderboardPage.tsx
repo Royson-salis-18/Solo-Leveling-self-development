@@ -119,43 +119,51 @@ export function LeaderboardPage() {
             <>
               {/* Podium */}
               {podiumOrder.length === 3 && (
-                <div className="lb-podium">
-                  {podiumOrder.map((u, pos) => {
-                    const ri    = podiumRealIdx(pos);
-                    const isTop = ri === 0;
-                    const heights = ["200px", "240px", "180px"];
-                    return (
-                      <div key={u.user_id} className={`lb-podium-card${isTop ? " lb-podium-card--top" : ""}`} style={{ height: heights[ri] }}>
-                        <div className="lb-podium-avatar" style={{ width: isTop ? 72 : 56, height: isTop ? 72 : 56, marginTop: isTop ? "-60px" : "-40px", border: isTop ? "2px solid rgba(255,204,0,0.8)" : "1px solid rgba(78, 142, 255, 0.5)" }}>
-                          {u.name.charAt(0).toUpperCase()}
+                <div className="lb-podium-shell">
+                  <div className="lb-podium">
+                    {podiumOrder.map((u, pos) => {
+                      const ri    = podiumRealIdx(pos);
+                      const isTop = ri === 0;
+                      const heights = ["220px", "262px", "204px"];
+                      return (
+                        <div
+                          key={u.user_id}
+                          className={`lb-podium-card${isTop ? " lb-podium-card--top" : ""} ds-glass ds-aura`}
+                          style={{ height: heights[ri] }}
+                        >
+                          <div className="lb-podium-avatar" style={{ width: isTop ? 74 : 58, height: isTop ? 74 : 58, marginTop: isTop ? "-62px" : "-42px", border: isTop ? "2px solid rgba(255,204,0,0.8)" : "1px solid rgba(168,168,255, 0.45)" }}>
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="lb-podium-medal" style={{ marginTop: 12 }}>{MEDALLION[ri]}</div>
+                          <div className="lb-podium-name">{isMe(u.user_id) ? "You" : u.name}</div>
+                          <div className="lb-podium-class">{u.player_class}</div>
+                          <div className="lb-podium-xp" style={{ marginTop: 'auto' }}>{u.total_points.toLocaleString()} <span className="text-xs text-muted" style={{textShadow: 'none'}}>XP</span></div>
+                          <span className={`rank-badge rank-${u.player_rank}`} style={{ marginTop: 8 }}>{u.player_rank}</span>
                         </div>
-                        <div className="lb-podium-medal" style={{ marginTop: 12 }}>{MEDALLION[ri]}</div>
-                        <div className="lb-podium-name">{isMe(u.user_id) ? "You" : u.name}</div>
-                        <div className="lb-podium-class">{u.player_class}</div>
-                        <div className="lb-podium-xp" style={{ marginTop: 'auto' }}>{u.total_points.toLocaleString()} <span className="text-xs text-muted" style={{textShadow: 'none'}}>XP</span></div>
-                        <span className={`rank-badge rank-${u.player_rank}`} style={{ marginTop: 8 }}>{u.player_rank}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
               {/* Full list */}
-              <article className="panel panel-no-pad">
-                {hunters.map((u, i) => (
-                  <div key={u.user_id} className={`lb-row${isMe(u.user_id) ? " lb-row--me" : ""}`}>
-                    <div className="lb-row-rank">{i < 3 ? MEDALLION[i] : `#${i + 1}`}</div>
-                    <div className="lb-row-avatar">{u.name.charAt(0).toUpperCase()}</div>
-                    <div className="lb-row-info">
-                      <div className="lb-row-name">
-                        {isMe(u.user_id) ? "You" : u.name}
-                        <span className="rank-badge rank-sm" style={{ marginLeft: 6 }}>{u.player_rank}</span>
+              <article className="panel lb-list-shell">
+                <div className="lb-list-stack">
+                  {hunters.map((u, i) => (
+                    <div key={u.user_id} className={`lb-row${isMe(u.user_id) ? " lb-row--me" : ""}`}>
+                      <div className="lb-row-rank">{i < 3 ? MEDALLION[i] : `#${i + 1}`}</div>
+                      <div className="lb-row-avatar">{u.name.charAt(0).toUpperCase()}</div>
+                      <div className="lb-row-info">
+                        <div className="lb-row-name">
+                          {isMe(u.user_id) ? "You" : u.name}
+                          <span className="rank-badge rank-sm" style={{ marginLeft: 6 }}>{u.player_rank}</span>
+                        </div>
+                        <div className="lb-row-sub">{u.player_class} · Lv.{u.level} · <em>{u.player_title}</em> · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{u.user_id.slice(0,8).toUpperCase()}</span></div>
                       </div>
-                      <div className="lb-row-sub">{u.player_class} · Lv.{u.level} · <em>{u.player_title}</em> · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{u.user_id.slice(0,8).toUpperCase()}</span></div>
+                      <div className="lb-row-xp">{u.total_points.toLocaleString()} <span className="text-xs text-muted">XP</span></div>
                     </div>
-                    <div className="lb-row-xp">{u.total_points.toLocaleString()} <span className="text-xs text-muted">XP</span></div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </article>
             </>
           )}

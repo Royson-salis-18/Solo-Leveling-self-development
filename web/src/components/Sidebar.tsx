@@ -50,22 +50,14 @@ export function Sidebar() {
           <div className="sb-brand-sub">Second Brain 5.0</div>
         </div>
         <div style={{ flex: 1 }} />
-        <button 
+        <button
           onClick={() => navigate("/notifications")}
-          style={{ 
-            position: "relative",
-            background: "none", border: "none", cursor: "pointer", 
-            color: unreadCount > 0 ? "#a8a8ff" : "var(--t3)",
-            padding: 8, display: "flex", alignItems: "center"
-          }}
+          className={`sb-icon-btn${unreadCount > 0 ? " sb-icon-btn--unread" : ""}`}
+          aria-label="Notifications"
         >
           <Bell size={20} />
           {unreadCount > 0 && (
-            <span style={{
-              position: "absolute", top: 4, right: 4,
-              width: 8, height: 8, borderRadius: "50%",
-              background: "#ff4444", border: "2px solid var(--sidebar-bg)"
-            }} />
+            <span className="sb-unread-dot" />
           )}
         </button>
       </div>
@@ -91,38 +83,21 @@ export function Sidebar() {
 
       {/* ── User info ── */}
       <div style={{ padding: "0 4px 4px" }}>
-        <div style={{
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 14,
-          padding: "14px 16px",
-          marginBottom: 8,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div className="sb-user-panel">
+          <div className="sb-user-top">
             {/* Avatar */}
-            <div style={{
-              width: 38, height: 38,
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "1rem", fontWeight: 700, color: "var(--t1)",
-              flexShrink: 0,
-            }}>
+            <div className="sb-avatar-box">
               {initial}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: "0.86rem", fontWeight: 600, color: "var(--t1)",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>
+            <div className="sb-user-meta">
+              <div className="sb-user-title">
                 {displayName}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.6rem", color: "#a8a8ff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", background: "rgba(168,168,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>{playerClass}</span>
-                <span style={{ fontSize: "0.6rem", color: "var(--t3)", fontWeight: 700, background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{playerRank}-Rank</span>
+              <div className="sb-user-tags">
+                <span className="sb-tag sb-tag--class">{playerClass}</span>
+                <span className="sb-tag">{playerRank}-Rank</span>
                 {(profile as any)?.streak_count > 0 && (
-                  <span style={{ fontSize: "0.6rem", color: "#ffa030", fontWeight: 700, background: "rgba(255,160,48,0.1)", padding: "1px 5px", borderRadius: 4, display: "flex", alignItems: "center", gap: 2 }}>
+                  <span className="sb-tag sb-tag--streak">
                     <Flame size={10} /> {(profile as any).streak_count}
                   </span>
                 )}
@@ -131,16 +106,11 @@ export function Sidebar() {
           </div>
 
           {/* XP bar */}
-          <div>
-            <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
-              <div style={{
-                height: "100%", width: `${xpPct}%`,
-                background: "rgba(255,255,255,0.50)",
-                borderRadius: 99,
-                transition: "width 0.5s ease",
-              }} />
+          <div className="sb-xp">
+            <div className="sb-xp-track" aria-hidden="true">
+              <div className="sb-xp-fill" style={{ width: `${xpPct}%` }} />
             </div>
-            <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.22)", marginTop: 5 }}>
+            <div className="sb-xp-text">
               {xp.toLocaleString()} / {xpToNext.toLocaleString()} XP · Lv.{level}
             </div>
           </div>

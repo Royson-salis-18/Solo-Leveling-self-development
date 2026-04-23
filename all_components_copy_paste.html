@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Components — Copy-Paste Reference</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #06060a;
+    color: rgba(255,255,255,0.75);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 0;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(6,6,10,0.95);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 0 24px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 14px 20px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .2s, border-color .2s;
+    font-weight: 600;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .nav-tab:hover { color: rgba(255,255,255,0.7); }
+  .nav-tab.active { color: #fff; border-bottom-color: rgba(255,255,255,0.5); }
+
+  /* ── SECTIONS ── */
+  .section { display: none; padding: 32px 24px 60px; }
+  .section.active { display: block; }
+
+  .comp-header {
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .comp-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 5px;
+  }
+  .comp-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: .3px;
+  }
+
+  /* ── CODE BLOCKS ── */
+  .code-section {
+    margin-bottom: 22px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .code-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    font-weight: 700;
+  }
+  .copy-btn {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    transition: background .2s, color .2s;
+    font-weight: 600;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .copy-btn.copied { background: rgba(60,220,100,0.15); color: #55ee88; border-color: rgba(60,220,100,0.3); }
+  pre {
+    padding: 18px 16px;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.65);
+    background: rgba(0,0,0,0.4);
+    white-space: pre;
+    max-height: 420px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  pre::-webkit-scrollbar { width: 5px; height: 5px; }
+  pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+  /* ── USAGE TIPS ── */
+  .usage-box {
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .usage-box p {
+    font-size: 12px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.7;
+  }
+  .usage-box code {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    background: rgba(255,255,255,0.07);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: rgba(255,255,255,0.7);
+  }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
+  .tag-css { background: rgba(80,120,255,0.15); color: #88aaff; border: 1px solid rgba(80,120,255,0.25); }
+  .tag-html { background: rgba(255,140,40,0.12); color: #ffaa55; border: 1px solid rgba(255,140,40,0.2); }
+  .tag-js { background: rgba(255,220,50,0.1); color: #ffdd55; border: 1px solid rgba(255,220,50,0.18); }
+  .tag-all { background: rgba(120,220,100,0.1); color: #88ee66; border: 1px solid rgba(120,220,100,0.2); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(60,220,100,0.15);
+    border: 1px solid rgba(60,220,100,0.3);
+    backdrop-filter: blur(12px);
+    border-radius: 30px;
+    padding: 8px 20px;
+    font-size: 12px;
+    color: #55ee88;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    z-index: 9999;
+    letter-spacing: 1px;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="switchTab('glass')">① Glass Design System</button>
+  <button class="nav-tab" onclick="switchTab('solid')">② Solid Design System</button>
+  <button class="nav-tab" onclick="switchTab('glasscards')">③ Glassmorphic Aura Cards</button>
+  <button class="nav-tab" onclick="switchTab('animecards')">④ Anime Power Cards</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 1 — DARK GLASS DESIGN SYSTEM -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section active" id="tab-glass">
+  <div class="comp-header">
+    <div class="comp-title">Dark Glass Design System</div>
+    <div class="comp-desc">Animated black goo background · glassmorphic cards · colour schemes · gradient palette · text gradients · border tokens. Click items to copy their CSS values.</div>
+  </div>
+
+  <div class="usage-box">
+    <p>
+      <strong style="color:rgba(255,255,255,.6)">How to use:</strong> Copy the <code>&lt;style&gt;</code> block into your page's <code>&lt;head&gt;</code>.
+      Copy the HTML markup into your <code>&lt;body&gt;</code>.
+      Copy the <code>&lt;script&gt;</code> block just before <code>&lt;/body&gt;</code>.
+      The animated canvas requires <code>position:fixed</code> — make sure your page background is <code>#07070c</code> or transparent over it.
+    </p>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-css">CSS</span> — paste inside &lt;head&gt; or your stylesheet</span>
+      <button class="copy-btn" onclick="copyBlock('glass-css',this)">Copy</button>
+    </div>
+    <pre id="glass-css">
+&lt;style&gt;
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07070c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:28px 18px;overflow-x:hidden}
+
+.section-label{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,0.25);text-transform:uppercase;margin:0 0 14px;font-weight:500}
+.divider{height:1px;background:rgba(255,255,255,0.05);margin:32px 0}
+
+/* ── GOOEY BG CANVAS ── */
+#goo-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:1}
+.content{position:relative;z-index:1}
+
+/* ── SCHEME CARDS ── */
+.schemes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:0}
+.scheme-card{border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .3s ease}
+.scheme-card:hover{transform:translateY(-3px)}
+.scheme-swatch{height:90px;position:relative;display:flex;align-items:flex-end;padding:12px}
+.scheme-swatch-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.scheme-meta{padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-top:none;border-radius:0 0 16px 16px}
+.scheme-name{font-size:13px;font-weight:600;color:rgba(255,255,255,0.8);margin-bottom:3px}
+.scheme-desc{font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:.3px}
+.scheme-dots{display:flex;gap:5px;margin-top:8px}
+.dot{width:14px;height:14px;border-radius:50%}
+
+/* ── GLASS CARDS ── */
+.glass-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.glass-card{border-radius:18px;padding:22px 18px 18px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;overflow:hidden;transition:transform .3s ease,box-shadow .3s ease;cursor:pointer;min-height:150px;display:flex;flex-direction:column;justify-content:flex-end}
+.glass-card:hover{transform:translateY(-4px)}
+.glass-card::before{content:'';position:absolute;inset:0;border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,0.07) 0%,rgba(255,255,255,0) 60%);pointer-events:none;z-index:1}
+.gc-label{font-size:8px;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;opacity:.4;color:#fff;position:relative;z-index:2}
+.gc-name{font-size:15px;font-weight:700;color:rgba(255,255,255,.85);position:relative;z-index:2;margin-bottom:3px}
+.gc-sub{font-size:10px;color:rgba(255,255,255,.3);position:relative;z-index:2}
+.gc-rank{position:absolute;top:16px;right:14px;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.25);font-weight:600;z-index:2}
+
+/* ── GRADIENT SWATCHES ── */
+.grad-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.grad-swatch{height:70px;border-radius:12px;position:relative;overflow:hidden;cursor:pointer;transition:transform .2s}
+.grad-swatch:hover{transform:scale(1.03)}
+.grad-label{position:absolute;bottom:8px;left:10px;font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:rgba(255,255,255,.7)}
+
+/* ── TEXT GRADIENT STYLES ── */
+.text-grad-row{display:flex;flex-wrap:wrap;gap:10px}
+.tg-pill{padding:8px 16px;border-radius:30px;border:1px solid rgba(255,255,255,.08);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:opacity .2s}
+.tg-pill:hover{opacity:.75}
+
+/* ── BORDER SAMPLES ── */
+.border-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.border-card{border-radius:14px;padding:14px;height:70px;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:500}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.1);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);border-radius:30px;padding:8px 18px;font-size:12px;color:rgba(255,255,255,.7);pointer-events:none;opacity:0;transition:opacity .3s;z-index:999}
+.toast.show{opacity:1}
+&lt;/style&gt;</pre>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-html">HTML</span> — paste inside &lt;body&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('glass-html',this)">Copy</button>
+    </div>
+    <pre id="glass-html">
+&lt;canvas id="goo-canvas"&gt;&lt;/canvas&gt;
+
+&lt;div class="content"&gt;
+  &lt;div class="section-label"&gt;Background — black goo system&lt;/div&gt;
+  &lt;p style="font-size:11px;color:rgba(255,255,255,.2);margin-bottom:18px;letter-spacing:.3px"&gt;Live animated — flowing across the whole page&lt;/p&gt;
+  &lt;div class="divider"&gt;&lt;/div&gt;
+
+  &lt;div class="section-label"&gt;Colour schemes&lt;/div&gt;
+  &lt;div class="schemes-grid" id="schemes-grid"&gt;&lt;/div&gt;
+  &lt;div class="divider"&gt;&lt;/div&gt;
+
+  &lt;div class="section-label"&gt;Glass card variants&lt;/div&gt;
+  &lt;div class="glass-grid" id="glass-grid"&gt;&lt;/div&gt;
+  &lt;div class="divider"&gt;&lt;/div&gt;
+
+  &lt;div class="section-label"&gt;Gradient palette&lt;/div&gt;
+  &lt;div class="grad-grid" id="grad-grid"&gt;&lt;/div&gt;
+  &lt;div class="divider"&gt;&lt;/div&gt;
+
+  &lt;div class="section-label"&gt;Text gradients&lt;/div&gt;
+  &lt;div class="text-grad-row" id="tg-row"&gt;&lt;/div&gt;
+  &lt;div class="divider"&gt;&lt;/div&gt;
+
+  &lt;div class="section-label"&gt;Border &amp; glow accents&lt;/div&gt;
+  &lt;div class="border-row" id="border-row"&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class="toast" id="toast"&gt;copied!&lt;/div&gt;</pre>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-js">JS</span> — paste just before &lt;/body&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('glass-js',this)">Copy</button>
+    </div>
+    <pre id="glass-js">
+&lt;script&gt;
+/* ══ GOO SYSTEM ══ */
+const gc = document.getElementById('goo-canvas');
+const gctx = gc.getContext('2d');
+let GW, GH;
+function resizeGoo(){GW=gc.width=window.innerWidth;GH=gc.height=Math.max(window.innerHeight,document.body.scrollHeight)}
+window.addEventListener('resize',resizeGoo);
+setTimeout(resizeGoo,200);
+
+const BLOBS = Array.from({length:7},(_,i)=>({
+  x:Math.random()*800, y:Math.random()*800,
+  vx:(Math.random()-.5)*.18, vy:(Math.random()-.5)*.18,
+  r:120+Math.random()*200,
+  phase:Math.random()*Math.PI*2,
+  speed:0.004+Math.random()*0.006
+}));
+
+const TENDRILS = Array.from({length:12},()=>({
+  pts:[],
+  x:Math.random()*800, y:Math.random()*900,
+  angle:Math.random()*Math.PI*2,
+  speed:0.003+Math.random()*0.005,
+  length:60+Math.random()*120,
+  width:2+Math.random()*5,
+  alpha:0.06+Math.random()*0.1,
+  wobble:Math.random()*Math.PI*2
+}));
+
+let gt=0;
+function drawGoo(){
+  gt++;
+  gctx.clearRect(0,0,GW,GH);
+  for(const b of BLOBS){
+    b.phase+=b.speed;
+    b.x+=b.vx+Math.sin(b.phase*0.7)*0.3;
+    b.y+=b.vy+Math.cos(b.phase*0.5)*0.3;
+    if(b.x<-b.r)b.x=GW+b.r;
+    if(b.x>GW+b.r)b.x=-b.r;
+    if(b.y<-b.r)b.y=GH+b.r;
+    if(b.y>GH+b.r)b.y=-b.r;
+    const pulse=0.85+Math.sin(b.phase)*0.15;
+    const rr=b.r*pulse;
+    const g=gctx.createRadialGradient(b.x,b.y,0,b.x,b.y,rr);
+    g.addColorStop(0,'rgba(0,0,0,0.55)');
+    g.addColorStop(0.5,'rgba(0,0,0,0.25)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    gctx.fillStyle=g;
+    gctx.beginPath();gctx.arc(b.x,b.y,rr,0,Math.PI*2);gctx.fill();
+  }
+  for(const td of TENDRILS){
+    td.wobble+=td.speed;
+    td.angle+=Math.sin(td.wobble)*0.008;
+    const pts=[];
+    let cx=td.x,cy=td.y;
+    const segs=12;
+    for(let i=0;i&lt;segs;i++){
+      const t2=i/segs;
+      const wx=Math.sin(td.wobble+t2*3)*20*(1-t2);
+      pts.push([cx+wx,cy]);
+      cy+=td.length/segs;
+      cx+=Math.sin(td.wobble*0.5+i)*3;
+    }
+    const tip=pts[pts.length-1];
+    const blobR=(td.width*1.8)*(0.7+Math.sin(td.wobble*2)*0.3);
+    const bg=gctx.createRadialGradient(tip[0],tip[1],0,tip[0],tip[1],blobR*2);
+    bg.addColorStop(0,`rgba(0,0,0,${td.alpha*1.5})`);
+    bg.addColorStop(1,'rgba(0,0,0,0)');
+    gctx.fillStyle=bg;
+    gctx.beginPath();gctx.arc(tip[0],tip[1],blobR*2,0,Math.PI*2);gctx.fill();
+    gctx.beginPath();
+    gctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i&lt;pts.length;i++){
+      const [px,py]=pts[i-1],[nx,ny]=pts[i];
+      gctx.quadraticCurveTo(px,py,(px+nx)/2,(py+ny)/2);
+    }
+    for(let i=0;i&lt;pts.length-1;i++){
+      const t2=i/(pts.length-1);
+      const w=td.width*(1-t2*0.7);
+      gctx.lineWidth=w;
+      gctx.strokeStyle=`rgba(0,0,0,${td.alpha*(1-t2*0.3)})`;
+      gctx.beginPath();
+      gctx.moveTo(pts[i][0],pts[i][1]);
+      gctx.lineTo(pts[i+1][0],pts[i+1][1]);
+      gctx.stroke();
+    }
+    td.x+=Math.sin(td.wobble*0.3)*0.4;
+    td.y+=Math.cos(td.wobble*0.2)*0.15;
+    if(td.x&lt;-50)td.x=GW+50;
+    if(td.x>GW+50)td.x=-50;
+    if(td.y&lt;-td.length)td.y=GH;
+    if(td.y>GH+td.length)td.y=-td.length;
+  }
+  requestAnimationFrame(drawGoo);
+}
+drawGoo();
+
+/* ══ DATA ══ */
+const SCHEMES=[
+  {name:'Shadow Monarch',desc:'Obsidian depths, violet soul',
+   swatch:'linear-gradient(135deg,#0d0015,#1a0035,#0a0008)',
+   swatchLabel:'SHADOW',labelColor:'#b088ff',
+   dots:['#0d0015','#2a0060','#7700cc','#c0aaff','#1a001a']},
+  {name:'Orc Disaster',desc:'Blood iron, ember dark',
+   swatch:'linear-gradient(135deg,#120000,#2a0500,#0f0000)',
+   swatchLabel:'FLAME',labelColor:'#ff7755',
+   dots:['#120000','#3d0a00','#cc2200','#ff7755','#1a0600']},
+  {name:'Storm Sovereign',desc:'Deep ocean, electric night',
+   swatch:'linear-gradient(135deg,#000814,#00152e,#000a1a)',
+   swatchLabel:'LIGHTNING',labelColor:'#5599ff',
+   dots:['#000814','#001845','#0044cc','#5599ff','#000d22']},
+  {name:'Death Miasma',desc:'Ash, cold smoke, void',
+   swatch:'linear-gradient(135deg,#080808,#111115,#080c08)',
+   swatchLabel:'SMOKE',labelColor:'#aaaaaa',
+   dots:['#080808','#18181c','#444448','#aaaaaa','#0c0c10']},
+  {name:'Divine Monarch',desc:'Gilded dark, ember glow',
+   swatch:'linear-gradient(135deg,#100800,#1e1000,#0f0500)',
+   swatchLabel:'RADIANT',labelColor:'#ffcc44',
+   dots:['#100800','#2e1800','#cc7700','#ffcc44','#1a0d00']},
+  {name:'Poison Haze',desc:'Toxic venom, dark green',
+   swatch:'linear-gradient(135deg,#020d04,#001808,#020a02)',
+   swatchLabel:'TOXIC',labelColor:'#44ff77',
+   dots:['#020d04','#002e10','#007722','#44ff77','#011808']},
+];
+
+const GLASS_CARDS=[
+  {label:'shadow',name:'Arise',sub:'Extract the fallen',rank:'S-RANK',
+   bg:'rgba(60,0,140,0.12)',border:'rgba(120,60,255,0.2)',accent:'#9966ff'},
+  {label:'flame',name:'Orc Monarch',sub:'Genocide march',rank:'A-RANK',
+   bg:'rgba(180,30,0,0.1)',border:'rgba(255,80,20,0.2)',accent:'#ff6633'},
+  {label:'lightning',name:'Storm Domain',sub:'Thunder sovereign',rank:'S-RANK',
+   bg:'rgba(0,60,200,0.1)',border:'rgba(40,120,255,0.2)',accent:'#4488ff'},
+  {label:'smoke',name:'Miasma Lord',sub:'Plague domain',rank:'B-RANK',
+   bg:'rgba(80,80,90,0.1)',border:'rgba(140,140,150,0.18)',accent:'#aaaacc'},
+  {label:'radiant',name:'Divine King',sub:'Celestial authority',rank:'NATIONAL',
+   bg:'rgba(160,90,0,0.1)',border:'rgba(255,170,0,0.2)',accent:'#ffaa22'},
+  {label:'toxic',name:'Poison Haze',sub:'Venom sovereign',rank:'A-RANK',
+   bg:'rgba(0,120,30,0.1)',border:'rgba(0,210,60,0.18)',accent:'#33ee66'},
+];
+
+const GRADS=[
+  {label:'void',g:'linear-gradient(135deg,#0d0015 0%,#1a0035 50%,#0a0008 100%)'},
+  {label:'ember',g:'linear-gradient(135deg,#120000 0%,#3d0a00 50%,#cc2200 100%)'},
+  {label:'abyss',g:'linear-gradient(135deg,#000814 0%,#001845 50%,#0044cc 100%)'},
+  {label:'ash',g:'linear-gradient(135deg,#080808 0%,#1c1c20 50%,#444448 100%)'},
+  {label:'gilt',g:'linear-gradient(135deg,#100800 0%,#2e1800 50%,#cc7700 100%)'},
+  {label:'venom',g:'linear-gradient(135deg,#020d04 0%,#002e10 50%,#007722 100%)'},
+  {label:'crimson',g:'linear-gradient(135deg,#0f0008 0%,#2a0018 50%,#aa0044 100%)'},
+  {label:'frost',g:'linear-gradient(135deg,#040a10 0%,#001020 50%,#003355 100%)'},
+  {label:'obsidian',g:'linear-gradient(135deg,#050505 0%,#0d0d10 50%,#1a1a22 100%)'},
+  {label:'aurora',g:'linear-gradient(135deg,#020818 0%,#0a1a10 40%,#100820 100%)'},
+];
+
+const TEXT_GRADS=[
+  {text:'Shadow Monarch',g:'linear-gradient(90deg,#9966ff,#cc88ff,#7700cc)'},
+  {text:'Orc Disaster',g:'linear-gradient(90deg,#ff4422,#ff8844,#cc1100)'},
+  {text:'Storm Sovereign',g:'linear-gradient(90deg,#2266ff,#66aaff,#0033cc)'},
+  {text:'Death Miasma',g:'linear-gradient(90deg,#888899,#ccccdd,#555566)'},
+  {text:'Divine Monarch',g:'linear-gradient(90deg,#ffaa00,#ffdd66,#cc7700)'},
+  {text:'Blood Rage',g:'linear-gradient(90deg,#cc0044,#ff4488,#880022)'},
+];
+
+const BORDERS=[
+  {label:'shadow glow',style:'border:1px solid rgba(120,60,255,0.3)',shadow:'box-shadow:0 0 12px rgba(100,40,220,0.2),inset 0 0 12px rgba(80,0,180,0.08)'},
+  {label:'flame edge',style:'border:1px solid rgba(255,80,20,0.3)',shadow:'box-shadow:0 0 12px rgba(255,50,0,0.15),inset 0 0 12px rgba(200,30,0,0.08)'},
+  {label:'arc light',style:'border:1px solid rgba(40,120,255,0.3)',shadow:'box-shadow:0 0 12px rgba(20,80,255,0.15),inset 0 0 12px rgba(0,60,200,0.08)'},
+  {label:'ash mist',style:'border:1px solid rgba(140,140,150,0.2)',shadow:'box-shadow:0 0 10px rgba(100,100,110,0.1)'},
+  {label:'gilt edge',style:'border:1px solid rgba(255,170,0,0.3)',shadow:'box-shadow:0 0 12px rgba(220,140,0,0.15),inset 0 0 12px rgba(160,90,0,0.08)'},
+  {label:'venom',style:'border:1px solid rgba(0,210,60,0.25)',shadow:'box-shadow:0 0 10px rgba(0,180,50,0.12)'},
+];
+
+/* ══ RENDER ══ */
+function showToast(txt){
+  const t=document.getElementById('toast');
+  t.textContent=txt+' copied';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1600);
+}
+
+const sg=document.getElementById('schemes-grid');
+SCHEMES.forEach(s=>{
+  const d=document.createElement('div');
+  d.className='scheme-card';
+  d.innerHTML=`
+    &lt;div class="scheme-swatch" style="background:${s.swatch}"&gt;
+      &lt;span class="scheme-swatch-label" style="color:${s.labelColor}"&gt;${s.swatchLabel}&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class="scheme-meta"&gt;
+      &lt;div class="scheme-name"&gt;${s.name}&lt;/div&gt;
+      &lt;div class="scheme-desc"&gt;${s.desc}&lt;/div&gt;
+      &lt;div class="scheme-dots"&gt;${s.dots.map(c=>`&lt;div class="dot" style="background:${c};border:1px solid rgba(255,255,255,0.1)"&gt;&lt;/div&gt;`).join('')}&lt;/div&gt;
+    &lt;/div&gt;`;
+  d.onclick=()=>showToast(s.swatch);
+  sg.appendChild(d);
+});
+
+const gg=document.getElementById('glass-grid');
+GLASS_CARDS.forEach(c=>{
+  const d=document.createElement('div');
+  d.className='glass-card';
+  d.style.cssText=`background:${c.bg};border:1px solid ${c.border};box-shadow:0 0 20px ${c.border.replace('0.2','0.08')}`;
+  d.innerHTML=`
+    &lt;span class="gc-rank"&gt;${c.rank}&lt;/span&gt;
+    &lt;div class="gc-label" style="color:${c.accent};opacity:0.7"&gt;${c.label}&lt;/div&gt;
+    &lt;div class="gc-name"&gt;${c.name}&lt;/div&gt;
+    &lt;div class="gc-sub"&gt;${c.sub}&lt;/div&gt;`;
+  d.onclick=()=>showToast(`background:${c.bg}; border:1px solid ${c.border}`);
+  gg.appendChild(d);
+});
+
+const grd=document.getElementById('grad-grid');
+GRADS.forEach(g=>{
+  const d=document.createElement('div');
+  d.className='grad-swatch';
+  d.style.background=g.g;
+  d.innerHTML=`&lt;span class="grad-label"&gt;${g.label}&lt;/span&gt;`;
+  d.onclick=()=>showToast(g.g);
+  grd.appendChild(d);
+});
+
+const tgr=document.getElementById('tg-row');
+TEXT_GRADS.forEach(tg=>{
+  const d=document.createElement('div');
+  d.className='tg-pill';
+  d.style.cssText=`background:linear-gradient(90deg,rgba(255,255,255,0.03),rgba(255,255,255,0.06))`;
+  d.innerHTML=`&lt;span style="background:${tg.g};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text"&gt;${tg.text}&lt;/span&gt;`;
+  d.onclick=()=>showToast(`background:${tg.g};-webkit-background-clip:text;-webkit-text-fill-color:transparent`);
+  tgr.appendChild(d);
+});
+
+const br=document.getElementById('border-row');
+BORDERS.forEach(b=>{
+  const d=document.createElement('div');
+  d.className='border-card';
+  d.setAttribute('style',`${b.style};${b.shadow};background:rgba(255,255,255,0.02)`);
+  d.textContent=b.label;
+  d.onclick=()=>showToast(`${b.style}; ${b.shadow}`);
+  br.appendChild(d);
+});
+&lt;/script&gt;</pre>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 2 — DARK SOLID DESIGN SYSTEM -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-solid">
+  <div class="comp-header">
+    <div class="comp-title">Dark Solid Design System</div>
+    <div class="comp-desc">Same animated goo background with solid-colour cards featuring canvas aura effects (flame, shadow, smoke, lightning). Includes full colour schemes with hex swatches, gradient palette, text gradients, and border tokens.</div>
+  </div>
+
+  <div class="usage-box">
+    <p>
+      <strong style="color:rgba(255,255,255,.6)">How to use:</strong>
+      Copy the <code>&lt;style&gt;</code> block into your <code>&lt;head&gt;</code>.
+      Paste the HTML skeleton into your <code>&lt;body&gt;</code>.
+      Paste the full <code>&lt;script&gt;</code> block (includes goo engine + all data + render logic) just before <code>&lt;/body&gt;</code>.
+      The canvas cards use <code>IntersectionObserver</code> — effects start only when the card scrolls into view.
+    </p>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-css">CSS</span> — paste inside &lt;head&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('solid-css',this)">Copy</button>
+    </div>
+    <pre id="solid-css">
+&lt;style&gt;
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:28px 18px;overflow-x:hidden;background:#07070c}
+
+#goo-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.page{position:relative;z-index:1}
+
+.sec-label{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,0.22);text-transform:uppercase;margin-bottom:14px;font-weight:600}
+.hr{height:1px;background:rgba(255,255,255,0.06);margin:34px 0}
+
+/* ── SCHEME ROWS ── */
+.scheme-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;border-radius:14px;overflow:hidden;margin-bottom:10px}
+.scheme-block{padding:18px 16px;cursor:pointer;transition:filter .2s}
+.scheme-block:hover{filter:brightness(1.15)}
+.sb-role{font-size:8px;letter-spacing:3px;text-transform:uppercase;font-weight:700;opacity:.5;margin-bottom:6px}
+.sb-hex{font-size:12px;font-weight:700;font-family:monospace;opacity:.9;margin-bottom:2px}
+.sb-name{font-size:10px;opacity:.45;letter-spacing:.3px}
+
+/* ── SOLID CARDS ── */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.s-card{border-radius:18px;padding:24px 20px 20px;position:relative;overflow:hidden;cursor:pointer;min-height:170px;display:flex;flex-direction:column;justify-content:flex-end;transition:transform .3s ease}
+.s-card:hover{transform:translateY(-4px)}
+.s-card-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 55%);pointer-events:none;border-radius:18px}
+.s-card-label{font-size:8px;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:10px;opacity:.5;position:relative;z-index:1}
+.s-card-name{font-size:16px;font-weight:800;position:relative;z-index:1;margin-bottom:3px;letter-spacing:.3px}
+.s-card-sub{font-size:10px;opacity:.4;position:relative;z-index:1;letter-spacing:.5px}
+.s-card-rank{position:absolute;top:18px;right:16px;font-size:9px;letter-spacing:2px;font-weight:700;opacity:.35;z-index:1}
+.s-card-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.4;border-radius:18px}
+
+/* ── GRADIENT SWATCHES ── */
+.grad-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.grad-sw{height:75px;border-radius:12px;position:relative;cursor:pointer;transition:transform .2s,filter .2s;overflow:hidden}
+.grad-sw:hover{transform:scale(1.04);filter:brightness(1.1)}
+.grad-sw span{position:absolute;bottom:8px;left:10px;font-size:8px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:rgba(255,255,255,.6)}
+
+/* ── TEXT GRADS ── */
+.tg-wrap{display:flex;flex-wrap:wrap;gap:8px}
+.tg-pill{padding:9px 18px;border-radius:30px;font-size:13px;font-weight:800;letter-spacing:.5px;cursor:pointer;transition:filter .2s}
+.tg-pill:hover{filter:brightness(1.2)}
+
+/* ── BORDER SAMPLES ── */
+.border-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.border-sw{border-radius:14px;padding:18px 14px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:filter .2s}
+.border-sw:hover{filter:brightness(1.15)}
+.border-sw-name{font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:700;opacity:.6}
+.border-sw-hex{font-size:11px;font-family:monospace;opacity:.4}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1a1a26;border:1px solid rgba(255,255,255,.12);border-radius:30px;padding:8px 18px;font-size:11px;color:rgba(255,255,255,.6);pointer-events:none;opacity:0;transition:opacity .3s;z-index:999;letter-spacing:.5px}
+.toast.show{opacity:1}
+&lt;/style&gt;</pre>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-html">HTML</span> — paste inside &lt;body&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('solid-html',this)">Copy</button>
+    </div>
+    <pre id="solid-html">
+&lt;canvas id="goo-canvas"&gt;&lt;/canvas&gt;
+
+&lt;div class="page"&gt;
+  &lt;div class="sec-label"&gt;Background — black goo&lt;/div&gt;
+  &lt;p style="font-size:10px;color:rgba(255,255,255,.18);margin-bottom:20px;letter-spacing:.3px"&gt;animated across the whole page — blobs + dripping tendrils&lt;/p&gt;
+
+  &lt;div class="hr"&gt;&lt;/div&gt;
+  &lt;div class="sec-label"&gt;Colour schemes — solid palettes&lt;/div&gt;
+  &lt;div id="schemes"&gt;&lt;/div&gt;
+
+  &lt;div class="hr"&gt;&lt;/div&gt;
+  &lt;div class="sec-label"&gt;Solid cards — aura system&lt;/div&gt;
+  &lt;div class="cards-grid" id="cards-grid"&gt;&lt;/div&gt;
+
+  &lt;div class="hr"&gt;&lt;/div&gt;
+  &lt;div class="sec-label"&gt;Gradient swatches&lt;/div&gt;
+  &lt;div class="grad-grid" id="grad-grid"&gt;&lt;/div&gt;
+
+  &lt;div class="hr"&gt;&lt;/div&gt;
+  &lt;div class="sec-label"&gt;Text gradient styles&lt;/div&gt;
+  &lt;div class="tg-wrap" id="tg-wrap"&gt;&lt;/div&gt;
+
+  &lt;div class="hr"&gt;&lt;/div&gt;
+  &lt;div class="sec-label"&gt;Border &amp; glow tokens&lt;/div&gt;
+  &lt;div class="border-grid" id="border-grid"&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class="toast" id="toast"&gt;&lt;/div&gt;</pre>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-js">JS</span> — paste just before &lt;/body&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('solid-js',this)">Copy</button>
+    </div>
+    <pre id="solid-js">
+&lt;script&gt;
+/* ══ GOO ══ */
+const gc=document.getElementById('goo-canvas');
+const gx=gc.getContext('2d');
+let GW,GH;
+function rsz(){GW=gc.width=window.innerWidth;GH=gc.height=Math.max(window.innerHeight,document.body.scrollHeight+200)}
+window.addEventListener('resize',()=>setTimeout(rsz,100));
+setTimeout(rsz,300);
+
+const blobs=Array.from({length:8},()=>({
+  x:Math.random()*900,y:Math.random()*900,
+  vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,
+  r:100+Math.random()*220,ph:Math.random()*Math.PI*2,sp:.003+Math.random()*.005
+}));
+const tendrils=Array.from({length:14},()=>({
+  x:Math.random()*900,y:Math.random()*1000,
+  wb:Math.random()*Math.PI*2,sp:.003+Math.random()*.005,
+  len:50+Math.random()*130,w:1.5+Math.random()*5,al:.05+Math.random()*.12
+}));
+let gt=0;
+(function gloop(){
+  gt++;
+  gx.clearRect(0,0,GW,GH);
+  for(const b of blobs){
+    b.ph+=b.sp;b.x+=b.vx+Math.sin(b.ph*.7)*.35;b.y+=b.vy+Math.cos(b.ph*.5)*.35;
+    if(b.x&lt;-b.r)b.x=GW+b.r;if(b.x>GW+b.r)b.x=-b.r;
+    if(b.y&lt;-b.r)b.y=GH+b.r;if(b.y>GH+b.r)b.y=-b.r;
+    const rr=b.r*(0.85+Math.sin(b.ph)*.15);
+    const g=gx.createRadialGradient(b.x,b.y,0,b.x,b.y,rr);
+    g.addColorStop(0,'rgba(0,0,0,0.6)');g.addColorStop(.5,'rgba(0,0,0,0.28)');g.addColorStop(1,'rgba(0,0,0,0)');
+    gx.fillStyle=g;gx.beginPath();gx.arc(b.x,b.y,rr,0,Math.PI*2);gx.fill();
+  }
+  for(const td of tendrils){
+    td.wb+=td.sp;
+    const pts=[];let cx=td.x,cy=td.y;
+    for(let i=0;i&lt;14;i++){
+      const t=i/14;pts.push([cx+Math.sin(td.wb+t*3)*18*(1-t),cy]);
+      cy+=td.len/14;cx+=Math.sin(td.wb*.5+i)*2.5;
+    }
+    const tip=pts[pts.length-1];
+    const br=td.w*2*(0.7+Math.sin(td.wb*2)*.3);
+    const bg=gx.createRadialGradient(tip[0],tip[1],0,tip[0],tip[1],br*2);
+    bg.addColorStop(0,`rgba(0,0,0,${td.al*1.6})`);bg.addColorStop(1,'rgba(0,0,0,0)');
+    gx.fillStyle=bg;gx.beginPath();gx.arc(tip[0],tip[1],br*2,0,Math.PI*2);gx.fill();
+    for(let i=0;i&lt;pts.length-1;i++){
+      const t=i/(pts.length-1),w=td.w*(1-t*.7);
+      gx.lineWidth=w;gx.strokeStyle=`rgba(0,0,0,${td.al*(1-t*.4)})`;
+      gx.lineCap='round';gx.beginPath();gx.moveTo(pts[i][0],pts[i][1]);gx.lineTo(pts[i+1][0],pts[i+1][1]);gx.stroke();
+    }
+    td.x+=Math.sin(td.wb*.3)*.35;td.y+=Math.cos(td.wb*.2)*.12;
+    if(td.x&lt;-60)td.x=GW+60;if(td.x>GW+60)td.x=-60;
+    if(td.y&lt;-td.len)td.y=GH;if(td.y>GH+td.len)td.y=-td.len;
+  }
+  requestAnimationFrame(gloop);
+})();
+
+/* ══ DATA ══ */
+const SCHEMES=[
+  {name:'Shadow Monarch',cols:[
+    {role:'page bg',hex:'#07070c',label:'void black'},
+    {role:'surface',hex:'#0f0d1a',label:'deep violet'},
+    {role:'card',hex:'#1a1430',label:'midnight'},
+    {role:'accent',hex:'#7733cc',label:'sovereign'},
+    {role:'text hi',hex:'#e0d0ff',label:'pale violet'},
+    {role:'text lo',hex:'#6644aa',label:'muted violet'},
+  ]},
+  {name:'Orc Disaster',cols:[
+    {role:'page bg',hex:'#0c0602',label:'char black'},
+    {role:'surface',hex:'#1a0a04',label:'deep ember'},
+    {role:'card',hex:'#2e1008',label:'iron red'},
+    {role:'accent',hex:'#cc3300',label:'blood'},
+    {role:'text hi',hex:'#ffd0b0',label:'pale ember'},
+    {role:'text lo',hex:'#883322',label:'muted ember'},
+  ]},
+  {name:'Storm Sovereign',cols:[
+    {role:'page bg',hex:'#020508',label:'abyss'},
+    {role:'surface',hex:'#060e1a',label:'deep navy'},
+    {role:'card',hex:'#0a1830',label:'storm blue'},
+    {role:'accent',hex:'#1155ee',label:'arc'},
+    {role:'text hi',hex:'#c0d8ff',label:'pale arc'},
+    {role:'text lo',hex:'#334488',label:'muted arc'},
+  ]},
+  {name:'Death Miasma',cols:[
+    {role:'page bg',hex:'#070707',label:'pure dark'},
+    {role:'surface',hex:'#111114',label:'carbon'},
+    {role:'card',hex:'#1c1c22',label:'ash'},
+    {role:'accent',hex:'#666677',label:'smoke'},
+    {role:'text hi',hex:'#d8d8e0',label:'pale ash'},
+    {role:'text lo',hex:'#44444e',label:'muted ash'},
+  ]},
+  {name:'Divine Monarch',cols:[
+    {role:'page bg',hex:'#0a0602',label:'dark gold'},
+    {role:'surface',hex:'#160e02',label:'deep amber'},
+    {role:'card',hex:'#261800',label:'burnt gold'},
+    {role:'accent',hex:'#cc8800',label:'radiant'},
+    {role:'text hi',hex:'#fff0c0',label:'pale gold'},
+    {role:'text lo',hex:'#775500',label:'muted gold'},
+  ]},
+  {name:'Blood Shadow',cols:[
+    {role:'page bg',hex:'#080205',label:'void crimson'},
+    {role:'surface',hex:'#110510',label:'deep crimson'},
+    {role:'card',hex:'#1e0818',label:'blood dark'},
+    {role:'accent',hex:'#aa0044',label:'crimson'},
+    {role:'text hi',hex:'#ffb0d8',label:'pale rose'},
+    {role:'text lo',hex:'#660033',label:'muted rose'},
+  ]},
+];
+
+const CARDS=[
+  {label:'shadow',name:'Shadow Monarch',sub:'Arise — extract the fallen',rank:'S-RANK',
+   bg:'#0f0d1a',accent:'#7733cc',textHi:'#e0d0ff',textLo:'#6644aa',
+   effectType:'shadow',ecol:[[80,20,200],[60,0,160],[100,40,220]]},
+  {label:'flame',name:'Orc Disaster',sub:'Genocide march',rank:'A-RANK',
+   bg:'#1a0a04',accent:'#cc3300',textHi:'#ffd0b0',textLo:'#883322',
+   effectType:'flame',ecol:[[220,50,0],[180,20,0],[255,90,10]]},
+  {label:'lightning',name:'Storm Sovereign',sub:'Thunder domain',rank:'S-RANK',
+   bg:'#060e1a',accent:'#1155ee',textHi:'#c0d8ff',textLo:'#334488',
+   effectType:'lightning',ecol:[[20,80,240],[10,60,200],[40,120,255]]},
+  {label:'smoke',name:'Death Miasma',sub:'Plague domain',rank:'B-RANK',
+   bg:'#111114',accent:'#666677',textHi:'#d8d8e0',textLo:'#44444e',
+   effectType:'smoke',ecol:[[90,90,100],[70,70,80],[110,110,120]]},
+  {label:'radiant',name:'Divine Monarch',sub:'Celestial authority',rank:'NATIONAL',
+   bg:'#160e02',accent:'#cc8800',textHi:'#fff0c0',textLo:'#775500',
+   effectType:'flame',ecol:[[220,140,0],[180,100,0],[255,180,20]]},
+  {label:'crimson',name:'Blood Shadow',sub:'Crimson extraction',rank:'SPECIAL',
+   bg:'#110510',accent:'#aa0044',textHi:'#ffb0d8',textLo:'#660033',
+   effectType:'shadow',ecol:[[180,0,60],[150,0,40],[210,10,80]]},
+];
+
+const GRADS=[
+  {label:'void veil',g:'linear-gradient(135deg,#07070c,#1a1430,#7733cc)'},
+  {label:'ember tide',g:'linear-gradient(135deg,#0c0602,#2e1008,#cc3300)'},
+  {label:'arc deep',g:'linear-gradient(135deg,#020508,#0a1830,#1155ee)'},
+  {label:'ash fall',g:'linear-gradient(135deg,#070707,#1c1c22,#666677)'},
+  {label:'gilt dark',g:'linear-gradient(135deg,#0a0602,#261800,#cc8800)'},
+  {label:'crimson',g:'linear-gradient(135deg,#080205,#1e0818,#aa0044)'},
+  {label:'void ember',g:'linear-gradient(135deg,#07070c,#1a0a04,#cc3300)'},
+  {label:'arc shadow',g:'linear-gradient(135deg,#020508,#0f0d1a,#1155ee)'},
+  {label:'obsidian',g:'linear-gradient(135deg,#050505,#0d0d12,#1a1a20)'},
+  {label:'venom',g:'linear-gradient(135deg,#020805,#0a2010,#007722)'},
+];
+
+const TEXT_GRADS=[
+  {text:'Shadow Monarch',g:'linear-gradient(90deg,#9955ff,#ddbbff)'},
+  {text:'Orc Disaster',g:'linear-gradient(90deg,#ff4422,#ffaa66)'},
+  {text:'Storm Sovereign',g:'linear-gradient(90deg,#2255ff,#88ccff)'},
+  {text:'Ashen Lord',g:'linear-gradient(90deg,#888899,#ddddee)'},
+  {text:'Divine Monarch',g:'linear-gradient(90deg,#cc8800,#ffee99)'},
+  {text:'Blood Rage',g:'linear-gradient(90deg,#cc0044,#ff88bb)'},
+];
+
+const BORDERS=[
+  {name:'violet glow',hex:'#7733cc',border:'1.5px solid #7733cc33',shadow:'0 0 16px #7733cc22,inset 0 0 16px #55009911',bg:'#0f0d1a'},
+  {name:'ember edge',hex:'#cc3300',border:'1.5px solid #cc330033',shadow:'0 0 16px #cc330022,inset 0 0 16px #88110011',bg:'#1a0a04'},
+  {name:'arc light',hex:'#1155ee',border:'1.5px solid #1155ee33',shadow:'0 0 16px #1155ee22,inset 0 0 16px #00338811',bg:'#060e1a'},
+  {name:'ash rim',hex:'#666677',border:'1.5px solid #66667722',shadow:'0 0 10px #44445511',bg:'#111114'},
+  {name:'gilt edge',hex:'#cc8800',border:'1.5px solid #cc880033',shadow:'0 0 16px #cc880022,inset 0 0 16px #88550011',bg:'#160e02'},
+  {name:'crimson',hex:'#aa0044',border:'1.5px solid #aa004433',shadow:'0 0 14px #aa004422,inset 0 0 14px #66002211',bg:'#110510'},
+];
+
+/* ══ TOAST ══ */
+function toast(txt){
+  const t=document.getElementById('toast');
+  t.textContent='copied: '+txt;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+/* ══ RENDER SCHEMES ══ */
+const sc=document.getElementById('schemes');
+SCHEMES.forEach(s=>{
+  const lbl=document.createElement('p');
+  lbl.style.cssText='font-size:10px;color:rgba(255,255,255,.3);margin-bottom:8px;letter-spacing:1px;font-weight:600';
+  lbl.textContent=s.name;
+  sc.appendChild(lbl);
+  const row=document.createElement('div');
+  row.className='scheme-row';
+  s.cols.forEach(c=>{
+    const b=document.createElement('div');
+    b.className='scheme-block';
+    b.style.background=c.hex;
+    const lum=parseInt(c.hex.slice(1,3),16);
+    const tc=lum>60?'rgba(0,0,0,0.7)':'rgba(255,255,255,0.75)';
+    b.innerHTML=`&lt;div class="sb-role" style="color:${tc}"&gt;${c.role}&lt;/div&gt;&lt;div class="sb-hex" style="color:${tc}"&gt;${c.hex}&lt;/div&gt;&lt;div class="sb-name" style="color:${tc}"&gt;${c.label}&lt;/div&gt;`;
+    b.onclick=()=>toast(c.hex);
+    row.appendChild(b);
+  });
+  sc.appendChild(row);
+  const sp=document.createElement('div');sp.style.height='16px';sc.appendChild(sp);
+});
+
+/* ══ RENDER CARDS ══ */
+const cg=document.getElementById('cards-grid');
+CARDS.forEach(c=>{
+  const d=document.createElement('div');
+  d.className='s-card';
+  d.style.background=c.bg;
+  d.innerHTML=`
+    &lt;canvas class="s-card-canvas"&gt;&lt;/canvas&gt;
+    &lt;div class="s-card-shine"&gt;&lt;/div&gt;
+    &lt;span class="s-card-rank" style="color:${c.textLo}"&gt;${c.rank}&lt;/span&gt;
+    &lt;div class="s-card-label" style="color:${c.accent}"&gt;${c.label}&lt;/div&gt;
+    &lt;div class="s-card-name" style="color:${c.textHi}"&gt;${c.name}&lt;/div&gt;
+    &lt;div class="s-card-sub" style="color:${c.textLo}"&gt;${c.sub}&lt;/div&gt;`;
+  d.onclick=()=>toast(`background:${c.bg}`);
+  cg.appendChild(d);
+  const cv=d.querySelector('.s-card-canvas');
+  const io=new IntersectionObserver(e=>{if(e[0].isIntersecting){startFX(cv,c);io.disconnect()}},{threshold:.1});
+  io.observe(d);
+  window.addEventListener('resize',()=>{const r=d.getBoundingClientRect();cv.width=r.width;cv.height=r.height});
+});
+
+function startFX(canvas,cfg){
+  const ctx=canvas.getContext('2d');
+  let w,h;
+  function rsz(){const r=canvas.parentElement.getBoundingClientRect();w=canvas.width=r.width;h=canvas.height=r.height}
+  rsz();
+  const {effectType:type,ecol,accent}=cfg;
+  const glow=ecol[0].join(',');
+
+  if(type==='flame'){
+    let pts=[],t=0;
+    const sp=(init)=>{const c=ecol[Math.floor(Math.random()*ecol.length)];pts.push({x:w*.15+Math.random()*w*.7,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*.6,vy:-(Math.random()*1.3+.5),sz:Math.random()*7+3,a:0,mA:Math.random()*.3+.08,life:0,mL:Math.random()*80+55,wb:Math.random()*Math.PI*2,c})};
+    for(let i=0;i&lt;20;i++)sp(true);
+    (function loop(){t++;ctx.clearRect(0,0,w,h);if(Math.random()&lt;.3)sp(false);
+    const p=Math.sin(t*.05)*.5+.5;const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h*.65);bg.addColorStop(0,`rgba(${glow},${.1*p})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+    pts=pts.filter(p=>p.life&lt;p.mL);
+    for(const p of pts){p.life++;p.wb+=.07;const tt=p.life/p.mL;p.a=tt&lt;.15?(tt/.15)*p.mA:p.mA*(1-(tt-.15)/.85);p.x+=p.vx+Math.sin(p.wb)*.5;p.y+=p.vy;const sz=p.sz*(1-tt*.4);const[r,g,b]=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.sin(p.wb)*.25);const fg=ctx.createRadialGradient(0,0,0,0,-sz,sz*1.8);fg.addColorStop(0,`rgba(${r},${g},${b},${p.a})`);fg.addColorStop(.5,`rgba(${r},${g},${b},${p.a*.3})`);fg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.beginPath();ctx.ellipse(0,0,sz*.55,sz*1.5,0,0,Math.PI*2);ctx.fillStyle=fg;ctx.fill();ctx.restore()}
+    requestAnimationFrame(loop)})();return;
+  }
+  if(type==='shadow'){
+    let pts=[],t=0;
+    const tds=Array.from({length:4},()=>({x:w*.1+Math.random()*w*.8,ph:Math.random()*Math.PI*2,ht:Math.random()*40+22}));
+    const sp=(init)=>{const c=ecol[Math.floor(Math.random()*ecol.length)];pts.push({x:Math.random()*w,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*1.1,vy:-(Math.random()*.7+.2),sz:Math.random()*11+5,a:0,mA:Math.random()*.25+.07,life:0,mL:Math.random()*110+80,wb:Math.random()*Math.PI*2,sp:Math.random()*.4+.7,c})};
+    for(let i=0;i&lt;18;i++)sp(true);
+    (function loop(){t++;ctx.clearRect(0,0,w,h);if(Math.random()&lt;.28)sp(false);
+    const p=Math.sin(t*.04)*.5+.5;const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h);bg.addColorStop(0,`rgba(${glow},${.1*p})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+    for(const td of tds){const tx=td.x+Math.sin(t*.025+td.ph)*12,ht=td.ht*(0.7+Math.sin(t*.04+td.ph)*.3);const[r,g,b]=ecol[0];const tg=ctx.createLinearGradient(tx,h,tx,h-ht);tg.addColorStop(0,`rgba(${r},${g},${b},${.22*p})`);tg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.fillStyle=tg;ctx.beginPath();ctx.ellipse(tx,h-ht*.25,4+Math.sin(t*.05+td.ph)*2,ht,0,0,Math.PI*2);ctx.fill()}
+    pts=pts.filter(p=>p.life&lt;p.mL);
+    for(const p of pts){p.life++;p.wb+=.04;const tt=p.life/p.mL;p.a=tt&lt;.1?(tt/.1)*p.mA:p.mA*(1-(tt-.1)/.9);p.x+=p.vx+Math.sin(p.wb);p.y+=p.vy;const sz=p.sz*(1+tt*.25);const[r,g,b]=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.wb*.2);ctx.globalAlpha=p.a;ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.beginPath();ctx.ellipse(0,0,sz*p.sp,sz,0,0,Math.PI*2);ctx.fill();ctx.restore()}
+    requestAnimationFrame(loop)})();return;
+  }
+  if(type==='smoke'){
+    let pts=[],t=0;
+    const sp=(init)=>{const c=ecol[Math.floor(Math.random()*ecol.length)];pts.push({x:w*.05+Math.random()*w*.9,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*.45,vy:-(Math.random()*.4+.14),sz:Math.random()*18+10,a:0,mA:Math.random()*.16+.05,life:0,mL:Math.random()*150+100,wb:Math.random()*Math.PI*2,rot:(Math.random()-.5)*.011,c})};
+    for(let i=0;i&lt;16;i++)sp(true);
+    (function loop(){t++;ctx.clearRect(0,0,w,h);if(Math.random()&lt;.22)sp(false);
+    pts=pts.filter(p=>p.life&lt;p.mL);
+    for(const p of pts){p.life++;p.wb+=p.rot;const tt=p.life/p.mL;p.a=tt&lt;.2?(tt/.2)*p.mA:tt&lt;.7?p.mA:p.mA*(1-(tt-.7)/.3);p.x+=p.vx+Math.sin(t*.007+p.wb)*.3;p.y+=p.vy;const sz=p.sz*(1+tt);const[r,g,b]=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.wb);const sg=ctx.createRadialGradient(0,0,0,0,0,sz);sg.addColorStop(0,`rgba(${r},${g},${b},${p.a})`);sg.addColorStop(.55,`rgba(${r},${g},${b},${p.a*.35})`);sg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.beginPath();ctx.arc(0,0,sz,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();ctx.restore()}
+    requestAnimationFrame(loop)})();return;
+  }
+  if(type==='lightning'){
+    let bolts=[],orbs=[],t=0;
+    const sb=()=>{const x=w*.15+Math.random()*w*.7;const segs=[];let cx=x,cy=0;while(cy&lt;h+10){const nx=cx+(Math.random()-.5)*44,ny=cy+Math.random()*24+11;segs.push([cx,cy,nx,ny]);cx=nx;cy=ny}const brs=[];if(segs.length>3){const bi=Math.floor(segs.length*.35+Math.random()*segs.length*.3);let[,,bcx,bcy]=segs[bi];const bs=[];for(let i=0;i&lt;3;i++){const bnx=bcx+(Math.random()-.5)*28,bny=bcy+Math.random()*16+5;bs.push([bcx,bcy,bnx,bny]);bcx=bnx;bcy=bny}brs.push(bs)}const[r,g,b]=ecol[Math.floor(Math.random()*ecol.length)];bolts.push({segs,brs,alpha:.8,life:0,r,g,b})};
+    const so=()=>{const[r,g,b]=ecol[0];orbs.push({x:w*.2+Math.random()*w*.6,y:h*.2+Math.random()*h*.6,radius:Math.random()*8+4,a:0,mA:Math.random()*.2+.07,life:0,mL:Math.random()*70+50,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r,g,b})};
+    for(let i=0;i&lt;3;i++)so();
+    (function loop(){t++;ctx.clearRect(0,0,w,h);if(Math.random()&lt;.04)sb();if(Math.random()&lt;.02)so();
+    const p=Math.sin(t*.06)*.5+.5;const bg=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,h);bg.addColorStop(0,`rgba(${glow},${.07*p})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+    orbs=orbs.filter(o=>o.life&lt;o.mL);for(const o of orbs){o.life++;const tt=o.life/o.mL;o.a=tt&lt;.2?(tt/.2)*o.mA:o.mA*(1-(tt-.2)/.8);o.x+=o.vx;o.y+=o.vy;const og=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.radius*2.5);og.addColorStop(0,`rgba(${o.r},${o.g},${o.b},${o.a})`);og.addColorStop(1,`rgba(${o.r},${o.g},${o.b},0)`);ctx.fillStyle=og;ctx.beginPath();ctx.arc(o.x,o.y,o.radius*2.5,0,Math.PI*2);ctx.fill()}
+    bolts=bolts.filter(b=>b.life&lt;16);for(const bolt of bolts){bolt.life++;bolt.alpha*=.74;ctx.save();ctx.globalAlpha=bolt.alpha;ctx.strokeStyle=`rgba(${bolt.r},${bolt.g},${bolt.b},.18)`;ctx.lineWidth=5;ctx.lineCap='round';for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}ctx.strokeStyle=`rgb(${bolt.r},${bolt.g},${bolt.b})`;ctx.lineWidth=bolt.life&lt;3?1.8:.8;for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}ctx.strokeStyle=`rgba(${bolt.r},${bolt.g},${bolt.b},.4)`;ctx.lineWidth=.6;for(const bs of bolt.brs)for(const[x1,y1,x2,y2]of bs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}if(bolt.life&lt;2){ctx.globalAlpha=.04;ctx.fillStyle=`rgb(${bolt.r},${bolt.g},${bolt.b})`;ctx.fillRect(0,0,w,h)}ctx.restore()}
+    requestAnimationFrame(loop)})();
+  }
+}
+
+/* ══ GRADS ══ */
+const grd=document.getElementById('grad-grid');
+GRADS.forEach(g=>{
+  const d=document.createElement('div');d.className='grad-sw';
+  d.style.background=g.g;
+  d.innerHTML=`&lt;span&gt;${g.label}&lt;/span&gt;`;
+  d.onclick=()=>toast(g.g);grd.appendChild(d);
+});
+
+const tgw=document.getElementById('tg-wrap');
+TEXT_GRADS.forEach(tg=>{
+  const d=document.createElement('div');d.className='tg-pill';
+  d.style.background='rgba(255,255,255,0.04)';
+  d.innerHTML=`&lt;span style="background:${tg.g};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text"&gt;${tg.text}&lt;/span&gt;`;
+  d.onclick=()=>toast(`background:${tg.g};-webkit-background-clip:text;-webkit-text-fill-color:transparent`);
+  tgw.appendChild(d);
+});
+
+const bg2=document.getElementById('border-grid');
+BORDERS.forEach(b=>{
+  const d=document.createElement('div');d.className='border-sw';
+  d.style.cssText=`background:${b.bg};border:${b.border};box-shadow:${b.shadow}`;
+  d.innerHTML=`&lt;div class="border-sw-name" style="color:rgba(255,255,255,.7)"&gt;${b.name}&lt;/div&gt;&lt;div class="border-sw-hex" style="color:${b.hex}"&gt;${b.hex}&lt;/div&gt;`;
+  d.onclick=()=>toast(`border:${b.border};box-shadow:${b.shadow}`);
+  bg2.appendChild(d);
+});
+&lt;/script&gt;</pre>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 3 — GLASSMORPHIC AURA CARDS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-glasscards">
+  <div class="comp-header">
+    <div class="comp-title">Glassmorphic Aura Cards</div>
+    <div class="comp-desc">8 animated aura cards with glassmorphism (backdrop-filter blur). Each card runs its own canvas effect: flame, shadow, smoke, or lightning. Ambient blurred blobs in the page background.</div>
+  </div>
+
+  <div class="usage-box">
+    <p>
+      <strong style="color:rgba(255,255,255,.6)">How to use:</strong>
+      Copy the <code>&lt;style&gt;</code> block into your <code>&lt;head&gt;</code>.
+      Add the ambient blob divs + grid container into your <code>&lt;body&gt;</code>.
+      Paste the <code>&lt;script&gt;</code> block just before <code>&lt;/body&gt;</code>.
+      Requires a dark background (<code>#080810</code> or similar) for the glass effect to read properly.
+      Add more cards by pushing new objects into the <code>CARDS</code> array.
+    </p>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-all">Full File</span> — complete self-contained HTML to paste or include</span>
+      <button class="copy-btn" onclick="copyBlock('glass-cards-full',this)">Copy</button>
+    </div>
+    <pre id="glass-cards-full">
+&lt;!-- ═══ GLASSMORPHIC AURA CARDS ═══ --&gt;
+
+&lt;style&gt;
+  /* ── CARD GRID ── */
+  .aura-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    max-width: 1060px;
+    margin: 0 auto;
+  }
+
+  /* ── CARD BASE ── */
+  .aura-card {
+    position: relative;
+    border-radius: 20px;
+    padding: 28px 22px 24px;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.4s cubic-bezier(.2,.8,.3,1), box-shadow 0.4s ease;
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .aura-card:hover { transform: translateY(-4px); }
+
+  .aura-card canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .aura-card-glass {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    pointer-events: none;
+    background: linear-gradient(160deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
+    z-index: 1;
+  }
+  .aura-card-content { position: relative; z-index: 2; }
+  .aura-card-label {
+    font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+    opacity: 0.4; margin-bottom: 14px; color: #fff; font-weight: 500;
+  }
+  .aura-card-icon { font-size: 28px; margin-bottom: 10px; display: block; opacity: 0.9; }
+  .aura-card-name { font-size: 17px; font-weight: 600; color: rgba(255,255,255,0.88); letter-spacing: 0.5px; margin-bottom: 4px; }
+  .aura-card-sub { font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 1px; }
+  .aura-card-rank {
+    position: absolute; top: 20px; right: 18px; z-index: 2;
+    font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.3); font-weight: 600;
+  }
+  .aura-card::after {
+    content: '';
+    position: absolute; inset: 0; border-radius: 20px;
+    border: 1px solid var(--accent-border, rgba(255,255,255,0.08));
+    pointer-events: none; z-index: 3;
+  }
+
+  /* ── AMBIENT BG BLOBS (add to body) ── */
+  .aura-bg-blob {
+    position: fixed; border-radius: 50%;
+    filter: blur(80px); opacity: 0.12;
+    pointer-events: none; z-index: 0;
+  }
+&lt;/style&gt;
+
+&lt;!-- Ambient background blobs --&gt;
+&lt;div class="aura-bg-blob" style="width:400px;height:400px;background:#4400ff;top:-80px;left:-100px;"&gt;&lt;/div&gt;
+&lt;div class="aura-bg-blob" style="width:350px;height:350px;background:#ff2200;top:200px;right:-80px;"&gt;&lt;/div&gt;
+&lt;div class="aura-bg-blob" style="width:300px;height:300px;background:#0044ff;bottom:0;left:30%;"&gt;&lt;/div&gt;
+
+&lt;div class="aura-grid" id="aura-grid"&gt;&lt;/div&gt;
+
+&lt;script&gt;
+const AURA_CARDS = [
+  { icon:'◆', name:'Shadow Monarch', sub:'Arise', rank:'S-RANK', label:'shadow',
+    accentBorder:'rgba(120,60,255,0.25)', effectType:'shadow',
+    col:[[80,20,220],[60,0,180],[100,40,240]], glow:'70,10,200' },
+  { icon:'◉', name:'Orc Disaster', sub:'Genocide March', rank:'A-RANK', label:'flame',
+    accentBorder:'rgba(255,60,20,0.2)', effectType:'flame',
+    col:[[255,50,10],[220,20,0],[255,100,30]], glow:'240,40,0' },
+  { icon:'◫', name:'Death Miasma', sub:'Plague Domain', rank:'B-RANK', label:'smoke',
+    accentBorder:'rgba(140,140,140,0.15)', effectType:'smoke',
+    col:[[110,110,115],[80,80,85],[130,130,135]], glow:'90,90,95' },
+  { icon:'◇', name:'Storm Sovereign', sub:'Thunder Domain', rank:'S-RANK', label:'lightning',
+    accentBorder:'rgba(40,120,255,0.25)', effectType:'lightning',
+    col:[[40,110,255],[20,80,220],[60,150,255]], glow:'30,100,255' },
+  { icon:'⬡', name:'Divine Monarch', sub:'Radiant Authority', rank:'NATIONAL', label:'flame',
+    accentBorder:'rgba(255,170,0,0.2)', effectType:'flame',
+    col:[[255,160,0],[230,120,0],[255,200,40]], glow:'240,140,0' },
+  { icon:'◬', name:'Poison Haze', sub:'Toxic Sovereign', rank:'A-RANK', label:'smoke',
+    accentBorder:'rgba(0,200,60,0.15)', effectType:'smoke',
+    col:[[0,180,55],[0,150,35],[20,210,70]], glow:'0,170,45' },
+  { icon:'◆', name:'Blood Shadow', sub:'Crimson Extraction', rank:'SPECIAL', label:'shadow',
+    accentBorder:'rgba(220,0,70,0.2)', effectType:'shadow',
+    col:[[210,0,65],[180,0,45],[240,20,85]], glow:'200,0,60' },
+  { icon:'⬟', name:'Holy Judgement', sub:'Celestial Authority', rank:'SS-RANK', label:'flame',
+    accentBorder:'rgba(180,190,255,0.2)', effectType:'flame',
+    col:[[185,195,255],[165,175,245],[205,215,255]], glow:'175,185,255' }
+];
+
+const auraGrid = document.getElementById('aura-grid');
+AURA_CARDS.forEach(cfg =&gt; {
+  const card = document.createElement('div');
+  card.className = 'aura-card';
+  card.style.setProperty('--accent-border', cfg.accentBorder);
+  card.innerHTML = `
+    &lt;canvas&gt;&lt;/canvas&gt;
+    &lt;div class="aura-card-glass"&gt;&lt;/div&gt;
+    &lt;span class="aura-card-rank"&gt;${cfg.rank}&lt;/span&gt;
+    &lt;div class="aura-card-content"&gt;
+      &lt;div class="aura-card-label"&gt;${cfg.label}&lt;/div&gt;
+      &lt;span class="aura-card-icon"&gt;${cfg.icon}&lt;/span&gt;
+      &lt;div class="aura-card-name"&gt;${cfg.name}&lt;/div&gt;
+      &lt;div class="aura-card-sub"&gt;${cfg.sub}&lt;/div&gt;
+    &lt;/div&gt;
+  `;
+  auraGrid.appendChild(card);
+  const canvas = card.querySelector('canvas');
+  const io = new IntersectionObserver(e =&gt; {
+    if (e[0].isIntersecting) { auraStartEffect(canvas, cfg); io.disconnect(); }
+  }, { threshold: 0.1 });
+  io.observe(card);
+  window.addEventListener('resize', () =&gt; {
+    const r = card.getBoundingClientRect();
+    canvas.width = r.width; canvas.height = r.height;
+  });
+});
+
+function auraStartEffect(canvas, cfg) {
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  function resize() { const r = canvas.parentElement.getBoundingClientRect(); w = canvas.width = r.width; h = canvas.height = r.height; }
+  resize();
+  const { effectType: type, col, glow } = cfg;
+
+  if (type === 'flame') {
+    let pts = [], t = 0;
+    const spawn = (init) =&gt; { const c = col[Math.floor(Math.random()*col.length)]; pts.push({x:w*.15+Math.random()*w*.7,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*.7,vy:-(Math.random()*1.4+.5),sz:Math.random()*7+3,a:0,mA:Math.random()*.35+.08,life:0,mL:Math.random()*80+60,wb:Math.random()*Math.PI*2,c}); };
+    for (let i=0;i&lt;22;i++) spawn(true);
+    (function loop() {
+      t++; ctx.clearRect(0,0,w,h);
+      if (Math.random()&lt;.35) spawn(false);
+      const p=Math.sin(t*.05)*.5+.5; const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h*.7); bg.addColorStop(0,`rgba(${glow},${.07*p})`); bg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+      pts=pts.filter(p=&gt;p.life&lt;p.mL);
+      for(const p of pts){p.life++;p.wb+=.07;const tt=p.life/p.mL;p.a=tt&lt;.15?(tt/.15)*p.mA:p.mA*(1-(tt-.15)/.85);p.x+=p.vx+Math.sin(p.wb)*.5;p.y+=p.vy;const sz=p.sz*(1-tt*.4);const[r,g,b]=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.sin(p.wb)*.25);const fg=ctx.createRadialGradient(0,0,0,0,-sz,sz*1.8);fg.addColorStop(0,`rgba(${r},${g},${b},${p.a})`);fg.addColorStop(.5,`rgba(${r},${g},${b},${p.a*.3})`);fg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.beginPath();ctx.ellipse(0,0,sz*.55,sz*1.5,0,0,Math.PI*2);ctx.fillStyle=fg;ctx.fill();ctx.restore();}
+      requestAnimationFrame(loop);
+    })(); return;
+  }
+
+  if (type === 'shadow') {
+    let pts = [], t = 0;
+    const tdrls = Array.from({length:4},()=>({x:w*.1+Math.random()*w*.8,ph:Math.random()*Math.PI*2,ht:Math.random()*40+25}));
+    const spawn = (init) =&gt; { const c=col[Math.floor(Math.random()*col.length)]; pts.push({x:Math.random()*w,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*1.2,vy:-(Math.random()*.8+.25),sz:Math.random()*11+5,a:0,mA:Math.random()*.28+.08,life:0,mL:Math.random()*110+80,wb:Math.random()*Math.PI*2,sp:Math.random()*.4+.7,c}); };
+    for(let i=0;i&lt;20;i++) spawn(true);
+    (function loop(){
+      t++; ctx.clearRect(0,0,w,h);
+      if(Math.random()&lt;.3) spawn(false);
+      const p=Math.sin(t*.04)*.5+.5; const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h); bg.addColorStop(0,`rgba(${glow},${.1*p})`); bg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+      for(const td of tdrls){const tx=td.x+Math.sin(t*.025+td.ph)*12;const ht=td.ht*(0.7+Math.sin(t*.04+td.ph)*.3);const[r,g,b]=col[0];const tg=ctx.createLinearGradient(tx,h,tx,h-ht);tg.addColorStop(0,`rgba(${r},${g},${b},${.25*p})`);tg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.fillStyle=tg;ctx.beginPath();ctx.ellipse(tx,h-ht*.25,5+Math.sin(t*.05+td.ph)*2,ht,0,0,Math.PI*2);ctx.fill();}
+      pts=pts.filter(p=&gt;p.life&lt;p.mL);
+      for(const p of pts){p.life++;p.wb+=.04;const tt=p.life/p.mL;p.a=tt&lt;.1?(tt/.1)*p.mA:p.mA*(1-(tt-.1)/.9);p.x+=p.vx+Math.sin(p.wb);p.y+=p.vy;const sz=p.sz*(1+tt*.25);const[r,g,b]=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.wb*.2);ctx.globalAlpha=p.a;ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.beginPath();ctx.ellipse(0,0,sz*p.sp,sz,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+      requestAnimationFrame(loop);
+    })(); return;
+  }
+
+  if (type === 'smoke') {
+    let pts = [], t = 0;
+    const spawn = (init) =&gt; { const c=col[Math.floor(Math.random()*col.length)]; pts.push({x:w*.05+Math.random()*w*.9,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*.5,vy:-(Math.random()*.45+.15),sz:Math.random()*18+10,a:0,mA:Math.random()*.18+.06,life:0,mL:Math.random()*150+100,wb:Math.random()*Math.PI*2,rot:(Math.random()-.5)*.012,c}); };
+    for(let i=0;i&lt;18;i++) spawn(true);
+    (function loop(){
+      t++; ctx.clearRect(0,0,w,h);
+      if(Math.random()&lt;.25) spawn(false);
+      const p=Math.sin(t*.03)*.5+.5; const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h*.7); bg.addColorStop(0,`rgba(${glow},${.05*p})`); bg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+      pts=pts.filter(p=&gt;p.life&lt;p.mL);
+      for(const p of pts){p.life++;p.wb+=p.rot;const tt=p.life/p.mL;p.a=tt&lt;.2?(tt/.2)*p.mA:tt&lt;.7?p.mA:p.mA*(1-(tt-.7)/.3);p.x+=p.vx+Math.sin(t*.008+p.wb)*.35;p.y+=p.vy;const sz=p.sz*(1+tt);const[r,g,b]=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.wb);const sg=ctx.createRadialGradient(0,0,0,0,0,sz);sg.addColorStop(0,`rgba(${r},${g},${b},${p.a})`);sg.addColorStop(.55,`rgba(${r},${g},${b},${p.a*.4})`);sg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.beginPath();ctx.arc(0,0,sz,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();ctx.restore();}
+      requestAnimationFrame(loop);
+    })(); return;
+  }
+
+  if (type === 'lightning') {
+    let bolts=[], orbs=[], t=0;
+    const spawnBolt=()=>{const x=w*.15+Math.random()*w*.7;const segs=[];let cx=x,cy=0;while(cy&lt;h+10){const nx=cx+(Math.random()-.5)*45,ny=cy+Math.random()*25+12;segs.push([cx,cy,nx,ny]);cx=nx;cy=ny;}const branches=[];if(segs.length>3){const bi=Math.floor(segs.length*.35+Math.random()*segs.length*.3);let[,,bcx,bcy]=segs[bi];const bs=[];for(let i=0;i&lt;3;i++){const bnx=bcx+(Math.random()-.5)*30,bny=bcy+Math.random()*18+6;bs.push([bcx,bcy,bnx,bny]);bcx=bnx;bcy=bny;}branches.push(bs);}const[r,g,b]=col[Math.floor(Math.random()*col.length)];bolts.push({segs,branches,alpha:.85,life:0,r,g,b});};
+    const spawnOrb=()=>{const[r,g,b]=col[0];orbs.push({x:w*.2+Math.random()*w*.6,y:h*.2+Math.random()*h*.6,radius:Math.random()*8+4,a:0,mA:Math.random()*.22+.08,life:0,mL:Math.random()*70+50,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r,g,b});};
+    for(let i=0;i&lt;3;i++) spawnOrb();
+    (function loop(){
+      t++; ctx.clearRect(0,0,w,h);
+      if(Math.random()&lt;.045) spawnBolt(); if(Math.random()&lt;.025) spawnOrb();
+      const p=Math.sin(t*.06)*.5+.5; const bg=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,h); bg.addColorStop(0,`rgba(${glow},${.07*p})`); bg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+      orbs=orbs.filter(o=&gt;o.life&lt;o.mL); for(const o of orbs){o.life++;const tt=o.life/o.mL;o.a=tt&lt;.2?(tt/.2)*o.mA:o.mA*(1-(tt-.2)/.8);o.x+=o.vx;o.y+=o.vy;const og=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.radius*2.5);og.addColorStop(0,`rgba(${o.r},${o.g},${o.b},${o.a})`);og.addColorStop(1,`rgba(${o.r},${o.g},${o.b},0)`);ctx.fillStyle=og;ctx.beginPath();ctx.arc(o.x,o.y,o.radius*2.5,0,Math.PI*2);ctx.fill();}
+      bolts=bolts.filter(b=&gt;b.life&lt;16); for(const bolt of bolts){bolt.life++;bolt.alpha*=.74;ctx.save();ctx.globalAlpha=bolt.alpha;ctx.strokeStyle=`rgba(${bolt.r},${bolt.g},${bolt.b},.2)`;ctx.lineWidth=5;ctx.lineCap='round';for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}ctx.strokeStyle=`rgb(${bolt.r},${bolt.g},${bolt.b})`;ctx.lineWidth=bolt.life&lt;3?1.8:.8;for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}ctx.strokeStyle=`rgba(${bolt.r},${bolt.g},${bolt.b},.45)`;ctx.lineWidth=.6;for(const bs of bolt.branches)for(const[x1,y1,x2,y2]of bs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}if(bolt.life&lt;2){ctx.globalAlpha=.04;ctx.fillStyle=`rgb(${bolt.r},${bolt.g},${bolt.b})`;ctx.fillRect(0,0,w,h);}ctx.restore();}
+      requestAnimationFrame(loop);
+    })();
+  }
+}
+&lt;/script&gt;</pre>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 4 — ANIME POWER CARDS (DISTINCT EFFECTS) -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-animecards">
+  <div class="comp-header">
+    <div class="comp-title">Anime Power Cards — Distinct Effects</div>
+    <div class="comp-desc">8 heavily themed cards with unique per-type canvas effects: shadow (tendrils + inky blobs), flame (fire particles), smoke (layered puffs), lightning (branched bolts + orbs). Includes CSS glitch-bar hover effect and scanline overlay.</div>
+  </div>
+
+  <div class="usage-box">
+    <p>
+      <strong style="color:rgba(255,255,255,.6)">How to use:</strong>
+      This is a fully self-contained component. Copy the <code>&lt;style&gt;</code> block into your <code>&lt;head&gt;</code>.
+      Add <code>&lt;div class="anime-grid" id="anime-grid"&gt;&lt;/div&gt;</code> wherever you want the grid.
+      Paste the <code>&lt;script&gt;</code> just before <code>&lt;/body&gt;</code>.
+      Body background should be <code>#050508</code> for best results. Customize by editing the <code>CARDS</code> array.
+    </p>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-css">CSS</span> — paste inside &lt;head&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('anime-css',this)">Copy</button>
+    </div>
+    <pre id="anime-css">
+&lt;style&gt;
+  .anime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 22px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 30px 16px;
+    font-family: 'Georgia', serif;
+  }
+  .anime-card {
+    position: relative;
+    border-radius: 14px;
+    padding: 26px 20px 22px;
+    overflow: hidden;
+    cursor: pointer;
+    min-height: 230px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    transition: transform 0.3s ease;
+    border: 1px solid transparent;
+  }
+  .anime-card:hover { transform: translateY(-5px) scale(1.015); }
+  .anime-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .anime-card-icon { position: relative; z-index: 2; font-size: 34px; margin-bottom: 8px; display: block; }
+  .anime-card-name { position: relative; z-index: 2; font-size: 16px; letter-spacing: 2px; margin-bottom: 3px; font-weight: bold; }
+  .anime-card-sub { position: relative; z-index: 2; font-size: 10px; letter-spacing: 3px; opacity: 0.55; font-family: sans-serif; text-transform: uppercase; }
+  .anime-card-rank { position: absolute; top: 16px; right: 16px; z-index: 2; font-size: 10px; letter-spacing: 2px; opacity: 0.6; font-family: sans-serif; }
+  .anime-card-type-badge {
+    position: absolute; top: 16px; left: 16px; z-index: 2;
+    font-size: 9px; letter-spacing: 2px; padding: 3px 8px; border-radius: 20px;
+    font-family: sans-serif; text-transform: uppercase; border: 1px solid currentColor; opacity: 0.7;
+  }
+  .anime-scanline {
+    position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
+    opacity: 0.35;
+  }
+  .anime-glitch-bar { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; }
+  .anime-card:hover .anime-glitch-bar { animation: anime-gbar 0.5s steps(1) infinite; }
+  @keyframes anime-gbar {
+    0%   { opacity:0; }
+    15%  { opacity:1; clip-path: inset(30% 0 60% 0); background: rgba(255,255,255,0.04); transform: translateX(-3px); }
+    30%  { opacity:0; }
+    55%  { opacity:1; clip-path: inset(70% 0 5% 0); background: rgba(255,255,255,0.03); transform: translateX(2px); }
+    70%  { opacity:0; }
+    90%  { opacity:1; clip-path: inset(10% 0 85% 0); background: rgba(255,255,255,0.05); transform: translateX(-1px); }
+    100% { opacity:0; }
+  }
+
+  /* ── CARD THEMES ── */
+  .anime-c-shadow   { background:#08080f; border-color:#3300aa33; color:#c0aaff; }
+  .anime-c-shadow .anime-card-type-badge { color:#9966ff; }
+  .anime-c-flame    { background:#0f0600; border-color:#ff330033; color:#ffaa77; }
+  .anime-c-flame .anime-card-type-badge { color:#ff6633; }
+  .anime-c-smoke    { background:#0a0a0a; border-color:#55555533; color:#aaaaaa; }
+  .anime-c-smoke .anime-card-type-badge { color:#888888; }
+  .anime-c-lightning { background:#03050f; border-color:#0033ff33; color:#88bbff; }
+  .anime-c-lightning .anime-card-type-badge { color:#4488ff; }
+  .anime-c-redshadow { background:#0f0208; border-color:#cc002255; color:#ff88bb; }
+  .anime-c-redshadow .anime-card-type-badge { color:#ee2266; }
+  .anime-c-goldflame { background:#0f0800; border-color:#cc880044; color:#ffdd88; }
+  .anime-c-goldflame .anime-card-type-badge { color:#ffaa22; }
+  .anime-c-greendark { background:#020d04; border-color:#00551133; color:#77ff99; }
+  .anime-c-greendark .anime-card-type-badge { color:#33cc55; }
+  .anime-c-whitesmoke { background:#0c0c10; border-color:#aaaaff33; color:#dde0ff; }
+  .anime-c-whitesmoke .anime-card-type-badge { color:#aaaadd; }
+&lt;/style&gt;</pre>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-html">HTML</span> — paste inside &lt;body&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('anime-html',this)">Copy</button>
+    </div>
+    <pre id="anime-html">
+&lt;div class="anime-grid" id="anime-grid"&gt;&lt;/div&gt;</pre>
+  </div>
+
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-label"><span class="tag tag-js">JS</span> — paste just before &lt;/body&gt;</span>
+      <button class="copy-btn" onclick="copyBlock('anime-js',this)">Copy</button>
+    </div>
+    <pre id="anime-js">
+&lt;script&gt;
+const ANIME_CARDS = [
+  { theme:'anime-c-shadow', icon:'◆', name:'Shadow Extraction', sub:'Monarch of Shadows', rank:'S-RANK',
+    effectType:'shadow', col:[[70,0,200],[90,0,160],[50,0,130]], baseGlow:'50,0,180' },
+  { theme:'anime-c-flame', icon:'◉', name:'Orc Disaster', sub:'Orc Monarch Aura', rank:'A-RANK',
+    effectType:'flame', col:[[255,40,0],[220,10,0],[255,90,10]], baseGlow:'255,30,0' },
+  { theme:'anime-c-smoke', icon:'◫', name:'Death Miasma', sub:'Plague Domain', rank:'B-RANK',
+    effectType:'smoke', col:[[100,100,100],[70,70,75],[120,115,120]], baseGlow:'80,80,85' },
+  { theme:'anime-c-lightning', icon:'◇', name:'Storm Sovereign', sub:'Ruler of Thunder', rank:'S-RANK',
+    effectType:'lightning', col:[[30,100,255],[20,80,220],[50,140,255]], baseGlow:'20,80,255' },
+  { theme:'anime-c-redshadow', icon:'◆', name:'Blood Shadow', sub:'Crimson Extraction', rank:'SPECIAL',
+    effectType:'shadow', col:[[200,0,60],[180,0,40],[230,10,80]], baseGlow:'200,0,60' },
+  { theme:'anime-c-goldflame', icon:'⬡', name:'Divine Monarch', sub:'Radiant Authority', rank:'NATIONAL',
+    effectType:'flame', col:[[255,160,0],[220,120,0],[255,200,30]], baseGlow:'240,140,0' },
+  { theme:'anime-c-greendark', icon:'◬', name:'Poison Haze', sub:'Toxic Miasma Lord', rank:'A-RANK',
+    effectType:'smoke', col:[[0,180,50],[0,150,30],[20,200,60]], baseGlow:'0,160,40' },
+  { theme:'anime-c-whitesmoke', icon:'⬟', name:'Holy Judgement', sub:'Celestial Authority', rank:'SS-RANK',
+    effectType:'flame', col:[[190,200,255],[170,180,240],[210,215,255]], baseGlow:'180,190,255' }
+];
+
+const animeGrid = document.getElementById('anime-grid');
+ANIME_CARDS.forEach(cfg =&gt; {
+  const card = document.createElement('div');
+  card.className = `anime-card ${cfg.theme}`;
+  card.innerHTML = `
+    &lt;canvas&gt;&lt;/canvas&gt;
+    &lt;div class="anime-glitch-bar"&gt;&lt;/div&gt;
+    &lt;div class="anime-scanline"&gt;&lt;/div&gt;
+    &lt;span class="anime-card-rank"&gt;${cfg.rank}&lt;/span&gt;
+    &lt;span class="anime-card-type-badge"&gt;${cfg.effectType}&lt;/span&gt;
+    &lt;span class="anime-card-icon"&gt;${cfg.icon}&lt;/span&gt;
+    &lt;div class="anime-card-name"&gt;${cfg.name}&lt;/div&gt;
+    &lt;div class="anime-card-sub"&gt;${cfg.sub}&lt;/div&gt;
+  `;
+  animeGrid.appendChild(card);
+  const canvas = card.querySelector('canvas');
+  const io = new IntersectionObserver(entries =&gt; {
+    if (entries[0].isIntersecting) { animeStartEffect(canvas, cfg); io.disconnect(); }
+  }, { threshold: 0.1 });
+  io.observe(card);
+  window.addEventListener('resize', () =&gt; {
+    const r = card.getBoundingClientRect();
+    canvas.width = r.width; canvas.height = r.height;
+  });
+});
+
+function animeStartEffect(canvas, cfg) {
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  function resize() { const r = canvas.parentElement.getBoundingClientRect(); w = canvas.width = r.width; h = canvas.height = r.height; }
+  resize();
+  const type = cfg.effectType;
+  const col = cfg.col;
+  const glow = cfg.baseGlow;
+
+  /* ── FLAME ── */
+  if (type === 'flame') {
+    let particles = [];
+    function spawnF(init) {
+      const c = col[Math.floor(Math.random()*col.length)];
+      particles.push({x:w*.1+Math.random()*w*.8,y:init?Math.random()*h:h+10,vx:(Math.random()-.5)*1.2,vy:-(Math.random()*2.2+.8),size:Math.random()*10+4,alpha:0,maxAlpha:Math.random()*.55+.2,life:0,maxLife:Math.random()*70+50,col:c,wobble:Math.random()*Math.PI*2});
+    }
+    for(let i=0;i&lt;35;i++) spawnF(true);
+    let t=0;
+    (function loop(){
+      t++;ctx.clearRect(0,0,w,h);
+      if(Math.random()&lt;.5) spawnF(false);
+      const pulse=Math.sin(t*.06)*.5+.5;
+      const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h*.9);bg.addColorStop(0,`rgba(${glow},${.15*pulse})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+      particles=particles.filter(p=&gt;p.life&lt;p.maxLife);
+      for(const p of particles){p.life++;const tt=p.life/p.maxLife;p.alpha=tt&lt;.15?(tt/.15)*p.maxAlpha:p.maxAlpha*(1-(tt-.15)/.85);p.wobble+=.08;p.x+=p.vx+Math.sin(p.wobble)*.7;p.y+=p.vy;const sz=p.size*(1-tt*.5);const[r,g,b]=p.col;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.sin(p.wobble)*.3);const fg=ctx.createRadialGradient(0,0,0,0,-sz,sz*2);fg.addColorStop(0,`rgba(${r},${g},${b},${p.alpha})`);fg.addColorStop(.5,`rgba(${r},${g},${b},${p.alpha*.4})`);fg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.beginPath();ctx.ellipse(0,0,sz*.6,sz*1.7,0,0,Math.PI*2);ctx.fillStyle=fg;ctx.fill();ctx.restore();}
+      if(Math.random()&lt;.015){const gy=Math.random()*h;const[r,g,b]=col[0];ctx.fillStyle=`rgba(${r},${g},${b},0.12)`;ctx.fillRect(0,gy,w,Math.random()*4+1);}
+      requestAnimationFrame(loop);
+    })(); return;
+  }
+
+  /* ── SHADOW ── */
+  if (type === 'shadow') {
+    let particles=[], tendrils=[];
+    function spawnS(init){const c=col[Math.floor(Math.random()*col.length)];particles.push({x:Math.random()*w,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*2,vy:-(Math.random()*1.2+.3),size:Math.random()*14+6,alpha:0,maxAlpha:Math.random()*.45+.15,life:0,maxLife:Math.random()*100+80,col:c,wobble:Math.random()*Math.PI*2,spread:Math.random()*.5+.8});}
+    for(let i=0;i&lt;30;i++) spawnS(true);
+    for(let i=0;i&lt;5;i++) tendrils.push({x:w*.1+Math.random()*w*.8,phase:Math.random()*Math.PI*2,height:Math.random()*50+30});
+    let t=0;
+    (function loop(){
+      t++;ctx.clearRect(0,0,w,h);
+      const pulse=Math.sin(t*.04)*.5+.5;
+      const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h);bg.addColorStop(0,`rgba(${glow},${.2*pulse})`);bg.addColorStop(.5,`rgba(${glow},${.06*pulse})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+      for(const td of tendrils){const tx=td.x+Math.sin(t*.03+td.phase)*15;const th=td.height*(0.7+Math.sin(t*.05+td.phase)*.3);const[r,g,b]=col[0];const tg=ctx.createLinearGradient(tx,h,tx,h-th);tg.addColorStop(0,`rgba(${r},${g},${b},${.5*pulse})`);tg.addColorStop(.5,`rgba(${r},${g},${b},${.2*pulse})`);tg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.fillStyle=tg;ctx.beginPath();const tw2=6+Math.sin(t*.07+td.phase)*3;ctx.ellipse(tx,h-th*.3,tw2,th,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(tx+Math.sin(t*.04+td.phase)*8,h-th*.7,tw2*.5,tw2,0,0,Math.PI*2);ctx.fillStyle=`rgba(${r},${g},${b},${.3*pulse})`;ctx.fill();}
+      if(Math.random()&lt;.4) spawnS(false);
+      particles=particles.filter(p=&gt;p.life&lt;p.maxLife);
+      for(const p of particles){p.life++;const tt=p.life/p.maxLife;p.alpha=tt&lt;.1?(tt/.1)*p.maxAlpha:p.maxAlpha*(1-(tt-.1)/.9);p.wobble+=.05;p.x+=p.vx+Math.sin(p.wobble)*1.5;p.y+=p.vy;const sz=p.size*(1+tt*.3);const[r,g,b]=p.col;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.wobble*.3);ctx.globalAlpha=p.alpha;ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.beginPath();ctx.ellipse(0,0,sz*p.spread,sz,0,0,Math.PI*2);ctx.fill();const sg=ctx.createRadialGradient(0,0,0,0,0,sz*.5);sg.addColorStop(0,`rgba(${Math.min(r+60,255)},${Math.min(g+40,255)},${Math.min(b+80,255)},${p.alpha*.4})`);sg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=sg;ctx.ellipse(0,0,sz*.5,sz*.5,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+      if(Math.random()&lt;.02){const gy=Math.random()*h;ctx.fillStyle=`rgba(${glow},0.1)`;ctx.fillRect(0,gy,w,Math.random()*3+1);}
+      requestAnimationFrame(loop);
+    })(); return;
+  }
+
+  /* ── SMOKE ── */
+  if (type === 'smoke') {
+    let particles=[];
+    function spawnSm(init){const c=col[Math.floor(Math.random()*col.length)];particles.push({x:w*.05+Math.random()*w*.9,y:init?Math.random()*h:h+5,vx:(Math.random()-.5)*.8,vy:-(Math.random()*.7+.2),size:Math.random()*22+12,alpha:0,maxAlpha:Math.random()*.3+.1,life:0,maxLife:Math.random()*140+100,col:c,wobble:Math.random()*Math.PI*2,rot:Math.random()*.02-.01});}
+    for(let i=0;i&lt;25;i++) spawnSm(true);
+    let t=0;
+    (function loop(){
+      t++;ctx.clearRect(0,0,w,h);
+      if(Math.random()&lt;.35) spawnSm(false);
+      const pulse=Math.sin(t*.03)*.5+.5;
+      const bg=ctx.createRadialGradient(w/2,h,0,w/2,h,h*.8);bg.addColorStop(0,`rgba(${glow},${.06*pulse})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+      particles=particles.filter(p=&gt;p.life&lt;p.maxLife);
+      for(const p of particles){p.life++;const tt=p.life/p.maxLife;if(tt&lt;.2)p.alpha=(tt/.2)*p.maxAlpha;else if(tt&lt;.7)p.alpha=p.maxAlpha;else p.alpha=p.maxAlpha*(1-(tt-.7)/.3);p.wobble+=p.rot;p.x+=p.vx+Math.sin(t*.01+p.wobble)*.5;p.y+=p.vy;const sz=p.size*(1+tt*1.2);const[r,g,b]=p.col;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.wobble);for(let layer=0;layer&lt;3;layer++){const lsz=sz*(.6+layer*.3);const la=p.alpha*(1-layer*.25);const sg=ctx.createRadialGradient(layer*4,layer*3,0,0,0,lsz);sg.addColorStop(0,`rgba(${r},${g},${b},${la})`);sg.addColorStop(.6,`rgba(${r},${g},${b},${la*.5})`);sg.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.beginPath();ctx.arc(layer*5,0,lsz,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();}ctx.restore();}
+      if(Math.random()&lt;.01){const gy=Math.random()*h;ctx.fillStyle=`rgba(${glow},0.08)`;ctx.fillRect(0,gy,w,Math.random()*2+1);}
+      requestAnimationFrame(loop);
+    })(); return;
+  }
+
+  /* ── LIGHTNING ── */
+  if (type === 'lightning') {
+    let bolts=[], orbs=[];
+    function spawnBolt(){const x=w*.1+Math.random()*w*.8;const segs=[];let cx=x,cy=0;while(cy&lt;h+20){const nx=cx+(Math.random()-.5)*55;const ny=cy+Math.random()*28+12;segs.push([cx,cy,nx,ny]);cx=nx;cy=ny;}const branches=[];if(segs.length>3){const bi=Math.floor(segs.length*.3+Math.random()*segs.length*.4);const[bx1,by1,bx2,by2]=segs[bi];let bcx=bx2,bcy=by2;const bsegs=[];for(let i=0;i&lt;4;i++){const bnx=bcx+(Math.random()-.5)*40;const bny=bcy+Math.random()*20+8;bsegs.push([bcx,bcy,bnx,bny]);bcx=bnx;bcy=bny;}branches.push(bsegs);}const[r,g,b]=col[Math.floor(Math.random()*col.length)];bolts.push({segs,branches,alpha:1,life:0,maxLife:14,r,g,b});}
+    function spawnOrb(){const[r,g,b]=col[0];orbs.push({x:w*.2+Math.random()*w*.6,y:h*.3+Math.random()*h*.5,r:Math.random()*12+5,alpha:0,maxAlpha:Math.random()*.5+.2,life:0,maxLife:Math.random()*60+40,col:[r,g,b],vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4});}
+    for(let i=0;i&lt;4;i++) spawnOrb();
+    let t=0;
+    (function loop(){
+      t++;ctx.clearRect(0,0,w,h);
+      const pulse=Math.sin(t*.07)*.5+.5;
+      const bg=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,h);bg.addColorStop(0,`rgba(${glow},${.1*pulse})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+      if(Math.random()&lt;.03) spawnOrb();
+      orbs=orbs.filter(o=&gt;o.life&lt;o.maxLife);
+      for(const o of orbs){o.life++;const tt=o.life/o.maxLife;o.alpha=tt&lt;.2?(tt/.2)*o.maxAlpha:o.maxAlpha*(1-(tt-.2)/.8);o.x+=o.vx;o.y+=o.vy;const[r,g,b]=o.col;ctx.save();const og=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*2);og.addColorStop(0,`rgba(${r},${g},${b},${o.alpha})`);og.addColorStop(.4,`rgba(${r},${g},${b},${o.alpha*.5})`);og.addColorStop(1,`rgba(${r},${g},${b},0)`);ctx.fillStyle=og;ctx.beginPath();ctx.arc(o.x,o.y,o.r*2,0,Math.PI*2);ctx.fill();ctx.restore();}
+      if(Math.random()&lt;.08) spawnBolt();
+      bolts=bolts.filter(b=&gt;b.life&lt;b.maxLife);
+      for(const bolt of bolts){bolt.life++;bolt.alpha*=.72;const a=bolt.alpha;ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=`rgba(${bolt.r},${bolt.g},${bolt.b},0.3)`;ctx.lineWidth=6;ctx.lineCap='round';for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}ctx.strokeStyle=`rgb(${bolt.r},${bolt.g},${bolt.b})`;ctx.lineWidth=bolt.life&lt;3?2.5:1;for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=bolt.life&lt;2?1.5:.5;for(const[x1,y1,x2,y2]of bolt.segs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}ctx.strokeStyle=`rgba(${bolt.r},${bolt.g},${bolt.b},0.5)`;ctx.lineWidth=.8;for(const bsegs of bolt.branches){for(const[x1,y1,x2,y2]of bsegs){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}}ctx.restore();if(bolt.life&lt;3){ctx.save();ctx.globalAlpha=.06*a;ctx.fillStyle=`rgb(${bolt.r},${bolt.g},${bolt.b})`;ctx.fillRect(0,0,w,h);ctx.restore();}}
+      if(Math.random()&lt;.03){const gy=Math.random()*h;ctx.fillStyle=`rgba(${glow},0.15)`;ctx.fillRect(0,gy,w,Math.random()*5+1);}
+      requestAnimationFrame(loop);
+    })();
+  }
+}
+&lt;/script&gt;</pre>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast">Copied!</div>
+
+<script>
+/* ── TAB SWITCHING ── */
+function switchTab(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+/* ── COPY BLOCKS ── */
+function copyBlock(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Get the text, decode HTML entities so the actual code is copied
+  const tmp = document.createElement('textarea');
+  tmp.value = el.textContent
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+  document.body.appendChild(tmp);
+  tmp.select();
+  document.execCommand('copy');
+  document.body.removeChild(tmp);
+
+  btn.textContent = '✓ Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.textContent = 'Copy';
+    btn.classList.remove('copied');
+  }, 2200);
+
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+</body>
+</html>

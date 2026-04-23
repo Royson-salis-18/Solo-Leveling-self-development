@@ -8,7 +8,8 @@ import { StatCard } from "../components/StatCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Sparkles, Skull } from "lucide-react";
+import { Sparkles, Skull, Swords, Gem } from "lucide-react";
+import { AuraCard } from "../components/AuraCard";
 
 /* ─── types ─────────────────────────────────────────────────────── */
 type DashboardData = {
@@ -208,32 +209,19 @@ export function DashboardPage() {
         const msg = messages[dayOfYear % messages.length];
 
         return (
-          <div className="panel purple-aura" style={{ 
-            marginBottom: 24, padding: "20px", 
-            background: "linear-gradient(90deg, rgba(168,168,255,0.15) 0%, rgba(0,0,0,0) 100%)",
-            border: "1px solid rgba(168,168,255,0.2)",
-            display: "flex", alignItems: "center", gap: 20, position: "relative", overflow: "hidden"
-          }}>
-            <div style={{
-              width: 50, height: 50, borderRadius: "50%", background: "rgba(168,168,255,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(168,168,255,0.4)",
-              boxShadow: "0 0 20px rgba(168,168,255,0.3)", flexShrink: 0
-            }}>
-              <Sparkles size={24} color="#a8a8ff" />
+          <div className="monarch-quote" style={{ marginBottom: 24 }}>
+            <div className="monarch-quote__icon">
+              <Sparkles size={26} color="rgba(168,168,255,0.9)" />
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "0.65rem", color: "#a8a8ff", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+            <div className="monarch-quote__meta">
+              <div className="monarch-quote__label">
                 {msg.tag} MESSAGE
               </div>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--t1)", marginBottom: 4 }}>{msg.title}</h3>
-              <p style={{ fontSize: "0.74rem", color: "var(--t3)", maxWidth: 500 }}>
-                {msg.text}
-              </p>
+              <div className="monarch-quote__title">{msg.title}</div>
+              <div className="monarch-quote__sub">{msg.text}</div>
             </div>
-            <div style={{
-              position: "absolute", right: -20, top: -20, opacity: 0.05
-            }}>
-              <Skull size={140} />
+            <div className="monarch-quote__skull" aria-hidden="true">
+              <Skull size={132} />
             </div>
           </div>
         );
@@ -255,7 +243,7 @@ export function DashboardPage() {
           <div className="dashboard-analytics-grid">
             
             {/* Weekly XP: High-Fidelity Wave */}
-            <div className="panel purple-aura analytic-card" style={{ minHeight: 320 }}>
+            <div className="glass-panel purple-aura analytic-card" style={{ minHeight: 320 }}>
               <div className="chart-header">
                 <div className="chart-title">Weekly Mana Tide</div>
                 <div className="chart-val">{weeklyTotal} Total XP</div>
@@ -305,7 +293,7 @@ export function DashboardPage() {
             </div>
 
             {/* Skill Matrix: Monarch Radar */}
-            <div className="panel analytic-card" style={{ minHeight: 320 }}>
+            <div className="glass-panel analytic-card" style={{ minHeight: 320 }}>
               <div className="chart-header">
                 <div className="chart-title">Sovereign Skill Matrix</div>
                 <div className="chart-val">{completionRate} Sync</div>
@@ -342,6 +330,38 @@ export function DashboardPage() {
         .day-tick span { font-size: 0.55rem; color: var(--t4); font-weight: 700; }
         
         .analytic-card:hover .tick-bar { background: var(--accent-primary); opacity: 0.4; }
+        
+        .glass-panel {
+          border-radius: 18px;
+          padding: 22px;
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          position: relative;
+          overflow: hidden;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 16px 44px rgba(0,0,0,0.55);
+          transition: transform .3s ease, box-shadow .3s ease;
+        }
+        .glass-panel:hover {
+          transform: translateY(-2px);
+        }
+        .glass-panel::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 18px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 60%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .glass-panel > * {
+          position: relative;
+          z-index: 1;
+        }
+        
+        .glass-panel.panel-no-pad { padding: 0; }
+        .glass-panel.panel-empty { display: flex; align-items: center; justify-content: center; padding: 40px; }
       `}</style>
 
       {/* ── EXPANDED ANALYTICS (30-day & Category XP) ── */}
@@ -352,7 +372,7 @@ export function DashboardPage() {
             
             {/* 30-Day XP Trend */}
             {data.monthlyHistory.length > 0 && (
-              <div className="panel dashboard-panel-flex">
+              <div className="glass-panel dashboard-panel-flex">
                 <div className="chart-label-wrapper">
                   <span className="chart-label-text">30-Day Momentum</span>
                   <span style={{ fontSize: "0.66rem", color: "var(--t3)" }}>{data.monthlyHistory.length} days tracked</span>
@@ -377,7 +397,7 @@ export function DashboardPage() {
 
             {/* Category XP Bar */}
             {data.categoryDistribution.length > 0 && (
-              <div className="panel dashboard-panel-flex">
+              <div className="glass-panel dashboard-panel-flex">
                 <div className="chart-label-wrapper">
                   <span className="chart-label-text">XP By Life Area</span>
                   <span style={{ fontSize: "0.66rem", color: "rgba(255,160,0,0.6)" }}>Academics weighted ×0.5</span>
@@ -412,7 +432,7 @@ export function DashboardPage() {
       {data.pendingCount > 0 && (
         <div className="page-section">
           <div className="section-label" style={{ color: "#ffa030" }}>⚠ Overdue — Pending Resolution</div>
-          <div className="panel" style={{ border: "1px solid rgba(255,160,0,0.25)", background: "rgba(255,140,0,0.04)" }}>
+          <div className="glass-panel" style={{ border: "1px solid rgba(255,160,0,0.25)", background: "rgba(255,140,0,0.04)" }}>
             <p className="text-sm" style={{ color: "#ffa030", marginBottom: 8 }}>
               You have <strong>{data.pendingCount}</strong> overdue quest{data.pendingCount > 1 ? "s" : ""} awaiting resolution.
             </p>
@@ -428,7 +448,7 @@ export function DashboardPage() {
         <div className="section-label">Ongoing Quests</div>
         
         {tasks.filter(t => !t.is_pending && !t.is_failed).length > 0 ? (
-          <div className="panel panel-no-pad">
+          <div className="glass-panel panel-no-pad">
             <div className="task-list">
               {tasks.filter(t => !t.is_pending && !t.is_failed).map(task => (
                 <div key={task.id} className="task-row" onClick={() => toggleTaskCompletion(task.id, task.is_completed)}>
@@ -444,7 +464,7 @@ export function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="panel panel-empty text-sm text-muted">
+          <div className="glass-panel panel-empty text-sm text-muted">
             No active quests. Head to the Quests lab to add some!
           </div>
         )}
@@ -459,38 +479,34 @@ export function DashboardPage() {
             </div>
             <Link to="/collection" style={{ fontSize: "0.65rem", color: "#a8a8ff", textDecoration: "none" }}>View Army →</Link>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 }}>
             {shadows.map(s => {
-              const gradeColor = s.rarity === 'Legendary' ? '#ffa500' : 
-                                 s.rarity === 'Epic' ? '#a8a8ff' : 
-                                 s.rarity === 'Rare' ? '#60a5fa' : '#888';
-              const gradeName = s.rarity === 'Legendary' ? 'MARSHAL' : 
+              const color = s.rarity === 'Legendary' ? '#ffa500' : 
+                            s.rarity === 'Epic' ? '#a8a8ff' : 
+                            s.rarity === 'Rare' ? '#c4b5fd' : '#888';
+              const rankLabel = s.rarity === 'Legendary' ? 'MARSHAL' : 
                                 s.rarity === 'Epic' ? 'COMMANDER' : 
                                 s.rarity === 'Rare' ? 'KNIGHT' : 'SOLDIER';
+              
+              // Map rarity to effect types for dashboard variety
+              const effType: 'shadow'|'flame'|'smoke'|'lightning' = 
+                s.rarity === 'Legendary' ? 'flame' : 
+                s.rarity === 'Epic' ? 'shadow' : 
+                s.rarity === 'Rare' ? 'lightning' : 'smoke';
+
               return (
-                <div key={s.id} className="panel shadow-card" style={{ 
-                  padding: "12px", textAlign: "center", 
-                  border: `1px solid ${gradeColor}44`,
-                  background: `${gradeColor}08`,
-                  boxShadow: s.rarity === 'Legendary' ? `0 0 20px ${gradeColor}11` : "none"
-                }}>
-                  <div style={{ 
-                    width: 44, height: 44, borderRadius: "50%", margin: "0 auto 8px",
-                    background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center",
-                    border: `1px solid ${gradeColor}66`,
-                    boxShadow: `0 0 10px ${gradeColor}33`
-                  }}>
-                    <Skull size={22} color={gradeColor} />
-                  </div>
-                  <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "var(--t1)" }}>{s.name}</div>
-                  <div style={{ fontSize: "0.58rem", color: gradeColor, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>{gradeName}</div>
-                  <div style={{ 
-                    fontSize: "0.62rem", color: "#34d399", marginTop: 8, 
-                    background: "rgba(52,211,153,0.1)", padding: "2px 8px", borderRadius: 4, display: "inline-block", fontWeight: 700
-                  }}>
-                    +{Math.round(s.bonus_value * 100)}% XP
-                  </div>
-                </div>
+                <AuraCard 
+                  key={s.id}
+                  name={s.name}
+                  rankLabel={rankLabel}
+                  rarityColor={color}
+                  isCollected={true}
+                  effectType={effType}
+                  bonus={Math.round(s.bonus_value * 100)}
+                  label="SHADOW"
+                  icon={<Skull size={24} />}
+                  sub={rankLabel}
+                />
               );
             })}
           </div>
@@ -502,7 +518,7 @@ export function DashboardPage() {
         <div className="page-section">
           <div className="section-label">Guild &amp; Clan Affiliations</div>
 
-          <div className="panel">
+          <div className="glass-panel">
             <div className="flex-col gap-10">
               {affiliations.map(a => (
                 <div key={a.id + a.type} className="item-row">
@@ -525,7 +541,7 @@ export function DashboardPage() {
       {recentActivity.length > 0 && (
         <div className="page-section">
           <div className="section-label">Recent Activity</div>
-          <div className="panel panel-no-pad">
+          <div className="glass-panel panel-no-pad">
             {recentActivity.map(q => (
               <div key={q.id} className="activity-row">
                 <span className="activity-title">✓ {q.title}</span>
