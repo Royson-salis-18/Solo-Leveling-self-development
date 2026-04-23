@@ -123,18 +123,17 @@ export function LeaderboardPage() {
                   {podiumOrder.map((u, pos) => {
                     const ri    = podiumRealIdx(pos);
                     const isTop = ri === 0;
-                    const heights = ["56px", "80px", "44px"];
+                    const heights = ["200px", "240px", "180px"];
                     return (
-                      <div key={u.user_id} className={`lb-podium-card${isTop ? " lb-podium-card--top" : ""}`}>
-                        <div className="lb-podium-bar" style={{ height: heights[ri] }} />
-                        <div className="lb-podium-avatar" style={{ width: isTop ? 60 : 48, height: isTop ? 60 : 48, border: isTop ? "2px solid rgba(255,255,255,0.4)" : "1px solid var(--border-1)", boxShadow: isTop ? "0 0 30px rgba(255,255,255,0.15)" : "none" }}>
+                      <div key={u.user_id} className={`lb-podium-card${isTop ? " lb-podium-card--top" : ""}`} style={{ height: heights[ri] }}>
+                        <div className="lb-podium-avatar" style={{ width: isTop ? 72 : 56, height: isTop ? 72 : 56, marginTop: isTop ? "-60px" : "-40px", border: isTop ? "2px solid rgba(255,204,0,0.8)" : "1px solid rgba(78, 142, 255, 0.5)" }}>
                           {u.name.charAt(0).toUpperCase()}
                         </div>
-                        <div className="lb-podium-medal">{MEDALLION[ri]}</div>
+                        <div className="lb-podium-medal" style={{ marginTop: 12 }}>{MEDALLION[ri]}</div>
                         <div className="lb-podium-name">{isMe(u.user_id) ? "You" : u.name}</div>
                         <div className="lb-podium-class">{u.player_class}</div>
-                        <div className="lb-podium-xp">{u.total_points.toLocaleString()} <span className="text-xs text-muted">XP</span></div>
-                        <span className={`rank-badge rank-${u.player_rank}`}>{u.player_rank}</span>
+                        <div className="lb-podium-xp" style={{ marginTop: 'auto' }}>{u.total_points.toLocaleString()} <span className="text-xs text-muted" style={{textShadow: 'none'}}>XP</span></div>
+                        <span className={`rank-badge rank-${u.player_rank}`} style={{ marginTop: 8 }}>{u.player_rank}</span>
                       </div>
                     );
                   })}

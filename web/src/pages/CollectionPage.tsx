@@ -23,13 +23,13 @@ type Tab = typeof TABS[number];
 const RARITY_COLORS: Record<string, string> = {
   'COMMON': '#334155',
   'RARE': '#3b82f6',      /* Brighter Blue */
-  'EPIC': '#8c4da3',      /* Aura Purple */
+  'EPIC': '#4e8eff',      /* Electric Blue */
   'LEGENDARY': '#b45309', /* Dark Gold */
   'MYTHIC': '#991b1b',    /* Red Orc Crimson */
   'E-RANK': '#475569',
   'D-RANK': '#334155',
   'C-RANK': '#3b82f6',
-  'B-RANK': '#8c4da3',
+  'B-RANK': '#4e8eff',
   'A-RANK': '#991b1b',
   'S-RANK': '#b45309'
 };
@@ -212,8 +212,7 @@ export function CollectionPage() {
                     <div className="shadow-avatar-v2" style={{ borderColor: isCollected ? color : '#334155' }}>
                       <Skull 
                         size={32} 
-                        style={{ stroke: isCollected ? 'url(#monarch-gradient)' : '#334155', fill: 'none' }} 
-                        className="skull-gradient"
+                        style={{ stroke: isCollected ? color : '#334155', fill: 'none' }} 
                       />
                     </div>
                     <div className="shadow-info">
@@ -260,93 +259,112 @@ export function CollectionPage() {
         </div>
       )}
 
+      
       <style>{`
+        /* ── Collection Container ── */
         .collection-grid-v2 {
-          position: relative; padding: 32px; border-radius: var(--r-xl);
-          background: rgba(15, 23, 42, 0.4); /* Transparent Neutral */
+          position: relative; padding: 28px; border-radius: 20px;
+          background: rgba(17, 24, 39, 0.65);
           backdrop-filter: blur(20px);
-          border: 1px solid var(--border-0);
+          border: 1px solid rgba(148, 163, 184, 0.08);
           background-image: var(--bg-noise);
         }
-
-        .army-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 24px; }
-        .arsenal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-
-        .shadow-aura { position: relative; }
-        .shadow-aura::before {
-          content: ''; position: absolute; inset: -4px; border-radius: inherit;
-          background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
-          opacity: 0.15; filter: blur(15px); z-index: -1;
+        .army-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+          gap: 20px;
+        }
+        .arsenal-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 16px;
         }
 
+        /* ── Army Card — gray base, colored accent on top ── */
         .shadow-card-v2 {
-          background: linear-gradient(180deg, rgba(88, 28, 135, 0.15) 0%, rgba(15, 15, 20, 0.95) 100%); 
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255,255,255,0.06); border-radius: 32px;
-          padding: 32px 24px; text-align: center; position: relative;
-          transition: all 0.4s ease; cursor: pointer;
+          background: rgba(17, 24, 39, 0.88);
+          border: 1px solid rgba(148, 163, 184, 0.1);
+          border-radius: 20px;
+          padding: 28px 20px 24px;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          cursor: pointer;
         }
-
+        .shadow-card-v2::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 16px; right: 16px; height: 2px;
+          background: linear-gradient(90deg, transparent, var(--rarity-color, #5b9cf6), transparent);
+          border-radius: 99px;
+          opacity: 0.7;
+        }
+        .shadow-card-v2.locked::before { opacity: 0.15; }
         .shadow-card-v2:not(.locked):hover {
-          transform: translateY(-8px);
-          border-color: var(--accent-primary);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+          transform: translateY(-5px);
+          background: rgba(22, 32, 56, 0.95);
+          border-color: var(--rarity-color, rgba(91, 156, 246, 0.4));
+          box-shadow: 0 12px 28px rgba(0,0,0,0.45), 0 0 20px rgba(91,156,246,0.08);
         }
 
-        /* Avatar Circle */
+        /* Avatar circle */
         .shadow-avatar-v2 {
-          width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 20px;
+          width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 18px;
           display: flex; align-items: center; justify-content: center;
-          background: #0a0a10; /* Dark shadow fill */
-          border: 1px solid var(--accent-secondary);
+          background: rgba(10, 14, 26, 0.9);
+          border: 1.5px solid var(--rarity-color, rgba(91,156,246,0.4));
+          box-shadow: 0 0 12px rgba(0,0,0,0.6) inset, 0 0 8px var(--rarity-color, rgba(91,156,246,0.1));
           position: relative; z-index: 2;
         }
-
-        .shadow-name { 
-          font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 4px;
-          letter-spacing: -0.01em;
-        }
-        .rarity-tag-v2 { 
-          font-size: 0.7rem; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; 
-          margin-bottom: 12px;
-        }
-
+        .shadow-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .shadow-name { font-size: 1.1rem; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; letter-spacing: -0.01em; }
+        .rarity-tag-v2 { font-size: 0.62rem; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 12px; }
         .bonus-pill {
           display: inline-flex; align-items: center; gap: 4px;
-          background: rgba(16, 185, 129, 0.1); color: #10b981;
-          padding: 4px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 800;
+          background: rgba(52, 211, 153, 0.08); color: #34d399;
+          border: 1px solid rgba(52, 211, 153, 0.2);
+          padding: 3px 10px; border-radius: 99px; font-size: 0.72rem; font-weight: 800;
         }
 
-
-        .shadow-name { font-size: 1.1rem; font-weight: 900; color: #f1f5f9; margin-bottom: 6px; }
-        .rarity-tag-v2 { font-size: 0.65rem; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; }
-
+        /* ── Arsenal / Vault items — gray + rarity stripe ── */
         .item-card-v2 {
-          background: #0f172a; border: 1px solid var(--slate-800); border-radius: var(--r-md);
-          padding: 18px; display: flex; gap: 18px; position: relative;
+          background: rgba(17, 24, 39, 0.82);
+          border: 1px solid rgba(148, 163, 184, 0.08);
+          border-radius: 16px;
+          padding: 18px; display: flex; gap: 16px; position: relative;
+          overflow: hidden;
           transition: all 0.3s ease;
         }
         .item-card-v2:not(.locked):hover {
-          border-color: var(--rarity-color); transform: translateX(4px);
-          box-shadow: 0 0 20px var(--rarity-color);
+          border-color: var(--rarity-color);
+          transform: translateX(4px);
+          background: rgba(22, 32, 56, 0.92);
+          box-shadow: 0 0 20px rgba(0,0,0,0.3);
         }
-
-        .item-rarity-stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }
+        .item-rarity-stripe {
+          position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+          border-radius: 4px 0 0 4px;
+          background: var(--rarity-color, #5b9cf6);
+          opacity: 0.85;
+        }
         .item-icon-box {
-          width: 56px; height: 56px; border-radius: var(--r-sm); flex-shrink: 0;
+          width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
-          background: #020617; border: 1px solid var(--slate-800);
+          background: rgba(10, 14, 26, 0.8); border: 1px solid rgba(148,163,184,0.1);
         }
-
         .item-details { flex: 1; min-width: 0; }
         .item-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .item-name-v2 { font-size: 1rem; font-weight: 800; color: #f1f5f9; }
-        .rarity-label-v2 { font-size: 0.6rem; font-weight: 900; border: 1px solid; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
-        .item-desc-v2 { font-size: 0.8rem; color: var(--slate-400); line-height: 1.4; }
+        .rarity-label-v2 {
+          font-size: 0.58rem; font-weight: 900; border: 1px solid;
+          padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .item-desc-v2 { font-size: 0.8rem; color: #64748b; line-height: 1.5; }
 
-        .locked { opacity: 0.5; grayscale: 1; }
-        .lock-icon { position: absolute; top: 12px; right: 12px; color: var(--slate-600); }
-
+        .locked { opacity: 0.42; filter: grayscale(0.6); }
+        .lock-icon { position: absolute; top: 12px; right: 12px; color: #475569; }
+        .shadow-aura { position: relative; }
       `}</style>
     </section>
   );
