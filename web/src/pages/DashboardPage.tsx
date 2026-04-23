@@ -8,7 +8,7 @@ import { StatCard } from "../components/StatCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Sparkles, Skull, Swords, Gem } from "lucide-react";
+import { Sparkles, Skull } from "lucide-react";
 import { AuraCard } from "../components/AuraCard";
 
 /* ─── types ─────────────────────────────────────────────────────── */
