@@ -5,7 +5,7 @@ import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { Edit3, Shield, Swords, Zap, Brain, Activity, Medal, Fingerprint, RefreshCw, QrCode } from "lucide-react";
-import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
+import { calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
 import { AuraCard } from "../components/AuraCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 
@@ -34,15 +34,6 @@ type Profile = {
   guild_logo?: string;
 };
 
-type Skill = {
-  id: string;
-  name: string;
-  description: string;
-  level: number;
-  max_level: number;
-  icon_type: string;
-  rarity: string;
-};
 
 
 export function ProfilePage() {
