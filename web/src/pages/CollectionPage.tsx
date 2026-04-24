@@ -1,122 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import React from "react";
 import { Button } from "../components/Button";
 import { 
-  Skull, Swords, Gem, Hammer,
-  Sparkles, Zap, Package
+  Skull, Swords, Gem,
+  Sparkles, Package, Flame, ShieldAlert
 } from "lucide-react";
 import { AuraCard } from "../components/AuraCard";
 
-/* ─────────────────────── types ─────────────────────── */
-type Shadow = { 
-  id?: string; name: string; rarity: string; bonus_value?: number; collected?: boolean; 
-  effectType?: 'shadow'|'flame'|'smoke'|'lightning'; 
-  col?: number[][]; 
-  glow?: string; 
-  icon?: React.ReactNode | string; 
-  sub?: string; 
-};
-type InventoryItem = { 
-  id?: string; name: string; description: string; 
-  item_type: string; item_category: string; 
-  rarity: string; quantity?: number; image_url?: string;
-  collected?: boolean;
-};
-
-const TABS = ["Army", "Arsenal", "Vault"] as const;
-type Tab = typeof TABS[number];
-
-const RARITY_COLORS: Record<string, string> = {
-  'COMMON': '#334155',
-  'RARE': '#3b82f6',
-  'EPIC': '#a8a8ff',      /* subtle monarch purple-blue (less electric) */
-  'LEGENDARY': '#b45309', /* Dark Gold */
-  'MYTHIC': '#991b1b',    /* Red Orc Crimson */
-  'E-RANK': '#475569',
-  'D-RANK': '#334155',
-  'C-RANK': '#3b82f6',
-  'B-RANK': '#c4b5fd',
-  'A-RANK': '#991b1b',
-  'S-RANK': '#b45309'
-};
-
-const CATEGORY_ICONS: Record<string, any> = {
-  'Weapon': Swords,
-  'Artifact': Gem,
-  'Tool': Hammer,
-  'Consumable': Zap,
-};
-
-/* ─────────────────────── catalog data ─────────────────────── */
-const SHADOW_CATALOG: (Shadow & { effectType?: 'shadow'|'flame'|'smoke'|'lightning'; col?: number[][]; glow?: string; icon?: string; sub?: string })[] = [
-  { name: "Shadow Infantry", rarity: "Common", effectType: "shadow", icon: "◆", sub: "Basic Extraction" },
-  { name: "Shadow Mage", rarity: "Common", effectType: "flame", col: [[200, 50, 255], [150, 0, 200], [255, 100, 255]], glow: "180, 50, 255", icon: "◉", sub: "Magic Division" },
-  { name: "Iron", rarity: "Rare", effectType: "smoke", col: [[110, 110, 115], [80, 80, 85], [130, 130, 135]], glow: "90,90,95", icon: "◫", sub: "Heavy Tank" },
-  { name: "Tank", rarity: "Rare", effectType: "smoke", col: [[110, 110, 115], [80, 80, 85], [130, 130, 135]], glow: "90,90,95", icon: "◫", sub: "Ice Bear" },
-  { name: "Igris", rarity: "Epic", effectType: "shadow", col: [[210, 0, 65], [180, 0, 45], [240, 20, 85]], glow: "200,0,60", icon: "◆", sub: "Blood Knight" },
-  { name: "Tusk", rarity: "Epic", effectType: "flame", col: [[255, 50, 10], [220, 20, 0], [255, 100, 30]], glow: "240,40,0", icon: "◉", sub: "High Orc Shaman" },
-  { name: "Beru", rarity: "Epic", effectType: "smoke", col: [[0, 180, 55], [0, 150, 35], [20, 210, 70]], glow: "0,170,45", icon: "◬", sub: "Ant King" },
-  { name: "Baruka", rarity: "Epic", effectType: "smoke", col: [[160, 200, 255], [100, 150, 255], [200, 230, 255]], glow: "150,180,255", icon: "❄", sub: "Frost Elf King" },
-  { name: "Kargalgan", rarity: "Epic", effectType: "flame", col: [[255, 0, 100], [200, 0, 80], [255, 50, 150]], glow: "250,0,100", icon: "◉", sub: "Disaster Orc Mage" },
-  { name: "Bellion", rarity: "Legendary", effectType: "shadow", col: [[80, 20, 220], [60, 0, 180], [100, 40, 240]], glow: "70,10,200", icon: "◆", sub: "Grand Marshal" },
-  { name: "Kamish", rarity: "Legendary", effectType: "flame", col: [[255, 160, 0], [230, 120, 0], [255, 200, 40]], glow: "240,140,0", icon: "⬡", sub: "Dragon's Wrath" },
-  { name: "Kira", rarity: "Rare", effectType: "shadow", icon: "◆", sub: "Shadow Assassin" },
-  { name: "Sid", rarity: "Rare", effectType: "shadow", icon: "◆", sub: "Shadow Assassin" },
-  { name: "Min Byung-gu", rarity: "Epic", effectType: "lightning", col: [[255, 200, 50], [255, 150, 0], [255, 250, 100]], glow: "255,200,0", icon: "⬟", sub: "Holy Healer" },
-  { name: "Gray", rarity: "Legendary", effectType: "smoke", icon: "◫", sub: "Beast Monarch" },
-  { name: "Greed", rarity: "Epic", effectType: "shadow", col: [[50, 50, 50], [20, 20, 20], [80, 80, 80]], glow: "40,40,40", icon: "◆", sub: "General Rank" },
-  { name: "Kaisel", rarity: "Epic", effectType: "lightning", col: [[180, 100, 255], [120, 40, 200], [220, 180, 255]], glow: "150,80,220", icon: "翼", sub: "Sky Drake" },
-  { name: "Jima", rarity: "Rare", effectType: "smoke", col: [[0, 100, 200], [0, 60, 150], [40, 150, 255]], glow: "0,80,180", icon: "⚓", sub: "Naga Leader" },
-  { name: "Orc Warrior", rarity: "Common", effectType: "flame", col: [[180, 40, 40], [120, 20, 20], [220, 60, 60]], glow: "150,30,30", icon: "◉", sub: "Tusk's Infantry" },
-  { name: "Frost Elf Archer", rarity: "Rare", effectType: "smoke", col: [[180, 230, 255], [130, 180, 255], [220, 250, 255]], glow: "160,200,255", icon: "❄", sub: "Baruka's Guard" },
-  { name: "Ashborn", rarity: "Mythic", effectType: "shadow", col: [[30, 10, 50], [10, 0, 30], [50, 20, 80]], glow: "40,10,60", icon: "👑", sub: "The Original Shadow Monarch" },
-  { name: "Antares", rarity: "Mythic", effectType: "flame", col: [[255, 30, 0], [200, 10, 0], [255, 80, 20]], glow: "220,20,0", icon: "🔥", sub: "Monarch of Destruction" },
-  { name: "Rulers of Light", rarity: "Mythic", effectType: "lightning", col: [[255, 255, 180], [255, 240, 100], [255, 255, 220]], glow: "255,255,150", icon: "✨", sub: "The Absolute Beings" },
-  { name: "Igris (Reawakened)", rarity: "Legendary", effectType: "shadow", col: [[255, 0, 0], [150, 0, 0], [200, 0, 0]], glow: "200,0,0", icon: "⚔", sub: "Commander of the Shadows" },
-  { name: "Beru (Post-Island)", rarity: "Legendary", effectType: "smoke", col: [[255, 255, 255], [200, 200, 200], [255, 255, 255]], glow: "255,255,255", icon: "👑", sub: "Grand Marshal of the Hive" },
-];
-
-const ITEM_CATALOG: InventoryItem[] = [
-  { name: "Starter Blade", description: "A basic hunter's blade.", item_type: "WEAPON", item_category: "Weapon", rarity: "E-Rank" },
-  { name: "Slayer's Saber", description: "A sharp saber preferred by low-rank agility hunters.", item_type: "WEAPON", item_category: "Weapon", rarity: "D-Rank" },
-  { name: "Kasaka's Venom Fang", description: "A dagger made from the tooth of a Great Kasaka. Deals poison damage.", item_type: "WEAPON", item_category: "Weapon", rarity: "C-Rank" },
-  { name: "Knight Killer", description: "A heavy dagger designed to pierce thick armor.", item_type: "WEAPON", item_category: "Weapon", rarity: "B-Rank" },
-  { name: "Baruka's Dagger", description: "The dagger of the Ice Elf King Baruka. Imbued with cold.", item_type: "WEAPON", item_category: "Weapon", rarity: "A-Rank" },
-  { name: "Demon King's Longsword", description: "A sword imbued with lightning from the Demon King.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Demon King's Dagger", description: "A high-speed dagger set belonging to the Monarch of White Flames.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Kamish's Wrath", description: "The ultimate daggers made from the dragon's tooth.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Volcan's Horn", description: "A fiery axe dropped by the Lord of the Demon Realm.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Orb of Avarice", description: "A magic orb that doubles the power of fire magic.", item_type: "WEAPON", item_category: "Weapon", rarity: "A-Rank" },
-  { name: "Su-ho's Twin Swords", description: "Dual blades passed down through the Shadow Monarch's bloodline.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Dragon's Breath", description: "A bow that fires arrows made of pure mana.", item_type: "WEAPON", item_category: "Weapon", rarity: "A-Rank" },
-  { name: "Moonshadow", description: "A dark katana that thrives in the absence of light.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Wind of the Steppe", description: "A cape that increases movement speed significantly.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Rare" },
-  { name: "Red Knight's Helmet", description: "Part of the Red Knight's set. Increases physical defense.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Epic" },
-  { name: "High Magician's Ring", description: "A ring that boosts mana capacity by 50%.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Epic" },
-  { name: "Rulers' Authority", description: "A mysterious artifact that allows the user to manipulate gravity.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Gauntlet of the Monarch", description: "Resonates with divine power. Increases punch strength.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Epic" },
-  { name: "Fragment of the Sea", description: "A crystal holding the power of the Sea of Afterlife.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Divine Bloodline", description: "A passive artifact that boosts all stats and XP gain.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Ring of the Monarch of Frost", description: "An ancient ring that grants immunity to freezing.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "S-Rank" },
-  { name: "Boots of the Wind", description: "Enchanted boots that allow for brief bursts of flight.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Rare" },
-  { name: "Belt of the Titan", description: "Increases carry capacity and health recovery speed.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Epic" },
-  { name: "Shield of the First Monarch", description: "Indestructible shield forged in the beginning of time.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Earrings of the Sea", description: "Allows the user to breathe underwater and move freely.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "A-Rank" },
-  { name: "Shadow Monarch's Cloak", description: "A cloak that hides the user's presence from lower-rank enemies.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Instance Dungeon Key", description: "A key that opens a portal to a special training dungeon.", item_type: "TOOL", item_category: "Tool", rarity: "Rare" },
-  { name: "Revive Token", description: "A one-time use token that prevents XP loss upon failure.", item_type: "TOOL", item_category: "Tool", rarity: "Legendary" },
-  { name: "Chalice of Rebirth", description: "A divine vessel containing the power to reset time.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Ruler's Heart", description: "Pulse of the Primordial Light. Drastically boosts mana regen.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
-  { name: "Mana Crystal (High)", description: "A shimmering crystal packed with immense magical energy.", item_type: "TOOL", item_category: "Tool", rarity: "Epic" },
-  { name: "Sovereign's Scepter", description: "Authority over the dead. Increases shadow extraction success.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Dragon King's Spear", description: "Forged in the heart of a dying star by Antares.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
-  { name: "Black Heart", description: "The core of the Shadow Monarch. Infinite mana potential.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Mythic" },
-  { name: "Ruler's Authority (Fragment)", description: "Allows the user to manipulate objects through telekinesis.", item_type: "TOOL", item_category: "Tool", rarity: "Legendary" },
-  { name: "Phoenix Down", description: "A mystical feather that can revive a fallen shadow.", item_type: "TOOL", item_category: "Tool", rarity: "Epic" },
-  { name: "Shadow Extract", description: "A rare elixir that increases the success rate of Shadow Extraction.", item_type: "TOOL", item_category: "Tool", rarity: "Rare" },
-];
+import { SHADOW_CATALOG, ITEM_CATALOG, TABS, RARITY_COLORS, CATEGORY_ICONS, type Shadow, type InventoryItem, type Tab } from "../lib/catalog";
 
 /* ─────────────────────── component ─────────────────────── */
 export function CollectionPage() {
@@ -196,87 +88,162 @@ export function CollectionPage() {
   return (
     <section className="page" style={{ position: 'relative', overflow: 'hidden' }}>
       {/* ambient bg blobs */}
-      <div className="bg-blob" style={{ width: '400px', height: '400px', background: 'rgba(168, 168, 255, 0.1)', top: '-80px', left: '-100px', position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }}></div>
-      <div className="bg-blob" style={{ width: '350px', height: '350px', background: 'rgba(111, 60, 255, 0.08)', top: '200px', right: '-80px', position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }}></div>
-      <div className="bg-blob" style={{ width: '300px', height: '300px', background: 'rgba(168, 168, 255, 0.05)', bottom: '0', left: '30%', position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }}></div>
+      <div className="bg-blob" style={{ width: '600px', height: '600px', background: 'rgba(168, 168, 255, 0.12)', top: '-100px', left: '-150px', position: 'absolute', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none', zIndex: 0 }}></div>
+      <div className="bg-blob" style={{ width: '500px', height: '500px', background: 'rgba(111, 60, 255, 0.1)', top: '250px', right: '-120px', position: 'absolute', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none', zIndex: 0 }}></div>
 
-      {/* SVG Definitions for Gradients */}
-      <svg width="0" height="0" style={{ position: 'absolute' }}>
-        <defs>
-          <linearGradient id="monarch-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="var(--accent-secondary)" />
-            <stop offset="100%" stopColor="var(--accent-primary)" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 40 }}>
         <div>
-          <h2 className="page-title">Collection</h2>
-          <p className="text-xs text-muted">Manage your Army of Shadows and the Arsenal</p>
+          <h2 className="page-title" style={{ fontSize: '2.8rem', letterSpacing: '-1px' }}>System Arsenal</h2>
+          <p className="text-sm text-muted" style={{ letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 800, opacity: 0.5 }}>Leveling System • Inventory Management</p>
         </div>
-        <div className="flex gap-8">
-          <Button variant="secondary" size="sm" onClick={() => setShowAll(!showAll)}>
+        <div className="flex gap-12">
+          <Button variant="secondary" size="md" onClick={() => setShowAll(!showAll)} style={{ borderRadius: '12px', fontWeight: 900 }}>
             {showAll ? "Show Collected Only" : "Show All Roster"}
           </Button>
-          <Button variant="primary" size="sm" onClick={getSystemGift}>
-            <Sparkles size={13} /> Claim Gift
+          <Button variant="primary" size="md" onClick={getSystemGift} style={{ borderRadius: '12px', fontWeight: 900, boxShadow: '0 0 20px rgba(168,168,255,0.4)' }}>
+            <Sparkles size={16} /> Claim Daily Gift
           </Button>
         </div>
       </div>
 
-      <div className="tabs" style={{ marginBottom: 24 }}>
+      <div className="tabs" style={{ marginBottom: 32 }}>
         {TABS.map(t => (
-          <div key={t} className={`tab${activeTab === t ? " active" : ""}`} onClick={() => setActiveTab(t)}>
-            {t === "Army" ? <Skull size={14} /> : t === "Arsenal" ? <Swords size={14} /> : <Gem size={14} />}
-            {t} 
-            <span className="badge-counter">
-              {t === "Army" ? shadows.filter(s => s.collected).length : items.filter(i => i.collected && (activeTab === "Arsenal" ? i.item_category === "Weapon" : i.item_category !== "Weapon")).length}
-              / {t === "Army" ? SHADOW_CATALOG.length : ITEM_CATALOG.filter(i => t === "Arsenal" ? i.item_category === "Weapon" : i.item_category !== "Weapon").length}
+          <div key={t} className={`tab${activeTab === t ? " active" : ""}`} onClick={() => setActiveTab(t)} style={{ padding: '12px 24px', borderRadius: '14px' }}>
+            {t === "Army" ? <Skull size={16} /> : t === "Arsenal" ? <Swords size={16} /> : <Gem size={16} />}
+            <span style={{ fontWeight: 900, fontSize: '0.9rem' }}>{t.toUpperCase()}</span>
+            <span className="badge-counter" style={{ background: activeTab === t ? 'rgba(255,255,255,0.2)' : 'rgba(168,168,255,0.1)' }}>
+              {t === "Army" ? shadows.filter(s => s.collected).length : items.filter(i => i.collected && (t === "Arsenal" ? i.item_category === "Weapon" : i.item_category !== "Weapon")).length}
             </span>
           </div>
         ))}
       </div>
 
       {loading ? (
-        <div className="panel panel-empty">Synchronizing data…</div>
+        <div className="panel panel-empty" style={{ minHeight: 400 }}>
+          <div className="loading-glitch" data-text="SYNCHRONIZING_SYSTEM_DATA...">SYNCHRONIZING_SYSTEM_DATA...</div>
+        </div>
       ) : (
         <div className="collection-grid-v2">
           {activeTab === "Army" && (
-            <div className="army-grid">
-              {filteredShadows.map((s) => {
-                const isCollected = s.collected;
-                const color = RARITY_COLORS[s.rarity.toUpperCase() as keyof typeof RARITY_COLORS] || '#475569';
-                const rankLabel = s.rarity === 'Mythic' ? 'MONARCH' :
-                                  s.rarity === 'Legendary' ? 'GRAND MARSHAL' : 
-                                  s.rarity === 'Epic' ? 'COMMANDER' : 
-                                  s.rarity === 'Rare' ? 'KNIGHT' : 'ELITE';
-                const bonus = s.rarity === 'Mythic' ? 20 :
-                              s.rarity === 'Legendary' ? 10 : 
-                              s.rarity === 'Epic' ? 5 : 
-                              s.rarity === 'Rare' ? 3 : 1;
+            <div className="army-view-container">
+              {/* ── MONARCH'S COMMAND (Hero Section) ── */}
+              {shadows.filter(s => s.collected).length > 0 && (
+                <div className="monarch-hero-section ds-glass">
+                  <div className="mana-storm-overlay" />
+                  <div className="hero-content">
+                    <div className="hero-meta">
+                      <div className="hero-tag-wrap">
+                        <Flame size={14} className="animate-pulse" />
+                        <span className="hero-tag">SUPREME COMMANDER</span>
+                      </div>
+                      <h2 className="hero-name">
+                        {shadows.filter(s => s.collected).sort((a,b) => {
+                          const order = { Mythic: 0, Legendary: 1, Epic: 2, Rare: 3, Elite: 4 };
+                          return (order[a.rarity as keyof typeof order] || 99) - (order[b.rarity as keyof typeof order] || 99);
+                        })[0]?.name}
+                      </h2>
+                      <p className="hero-desc">The strongest extractions are gathered here. A true Monarch's power is measured by the loyalty of his shadows.</p>
+                      
+                      <div className="hero-stats">
+                        <div className="h-stat">
+                          <span className="h-stat-lbl">ARMY_SIZE</span>
+                          <span className="h-stat-val">{shadows.filter(s => s.collected).length} UNITS</span>
+                        </div>
+                        <div className="h-stat">
+                          <span className="h-stat-lbl">RESONANCE</span>
+                          <span className="h-stat-val" style={{ color: "var(--accent-primary)" }}>
+                            +{shadows.filter(s => s.collected).reduce((acc, s) => acc + (
+                              s.rarity === 'Mythic' ? 20 : s.rarity === 'Legendary' ? 10 : s.rarity === 'Epic' ? 5 : s.rarity === 'Rare' ? 3 : 1
+                            ), 0)}% PASSIVE XP
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="hero-visual">
+                      <div className="hero-aura-glow" />
+                      {(() => {
+                        const top = shadows.filter(s => s.collected).sort((a,b) => {
+                          const order = { Mythic: 0, Legendary: 1, Epic: 2, Rare: 3, Elite: 4 };
+                          return (order[a.rarity as keyof typeof order] || 99) - (order[b.rarity as keyof typeof order] || 99);
+                        })[0];
+                        const color = RARITY_COLORS[top.rarity.toUpperCase() as keyof typeof RARITY_COLORS] || '#a8a8ff';
+                        return (
+                          <div className="hero-card-wrapper">
+                            <div className="card-fire-fx" />
+                            <AuraCard
+                              name={top.name}
+                              rankLabel={top.rarity === 'Mythic' ? 'MONARCH' : 'GRAND MARSHAL'}
+                              rarityColor={color}
+                              isCollected={true}
+                              effectType={top.effectType}
+                              col={top.col}
+                              glow={top.glow}
+                              icon={top.icon}
+                              sub="Absolute Loyalty"
+                              bonus={top.rarity === 'Mythic' ? 20 : 10}
+                              label="SUPREME"
+                              style={{ width: 300, height: 420 }}
+                            />
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── RANKED SECTIONS ── */}
+              {['Mythic', 'Legendary', 'Epic', 'Rare', 'Common'].map(rank => {
+                const rankShadows = filteredShadows.filter(s => {
+                  if (rank === 'Common') return s.rarity !== 'Mythic' && s.rarity !== 'Legendary' && s.rarity !== 'Epic' && s.rarity !== 'Rare';
+                  return s.rarity === rank;
+                });
+                
+                if (rankShadows.length === 0) return null;
+
+                const title = rank === 'Mythic' ? 'The Sovereigns' :
+                             rank === 'Legendary' ? 'Grand Marshals' :
+                             rank === 'Epic' ? 'Shadow Commanders' :
+                             rank === 'Rare' ? 'Elite Knights' : 'Shadow Infantry';
+                
+                const color = RARITY_COLORS[rank.toUpperCase() as keyof typeof RARITY_COLORS] || '#475569';
+
                 return (
-                  <AuraCard
-                    key={s.name}
-                    name={s.name}
-                    rankLabel={rankLabel}
-                    rarityColor={color}
-                    isCollected={!!isCollected}
-                    effectType={s.effectType}
-                    col={s.col}
-                    glow={s.glow}
-                    icon={s.icon}
-                    sub={s.sub}
-                    bonus={bonus}
-                    label="SHADOW"
-                  />
+                  <div key={rank} className="army-rank-section">
+                    <div className="rank-divider">
+                      <h3 className="rank-title" style={{ color }}>{title.toUpperCase()}</h3>
+                      <div className="divider-line" style={{ color }} />
+                      <span className="rank-count">{rankShadows.filter(s => s.collected).length}/{rankShadows.length}</span>
+                    </div>
+                    
+                    <div className="army-grid">
+                      {rankShadows.map((s) => (
+                        <div key={s.name} className="shadow-unit-wrap">
+                          <AuraCard
+                            name={s.name}
+                            rankLabel={s.rarity === 'Mythic' ? 'MONARCH' : s.rarity === 'Legendary' ? 'GRAND MARSHAL' : s.rarity === 'Epic' ? 'COMMANDER' : s.rarity === 'Rare' ? 'KNIGHT' : 'ELITE'}
+                            rarityColor={RARITY_COLORS[s.rarity.toUpperCase() as keyof typeof RARITY_COLORS] || '#475569'}
+                            isCollected={!!s.collected}
+                            effectType={s.effectType}
+                            col={s.col}
+                            glow={s.glow}
+                            icon={s.icon}
+                            sub={s.sub}
+                            bonus={s.rarity === 'Mythic' ? 20 : s.rarity === 'Legendary' ? 10 : s.rarity === 'Epic' ? 5 : s.rarity === 'Rare' ? 3 : 1}
+                            label="SHADOW"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 );
               })}
             </div>
           )}
 
           {(activeTab === "Arsenal" || activeTab === "Vault") && (
-            <div className="arsenal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px' }}>
+            <div className="arsenal-grid">
               {filteredItems.map((item) => {
                 const color = RARITY_COLORS[item.rarity.toUpperCase() as keyof typeof RARITY_COLORS] || '#475569';
                 const Icon = CATEGORY_ICONS[item.item_category] || Package;
@@ -328,90 +295,117 @@ export function CollectionPage() {
         <div className="custom-alert-overlay" onClick={() => setAlertInfo({ ...alertInfo, show: false })}>
           <div className="custom-alert-box" onClick={e => e.stopPropagation()}>
             <div className="custom-alert-header">
-              <Sparkles size={16} color="var(--accent-primary)" />
+              <ShieldAlert size={20} color="var(--accent-primary)" />
               <span>{alertInfo.title}</span>
             </div>
             <div className="custom-alert-body">
               {alertInfo.message}
             </div>
-            <Button variant="primary" onClick={() => setAlertInfo({ ...alertInfo, show: false })} style={{ width: '100%', marginTop: '16px' }}>
-              Confirm
+            <Button variant="primary" onClick={() => setAlertInfo({ ...alertInfo, show: false })} style={{ width: '100%', marginTop: '24px', borderRadius: '12px' }}>
+              Acknowledge
             </Button>
           </div>
         </div>
       )}
 
-      
       <style>{`
-        /* ── Collection Container ── */
         .collection-grid-v2 {
-          position: relative; padding: 28px; border-radius: 20px;
-          background: rgba(10, 10, 14, 0.60);
-          backdrop-filter: blur(22px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background-image: var(--bg-noise);
+          position: relative; padding: 32px; border-radius: var(--r-lg);
+          background: rgba(10, 10, 16, 0.75);
+          backdrop-filter: blur(30px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 40px 100px rgba(0,0,0,0.8), inset 0 0 20px rgba(168,168,255,0.05);
         }
-        .collection-grid-v2::before{
-          content:'';
-          position:absolute;
-          inset:0;
-          border-radius: 20px;
-          pointer-events:none;
-          background:
-            radial-gradient(1200px 600px at 20% 10%, rgba(168,168,255,0.06), transparent 60%),
-            radial-gradient(900px 500px at 85% 90%, rgba(111,60,255,0.035), transparent 62%);
-          opacity: 0.9;
+        
+        /* ── MONARCH FIRE ── */
+        .monarch-hero-section {
+          margin-bottom: 60px; border-radius: var(--r-2xl); padding: 60px;
+          border: 1px solid rgba(168, 168, 255, 0.2);
+          background: radial-gradient(circle at center, rgba(168, 168, 255, 0.1), rgba(0,0,0,0.9));
+          position: relative; overflow: hidden;
+          box-shadow: 0 0 80px rgba(88, 28, 135, 0.3);
         }
-        .army-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
-          gap: 20px;
-          position: relative;
-          z-index: 1;
+        .monarch-hero-section::after {
+          content: ''; position: absolute; width: 600px; height: 600px;
+          background: radial-gradient(circle, rgba(168,168,255,0.15) 0%, transparent 70%);
+          top: 50%; left: 80%; transform: translate(-50%, -50%);
+          animation: portalSwirl 20s linear infinite;
+          pointer-events: none;
         }
-        .arsenal-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 16px;
-          position: relative;
-          z-index: 1;
-        }
+        @keyframes portalSwirl { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
 
-        /* ── Aura Card from HTML file ── */
-        .aura-card.locked { opacity: 0.42; filter: grayscale(0.6); }
+        .hero-content { display: flex; align-items: center; justify-content: space-between; gap: 60px; position: relative; z-index: 2; }
+        .hero-meta { flex: 1; }
+        .hero-tag-wrap { 
+          display: flex; align-items: center; gap: 10px; color: var(--accent-primary); margin-bottom: 20px;
+          background: rgba(168,168,255,0.15); width: fit-content; padding: 8px 16px; border-radius: var(--r-lg);
+          border: 1px solid rgba(168,168,255,0.3);
+        }
+        .hero-tag { font-size: 0.8rem; font-weight: 950; letter-spacing: 5px; text-shadow: 0 0 10px var(--accent-primary); }
+        .hero-name { 
+          font-size: 5rem; font-weight: 950; margin: 0 0 24px; font-family: 'Outfit', sans-serif; letter-spacing: -2px; 
+          background: linear-gradient(180deg, #fff 30%, var(--accent-primary) 100%);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          filter: drop-shadow(0 0 30px rgba(168,168,255,0.5));
+        }
+        .hero-desc { font-size: 1.3rem; color: #fff; line-height: 1.6; max-width: 550px; margin-bottom: 48px; opacity: 0.9; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,1); }
+        
+        .hero-stats { display: flex; gap: 60px; }
+        .h-stat { display: flex; flex-direction: column; gap: 8px; }
+        .h-stat-lbl { font-size: 0.7rem; font-weight: 950; letter-spacing: 3px; opacity: 0.6; color: var(--accent-primary); }
+        .h-stat-val { font-size: 2.8rem; font-weight: 950; text-shadow: 0 4px 20px rgba(0,0,0,0.8); }
+        
+        .hero-visual { position: relative; display: flex; align-items: center; justify-content: center; width: 420px; }
+        .hero-aura-glow {
+          position: absolute; width: 500px; height: 500px; border-radius: 50%;
+          background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+          opacity: 0.3; filter: blur(120px);
+          animation: auraPulse 3s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes auraPulse { from { transform: scale(0.7); opacity: 0.2; } to { transform: scale(1.4); opacity: 0.45; } }
 
-        /* ── Custom Alert Modal ── */
+        .hero-card-wrapper {
+          position: relative; z-index: 10;
+          animation: heroFloat 5s ease-in-out infinite;
+          filter: drop-shadow(0 30px 60px rgba(0,0,0,0.9));
+        }
+        @keyframes heroFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-30px) rotate(3deg); } }
+
+        .army-rank-section { margin-bottom: 64px; }
+        .rank-divider { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; }
+        .rank-title { font-size: 0.9rem; font-weight: 950; letter-spacing: 5px; margin: 0; white-space: nowrap; text-shadow: 0 0 15px currentColor; }
+        .divider-line { height: 3px; flex: 1; background: linear-gradient(90deg, currentColor 0%, transparent 100%); border-radius: 3px; opacity: 0.5; box-shadow: 0 0 10px currentColor; }
+        .rank-count { font-size: 0.8rem; font-weight: 950; opacity: 0.6; color: #fff; }
+
+        .army-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 32px; }
+        .arsenal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
+        
+        .shadow-unit-wrap { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .shadow-unit-wrap:hover { transform: translateY(-12px) scale(1.05); z-index: 5; }
+
         .custom-alert-overlay {
-          position: fixed; inset: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(10px);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 1000;
-          animation: fadeIn 0.2s ease;
+          position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(20px);
+          display: flex; align-items: center; justify-content: center; z-index: 2000; animation: fadeIn 0.3s ease;
         }
         .custom-alert-box {
-          background: rgba(17, 24, 39, 0.85);
-          border: 1px solid var(--accent-border-soft);
-          border-radius: 16px;
-          padding: 24px;
-          max-width: 400px; width: 90%;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(168, 168, 255, 0.1) inset;
-          backdrop-filter: blur(20px);
-          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          background: rgba(10, 10, 20, 0.95); border: 2px solid var(--accent-primary);
+          box-shadow: 0 0 50px rgba(168, 168, 255, 0.4); border-radius: var(--r-2xl); padding: 48px;
+          max-width: 500px; width: 90%; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .custom-alert-header {
-          display: flex; align-items: center; gap: 8px;
-          font-weight: 800; font-size: 1.1rem;
-          color: var(--t1);
-          margin-bottom: 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
-          padding-bottom: 12px;
-        }
-        .custom-alert-body {
-          color: var(--t2); font-size: 0.95rem; line-height: 1.5;
-        }
+        .custom-alert-header { display: flex; align-items: center; gap: 12px; font-weight: 950; font-size: 1.4rem; color: #fff; margin-bottom: 20px; }
+        .custom-alert-body { color: var(--t2); font-size: 1.1rem; line-height: 1.6; }
+        
+        .loading-glitch { font-size: 0.8rem; font-weight: 950; letter-spacing: 5px; color: var(--accent-primary); animation: glitch 1s infinite; }
+        @keyframes glitch { 0% { opacity: 1; } 50% { opacity: 0.5; transform: translateX(-2px); } 100% { opacity: 1; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+
+        .mana-storm-overlay {
+          position: absolute; inset: 0;
+          background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          opacity: 0.05; mix-blend-mode: overlay; pointer-events: none; animation: storm 8s steps(5) infinite;
+        }
+        @keyframes storm { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-1%, -1%); } }
       `}</style>
     </section>
   );

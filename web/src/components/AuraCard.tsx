@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Skull } from 'lucide-react';
 
 export type EffectType = 'shadow' | 'flame' | 'smoke' | 'lightning';
 
@@ -77,11 +77,11 @@ export function AuraCard({
       pts.push({
         x: w * 0.1 + Math.random() * w * 0.8,
         y: init ? Math.random() * h : h + 10,
-        vx: (Math.random() - 0.5) * 1.2,
-        vy: -(Math.random() * 2.2 + 0.8),
-        sz: Math.random() * 10 + 4,
-        a: 0, mA: (Math.random() * 0.55 + 0.2) * alphaScale,
-        life: 0, mL: Math.random() * 70 + 50,
+        vx: (Math.random() - 0.5) * 2.5, // High intensity fire velocity
+        vy: -(Math.random() * 4.5 + 1.5), // Faster rise for "awesome" look
+        sz: Math.random() * 14 + 6, // Larger fire particles
+        a: 0, mA: (Math.random() * 0.8 + 0.3) * alphaScale,
+        life: 0, mL: Math.random() * 60 + 30, // Shorter life for aggressive flicker
         wb: Math.random() * Math.PI * 2, c
       });
     };
@@ -368,6 +368,18 @@ export function AuraCard({
       <div className="card-glass" />
       <div className="glitch-bar"></div>
       <div className="scanline"></div>
+
+      <Skull 
+        size={70} 
+        style={{ 
+          position: 'absolute', top: -15, right: -15, 
+          opacity: isCollected ? 0.08 : 0.03, 
+          color: isCollected ? rarityColor : '#fff',
+          transform: 'rotate(15deg)',
+          pointerEvents: 'none',
+          zIndex: 1
+        }} 
+      />
 
       {children}
 

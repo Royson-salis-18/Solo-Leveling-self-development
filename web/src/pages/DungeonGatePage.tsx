@@ -11,7 +11,7 @@ import { RaidTimer } from "../components/RaidTimer";
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
-  deadline: "", time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
+  deadline: "", start_time: "", end_time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,
   is_recurring: false,
 };
@@ -109,7 +109,8 @@ export function DungeonGatePage() {
         points: getXpByTier(formData.xp_tier),
         description: formData.description,
         deadline: formData.deadline || null,
-        time: formData.time || null,
+        start_time: formData.start_time || null,
+        end_time: formData.end_time || null,
         priority: formData.priority,
         xp_tier: formData.xp_tier,
         is_recurring: formData.is_recurring,
@@ -197,6 +198,38 @@ export function DungeonGatePage() {
       
       const progression = await syncProgression(supabase, user.id);
       showProgressionToast(progression);
+
+      // --- NEW: Randomized Shadow Extraction (Arise!) ---
+      const { SHADOW_CATALOG } = await import("../lib/catalog");
+      const tier = task.xp_tier || "Low";
+      const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
+      const roll = Math.random();
+
+      if (roll <= (chances[tier] || 0.02)) {
+        const pool = SHADOW_CATALOG.filter(s => {
+          if (tier === "Legendary") return s.rarity === "Legendary" || s.rarity === "Mythic";
+          if (tier === "Super") return s.rarity === "Epic";
+          if (tier === "High") return s.rarity === "Rare";
+          return s.rarity === "Common";
+        });
+        
+        if (pool.length > 0) {
+          const shadow = pool[Math.floor(Math.random() * pool.length)];
+          const { error } = await supabase.from("shadows").insert({
+            user_id: user.id,
+            name: shadow.name,
+            rarity: shadow.rarity,
+            bonus_type: "xp_boost",
+            bonus_value: (shadow as any).bonus || (shadow.rarity === "Legendary" ? 0.1 : 0.05)
+          });
+
+          if (!error) {
+            alert(`✨ ARISE! You have extracted a [${shadow.rarity}] grade shadow: ${shadow.name}! Check your army on the Dashboard.`);
+          }
+        }
+      } else if (tier === "Super" || tier === "Legendary") {
+        alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
+      }
       
       await fetchQuests();
       setSelectedGate(null);
@@ -379,8 +412,10 @@ export function DungeonGatePage() {
               <div className="brief-stat-card">
                 <div className="stat-icon-v3" style={{ color: "#a8a8ff" }}><CalendarDays size={18} /></div>
                 <div className="stat-meta-v3">
-                  <span className="stat-label-v3">DEADLINE</span>
-                  <strong className="stat-val-v3">{selectedGate.deadline ? new Date(selectedGate.deadline).toLocaleDateString() : "ETERNAL"}</strong>
+                  <span className="stat-label-v3">WINDOW / DEADLINE</span>
+                  <strong className="stat-val-v3">
+                    {selectedGate.start_time ? `${selectedGate.start_time} - ${selectedGate.end_time || '??'}` : (selectedGate.deadline ? new Date(selectedGate.deadline).toLocaleDateString() : "ETERNAL")}
+                  </strong>
                 </div>
               </div>
               <div className="brief-stat-card">
@@ -450,6 +485,32 @@ export function DungeonGatePage() {
           </div>
         </div>
 
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Start Time</label>
+            <input type="time" className="form-input" value={formData.start_time}
+              onChange={e => setFormData({ ...formData, start_time: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">End Time</label>
+            <input type="time" className="form-input" value={formData.end_time}
+              onChange={e => setFormData({ ...formData, end_time: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, marginTop: 4 }}>
+          <input 
+            type="checkbox" 
+            id="recurring_gate" 
+            checked={formData.is_recurring} 
+            onChange={e => setFormData({ ...formData, is_recurring: e.target.checked })}
+            style={{ width: 16, height: 16, accentColor: "#a8a8ff" }}
+          />
+          <label htmlFor="recurring_gate" className="form-label" style={{ margin: 0, cursor: "pointer" }}>
+            Daily Routine (Auto-reset every day)
+          </label>
+        </div>
+
         <div className="form-group">
           <label className="form-label">Mission Brief (Description)</label>
           <textarea className="form-textarea" rows={3} value={formData.description}
@@ -462,7 +523,7 @@ export function DungeonGatePage() {
       <style>{`
         .gate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px; }
         .gate-card {
-          position: relative; border-radius: 24px; overflow: hidden; height: 260px;
+          position: relative; border-radius: var(--r-xl); overflow: hidden; height: 260px;
           background: rgba(10, 10, 15, 0.6); border: 1px solid rgba(255,255,255,0.05);
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           cursor: pointer;
@@ -501,7 +562,7 @@ export function DungeonGatePage() {
         .gate-action-hint { font-size: 0.65rem; font-weight: 900; letter-spacing: 1.5px; display: flex; align-items: center; gap: 4px; }
 
         .gate-filters-container {
-          margin-bottom: 32px; padding: 12px; border-radius: 20px;
+          margin-bottom: 32px; padding: 12px; border-radius: var(--r-lg);
           display: flex; flex-direction: column; gap: 12px;
         }
         .gate-tab-row { display: flex; gap: 8px; }
@@ -524,7 +585,7 @@ export function DungeonGatePage() {
         .gate-details-v3 { display: flex; flex-direction: column; gap: 28px; padding-bottom: 12px; }
         .brief-header-v3 { display: flex; align-items: center; gap: 24px; }
         .brief-rank-v3 {
-           width: 80px; height: 80px; border-radius: 20px; border: 3px solid;
+           width: 80px; height: 80px; border-radius: var(--r-md); border: 3px solid;
            display: flex; flex-direction: column; align-items: center; justify-content: center;
            font-size: 2rem; font-weight: 900; background: rgba(0,0,0,0.4);
            line-height: 1;
@@ -536,13 +597,13 @@ export function DungeonGatePage() {
         .brief-title-v3 { font-size: 1.6rem; font-weight: 900; margin-bottom: 8px; line-height: 1.1; color: #fff; }
         .brief-urgency { font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 6px; letter-spacing: 1px; }
 
-        .brief-desc-box-v3 { padding: 24px; border-radius: 20px; background: rgba(255,255,255,0.02); }
+        .brief-desc-box-v3 { padding: 24px; border-radius: var(--r-lg); background: rgba(255,255,255,0.02); }
         .box-label { font-size: 0.6rem; font-weight: 900; opacity: 0.3; letter-spacing: 2px; margin-bottom: 12px; }
         .brief-desc-box-v3 p { font-size: 0.95rem; line-height: 1.6; color: var(--t2); }
 
         .brief-grid-v3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         .brief-stat-card {
-           padding: 18px; background: rgba(255,255,255,0.03); border-radius: 16px;
+           padding: 18px; background: rgba(255,255,255,0.03); border-radius: var(--r-md);
            display: flex; align-items: center; gap: 14px; border: 1px solid rgba(255,255,255,0.05);
         }
         .stat-icon-v3 { width: 40px; height: 40px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }

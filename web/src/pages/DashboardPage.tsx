@@ -8,8 +8,9 @@ import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Sparkles, Skull, Activity } from "lucide-react";
-import { AuraCard } from "../components/AuraCard";
 import { RaidTimer } from "../components/RaidTimer";
+
+import { AuraCard } from "../components/AuraCard";
 
 /* ─── types ─────────────────────────────────────────────────────── */
 type DashboardData = {
@@ -294,7 +295,7 @@ export function DashboardPage() {
         .db-quantum-card {
           position: relative;
           padding: 24px;
-          border-radius: 20px;
+          border-radius: var(--r-xl);
           overflow: hidden;
           min-height: 140px;
           display: flex;
@@ -392,12 +393,16 @@ export function DashboardPage() {
                 <PerformanceRadar
                   title=""
                   data={[
-                    { category:"Work",        value: Math.round((data.categoryDistribution.find(c=>c.category==="Work")?.points||0)/8.2),    fullMark:100 },
-                    { category:"Fitness",     value: Math.round((data.categoryDistribution.find(c=>c.category==="Fitness")?.points||0)/4.4),  fullMark:100 },
-                    { category:"Learning",    value: Math.round((data.categoryDistribution.find(c=>c.category==="Learning")?.points||0)/3.2),fullMark:100 },
-                    { category:"Mind",        value: Math.round((data.categoryDistribution.find(c=>c.category==="Mindfulness")?.points||0)/2.6),fullMark:100 },
-                    { category:"Finance",     value: Math.round((data.categoryDistribution.find(c=>c.category==="Finance")?.points||0)/2.6),fullMark:100 },
-                    { category:"Social",      value: Math.round((data.categoryDistribution.find(c=>c.category==="Social")?.points||0)/2.6),fullMark:100 },
+                    { category:"Work",        value: data.categoryDistribution.find(c=>c.category==="Work")?.points||0,    fullMark:100 },
+                    { category:"Fitness",     value: data.categoryDistribution.find(c=>c.category==="Fitness")?.points||0,  fullMark:100 },
+                    { category:"Learning",    value: data.categoryDistribution.find(c=>c.category==="Learning")?.points||0,fullMark:100 },
+                    { category:"Mind",        value: data.categoryDistribution.find(c=>c.category==="Mindfulness")?.points||0,fullMark:100 },
+                    { category:"Finance",     value: data.categoryDistribution.find(c=>c.category==="Finance")?.points||0,fullMark:100 },
+                    { category:"Social",      value: data.categoryDistribution.find(c=>c.category==="Social")?.points||0,fullMark:100 },
+                    { category:"Creative",    value: data.categoryDistribution.find(c=>c.category==="Creative")?.points||0,fullMark:100 },
+                    { category:"Academics",   value: data.categoryDistribution.find(c=>c.category==="Academics")?.points||0,fullMark:100 },
+                    { category:"Errands",     value: data.categoryDistribution.find(c=>c.category==="Errands")?.points||0,fullMark:100 },
+                    { category:"General",     value: data.categoryDistribution.find(c=>c.category==="General")?.points||0,fullMark:100 },
                   ]}
                   height={240}
                 />
@@ -422,7 +427,7 @@ export function DashboardPage() {
         .analytic-card:hover .tick-bar { background: var(--accent-primary); opacity: 0.4; }
         
         .glass-panel {
-          border-radius: 18px;
+          border-radius: var(--r-lg);
           padding: 22px;
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
@@ -440,7 +445,7 @@ export function DashboardPage() {
           content: '';
           position: absolute;
           inset: 0;
-          border-radius: 18px;
+          border-radius: var(--r-lg);
           background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 60%);
           pointer-events: none;
           z-index: 0;
@@ -580,48 +585,70 @@ export function DashboardPage() {
         )}
       </div>
 
-      {/* ── ARMY OF SHADOWS ── */}
+      {/* ── ARMY OF SHADOWS (Tactical Overview) ── */}
       {shadows.length > 0 && (
         <div className="page-section">
           <div className="section-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Sparkles size={14} color="#a8a8ff" /> Army of Shadows (Passive Buffs)
+              <Skull size={14} color="var(--monarch-purple)" /> Tactical Shadow Deployment
             </div>
-            <Link to="/collection" style={{ fontSize: "0.65rem", color: "#a8a8ff", textDecoration: "none", fontWeight: 800 }}>VIEW ARMY →</Link>
+            <Link to="/collection" className="monarch-link">OVERSEE COMMAND →</Link>
           </div>
-          <div className="shadow-army-scroll">
-            {shadows.map(s => {
+          
+          <div className="shadow-tactical-grid">
+            {shadows.sort((a,b) => b.bonus_value - a.bonus_value).slice(0, 4).map(s => {
+              const rankLabel = s.rarity === 'Legendary' ? 'GRAND MARSHAL' : 
+                                s.rarity === 'Epic' ? 'COMMANDER' : 
+                                s.rarity === 'Rare' ? 'KNIGHT' : 'ELITE';
+              
               const color = s.rarity === 'Legendary' ? '#ffa500' : 
                             s.rarity === 'Epic' ? '#a8a8ff' : 
                             s.rarity === 'Rare' ? '#c4b5fd' : '#888';
-              const rankLabel = s.rarity === 'Legendary' ? 'MARSHAL' : 
-                                s.rarity === 'Epic' ? 'COMMANDER' : 
-                                s.rarity === 'Rare' ? 'KNIGHT' : 'SOLDIER';
-              
-              const effType: 'shadow'|'flame'|'smoke'|'lightning' = 
-                s.rarity === 'Legendary' ? 'flame' : 
-                s.rarity === 'Epic' ? 'shadow' : 
-                s.rarity === 'Rare' ? 'lightning' : 'smoke';
+
+              const effect = s.rarity === 'Legendary' ? 'flame' : 
+                             s.rarity === 'Epic' ? 'shadow' : 
+                             s.rarity === 'Rare' ? 'smoke' : 'smoke';
 
               return (
-                <div key={s.id} style={{ width: 220, flexShrink: 0 }}>
-                  <AuraCard 
-                    name={s.name}
-                    rankLabel={rankLabel}
-                    rarityColor={color}
-                    isCollected={true}
-                    effectType={effType}
-                    bonus={Math.round(s.bonus_value * 100)}
-                    label="SHADOW"
-                    icon={<Skull size={24} />}
-                    sub={rankLabel}
-                  />
-                </div>
+                <AuraCard
+                  key={s.id}
+                  name={s.name}
+                  rankLabel={rankLabel}
+                  rarityColor={color}
+                  isCollected={true}
+                  effectType={effect as any}
+                  bonus={Math.round(s.bonus_value * 100)}
+                  sub="Tactical Deployment"
+                  className="tactical-aura-card"
+                />
               );
             })}
+            
+            {shadows.length > 4 && (
+              <Link to="/collection" className="tactical-shadow-more ds-glass">
+                <div className="more-count">+{shadows.length - 4}</div>
+                <div className="more-label">ADDITIONAL UNITS</div>
+              </Link>
+            )}
           </div>
         </div>
       )}
+
+      <style>{`
+        .monarch-link { font-size: 0.65rem; color: var(--accent-primary); text-decoration: none; fontWeight: 900; letter-spacing: 1px; }
+        .monarch-link:hover { text-decoration: underline; }
+        
+        .shadow-tactical-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; margin-top: 16px; }
+        
+        .tactical-shadow-more {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          border-radius: var(--r-xl); text-decoration: none; border: 1px dashed rgba(255,255,255,0.1);
+          min-height: 240px; background: rgba(255,255,255,0.02); transition: 0.3s;
+        }
+        .tactical-shadow-more:hover { background: rgba(255,255,255,0.05); border-color: var(--accent-primary); }
+        .more-count { font-size: 1.8rem; font-weight: 950; color: var(--accent-primary); text-shadow: 0 0 15px var(--accent-glow); }
+        .more-label { font-size: 0.6rem; font-weight: 800; opacity: 0.4; letter-spacing: 2px; text-transform: uppercase; }
+      `}</style>
 
       {/* ── AFFILIATIONS (Diplomatic Ties) ── */}
       {affiliations.length > 0 && (
@@ -664,7 +691,7 @@ export function DashboardPage() {
       <style>{`
         .dashboard-quest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
         .db-quest-card {
-          padding: 16px; border-radius: 14px; position: relative; overflow: hidden;
+          padding: 16px; border-radius: var(--r-md); position: relative; overflow: hidden;
           cursor: pointer; transition: all 0.2s;
         }
         .db-quest-card:hover { background: rgba(255,255,255,0.06); transform: scale(1.01); }
@@ -690,11 +717,13 @@ export function DashboardPage() {
         .shadow-army-scroll { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x mandatory; }
         .shadow-army-scroll > * { scroll-snap-align: start; }
 
-        .battle-record-panel { padding: 8px; }
+        .battle-record-panel { padding: 12px; border-radius: var(--r-xl); }
         .battle-log-row {
-          display: flex; align-items: center; gap: 16px; padding: 14px 16px;
+          display: flex; align-items: center; gap: 20px; padding: 18px 24px;
           border-bottom: 1px solid rgba(255,255,255,0.04);
+          transition: all 0.2s ease;
         }
+        .battle-log-row:hover { background: rgba(255,255,255,0.02); }
         .battle-log-row:last-child { border: none; }
         .log-marker { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-primary); }
         .log-body { flex: 1; }
@@ -704,7 +733,7 @@ export function DashboardPage() {
 
         .diplomacy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
         .diplomacy-card {
-          display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: 16px;
+          display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: var(--r-lg);
           border: 1px solid rgba(255,255,255,0.04); transition: transform 0.2s;
         }
         .diplomacy-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.06); }

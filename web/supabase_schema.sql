@@ -397,7 +397,7 @@ CREATE POLICY "Guild members can manage guild events"      ON guild_events FOR A
 
 -- Auto-create profile on sign-up (safe CREATE OR REPLACE)
 DROP TRIGGER IF EXISTS trg_new_user ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -422,13 +422,14 @@ CREATE TRIGGER trg_new_user
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Look up user profile by Hunter Code
-CREATE OR REPLACE FUNCTION get_profile_by_hunter_code(hunter_code_input TEXT)
+DROP FUNCTION IF EXISTS get_profile_by_hunter_code(TEXT);
+CREATE OR REPLACE FUNCTION get_profile_by_hunter_code(hunter_code TEXT)
 RETURNS TABLE(user_id UUID, name TEXT, player_class TEXT, player_rank TEXT, level INTEGER)
 LANGUAGE sql SECURITY DEFINER
 AS $$
     SELECT user_id, name, player_class, player_rank, level
     FROM user_profiles
-    WHERE hunter_code = UPPER(hunter_code_input)
+    WHERE hunter_code = UPPER(hunter_code)
     LIMIT 1;
 $$;
 
@@ -490,7 +491,11 @@ CREATE TABLE IF NOT EXISTS shadows (
 
 ALTER TABLE shadows ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can see own shadows" ON shadows;
+DROP POLICY IF EXISTS "Users can manage own shadows" ON shadows;
+CREATE POLICY "Users can manage own shadows" ON shadows FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Authenticated users can view shadows" ON shadows;
+CREATE POLICY "Authenticated users can view shadows" ON shadows FOR SELECT USING (auth.uid() IS NOT NULL);
 -- ==========================================
 -- SKILLS
 -- ==========================================

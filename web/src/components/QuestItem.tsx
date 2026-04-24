@@ -22,6 +22,8 @@ export interface DBTask {
   is_recurring?: boolean;
   is_active?: boolean;
   started_at?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
 }
 

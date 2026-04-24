@@ -5,6 +5,7 @@ import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { syncProgression, showProgressionToast } from "../lib/levelEngine";
 import { Plus, Trash2, Gift, Zap } from "lucide-react";
+import { ITEM_CATALOG, SHADOW_CATALOG } from "../lib/catalog";
 
 type Reward = {
   id: string;
@@ -74,6 +75,31 @@ export function RewardsPage() {
 
   const handleClaimReward = async (reward: Reward) => {
     if (!supabase || !user || reward.is_claimed || (profile?.total_points ?? 0) < reward.xp_cost) return;
+    
+    // Check if reward matches an item or shadow
+    const catalogItem = ITEM_CATALOG.find(i => i.name.toLowerCase() === reward.name.toLowerCase());
+    const catalogShadow = SHADOW_CATALOG.find(s => s.name.toLowerCase() === reward.name.toLowerCase());
+
+    if (catalogItem) {
+      await supabase.from("inventory").insert({
+        user_id: user.id,
+        name: catalogItem.name,
+        description: catalogItem.description,
+        item_type: catalogItem.item_type,
+        item_category: catalogItem.item_category,
+        rarity: catalogItem.rarity,
+        quantity: 1
+      });
+    } else if (catalogShadow) {
+      await supabase.from("shadows").insert({
+        user_id: user.id,
+        name: catalogShadow.name,
+        rarity: catalogShadow.rarity,
+        bonus_type: "xp_boost",
+        bonus_value: (catalogShadow as any).bonus || 0.05
+      });
+    }
+
     await supabase.from("rewards").update({ is_claimed: true, claimed_at: new Date().toISOString() }).eq("id", reward.id);
     await supabase.from("user_profiles").update({ total_points: (profile?.total_points ?? 0) - reward.xp_cost }).eq("user_id", user.id);
     setRewards(rs => rs.map(r => r.id === reward.id ? { ...r, is_claimed: true } : r));

@@ -564,7 +564,7 @@ export function ProfilePage() {
           position: absolute;
           inset: 0;
           backface-visibility: hidden;
-          border-radius: 20px; /* Sleeker corner for CC size */
+          border-radius: var(--r-lg); /* Sleeker corner for CC size */
           overflow: hidden;
           box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
@@ -615,7 +615,7 @@ export function ProfilePage() {
         .pf-photo-box {
           width: 100px;
           height: 125px;
-          border-radius: 14px;
+          border-radius: var(--r-md);
           background: rgba(0,0,0,0.6);
           border: 1.5px solid rgba(255,255,255,0.1);
           display: flex;
@@ -698,7 +698,7 @@ export function ProfilePage() {
           background: rgba(168,168,255,0.04);
           margin: 14px 0;
           padding: 12px 16px;
-          border-radius: 10px;
+          border-radius: var(--r-sm);
         }
         .pf-bs {
           font-size: 0.8rem;
@@ -762,7 +762,7 @@ export function ProfilePage() {
         }
         .pf-panel {
           padding: 26px;
-          border-radius: 22px;
+          border-radius: var(--r-xl);
           display: flex;
           flex-direction: column;
           gap: 16px;

@@ -129,7 +129,7 @@ export function LicensePage() {
 
         .license-card {
           position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
-          border-radius: 20px; overflow: hidden;
+          border-radius: var(--r-lg); overflow: hidden;
           border: 1px solid rgba(255,255,255,0.1);
           box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
@@ -151,7 +151,7 @@ export function LicensePage() {
 
         .license-main { display: flex; gap: 32px; align-items: flex-start; }
         .license-photo-box {
-          width: 100px; height: 130px; background: rgba(0,0,0,0.4); border-radius: 12px;
+          width: 100px; height: 130px; background: rgba(0,0,0,0.4); border-radius: var(--r-md);
           border: 1px solid rgba(255,255,255,0.1); position: relative; display: flex; align-items: center; justify-content: center;
         }
         .license-photo-inner { font-size: 3rem; font-weight: 900; color: var(--accent-primary); opacity: 0.5; }

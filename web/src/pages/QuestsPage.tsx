@@ -9,10 +9,11 @@ import { Plus, Download, CalendarDays, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
+import { SHADOW_CATALOG } from "../lib/catalog";
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
-  deadline: "", time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
+  deadline: "", start_time: "", end_time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,   // user_id to assign to (empty = self)
   is_recurring: false,
 };
@@ -135,7 +136,8 @@ export function QuestsPage() {
       category: task.category,
       description: task.description,
       deadline: task.deadline ?? "",
-      time: task.time ?? "",
+      start_time: task.start_time ?? "",
+      end_time: task.end_time ?? "",
       priority: task.priority,
       xp_tier: task.xp_tier || "Low",
       parentId: task.parent_id,
@@ -167,7 +169,8 @@ export function QuestsPage() {
       points:      getXpByTier(formData.xp_tier),
       description: formData.description,
       deadline:    formData.deadline || null,
-      time:        formData.time || null,
+      start_time:  formData.start_time || null,
+      end_time:    formData.end_time || null,
       priority:    formData.priority,
       xp_tier:     formData.xp_tier,
       parent_id:   formData.parentId,
@@ -226,41 +229,17 @@ export function QuestsPage() {
         showProgressionToast(progression);
 
         // --- NEW: Randomized Shadow Extraction (Arise!) ---
-        const getShadowPool = (tier: string) => {
-          if (tier === "Legendary") return [
-            { name: "Kamish", rarity: "Legendary", bonus: 0.15 },
-            { name: "Bellion", rarity: "Legendary", bonus: 0.12 },
-            { name: "Gray", rarity: "Legendary", bonus: 0.14 },
-            { name: "Beru", rarity: "Epic", bonus: 0.08 }
-          ];
-          if (tier === "Super") return [
-            { name: "Igris", rarity: "Epic", bonus: 0.07 },
-            { name: "Tusk", rarity: "Epic", bonus: 0.07 },
-            { name: "Min Byung-gu", rarity: "Epic", bonus: 0.10 },
-            { name: "Kaisel", rarity: "Epic", bonus: 0.06 }
-          ];
-          if (tier === "High") return [
-            { name: "Iron", rarity: "Rare", bonus: 0.04 },
-            { name: "Kira", rarity: "Rare", bonus: 0.05 },
-            { name: "Tank", rarity: "Rare", bonus: 0.04 }
-          ];
-          if (tier === "Mid") return [
-            { name: "Sid", rarity: "Rare", bonus: 0.03 },
-            { name: "High Orc Warrior", rarity: "Common", bonus: 0.02 },
-            { name: "Shadow Archer", rarity: "Common", bonus: 0.01 }
-          ];
-          return [
-            { name: "Shadow Infantry", rarity: "Common", bonus: 0.01 },
-            { name: "Shadow Mage", rarity: "Common", bonus: 0.01 }
-          ];
-        };
-
         const tier = task.xp_tier || "Low";
         const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
         const roll = Math.random();
 
         if (roll <= chances[tier]) {
-          const pool = getShadowPool(tier);
+          const pool = SHADOW_CATALOG.filter(s => {
+            if (tier === "Legendary") return s.rarity === "Legendary" || s.rarity === "Mythic";
+            if (tier === "Super") return s.rarity === "Epic";
+            if (tier === "High") return s.rarity === "Rare";
+            return s.rarity === "Common";
+          });
           const shadow = pool[Math.floor(Math.random() * pool.length)];
           
           const { error } = await supabase.from("shadows").insert({
@@ -268,7 +247,7 @@ export function QuestsPage() {
             name: shadow.name,
             rarity: shadow.rarity,
             bonus_type: "xp_boost",
-            bonus_value: shadow.bonus
+            bonus_value: (shadow as any).bonus || (shadow.rarity === "Legendary" ? 0.1 : 0.05)
           });
 
           if (!error) {
@@ -504,16 +483,22 @@ export function QuestsPage() {
           </div>
         </div>
 
+        <div className="form-group">
+          <label className="form-label">Expiration Date (Deadline)</label>
+          <input type="date" className="form-input" value={formData.deadline}
+            onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group">
-            <label className="form-label">Deadline</label>
-            <input type="date" className="form-input" value={formData.deadline}
-              onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+            <label className="form-label">Start Time</label>
+            <input type="time" className="form-input" value={formData.start_time}
+              onChange={e => setFormData({ ...formData, start_time: e.target.value })} />
           </div>
           <div className="form-group">
-            <label className="form-label">Time</label>
-            <input type="time" className="form-input" value={formData.time}
-              onChange={e => setFormData({ ...formData, time: e.target.value })} />
+            <label className="form-label">End Time</label>
+            <input type="time" className="form-input" value={formData.end_time}
+              onChange={e => setFormData({ ...formData, end_time: e.target.value })} />
           </div>
         </div>
 

@@ -61,9 +61,9 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
   const checkFriendship = async () => {
     if (!supabase || isSelf || !currentUser) return setFriendStatus("none");
     const { data } = await supabase
-      .from("friends").select("status")
-      .or(`user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`)
-      .or(`user_id.eq.${user.user_id},friend_id.eq.${user.user_id}`)
+      .from("friendship").select("status")
+      .or(`requester_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+      .or(`requester_id.eq.${user.user_id},receiver_id.eq.${user.user_id}`)
       .maybeSingle();
     setFriendStatus(data?.status || "none");
   };
@@ -72,7 +72,7 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
   const handleAddFriend = async () => {
     if (!supabase || !currentUser || isSelf) return;
     setActionLoading(true);
-    await supabase.from("friends").insert({ user_id: currentUser.id, friend_id: user.user_id, status: "pending" });
+    await supabase.from("friendship").insert({ requester_id: currentUser.id, receiver_id: user.user_id, status: "pending" });
     setFriendStatus("pending");
     setActionLoading(false);
   };
@@ -274,6 +274,7 @@ export function LeaderboardPage() {
   const [clans, setClans] = useState<ClanLB[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<LBUser | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -281,16 +282,18 @@ export function LeaderboardPage() {
       try {
         const [hRes, gRes, cRes] = await Promise.all([
           supabase.from("user_profiles")
-            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id")
-            .order("total_points", { ascending: false }).limit(50),
+            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, strength, agility, intelligence, vitality, guild_logo, guild_title, guild_aura_card")
+            .order("total_points", { ascending: false }).limit(100),
           supabase.from("guilds").select("id, name"),
           supabase.from("clans").select("id, name"),
         ]);
 
+        if (hRes.error) console.error("Hunter Fetch Error:", hRes.error);
         setHunters(hRes.data ?? []);
 
-        const { data: allProfs } = await supabase
+        const { data: allProfs, error: pErr } = await supabase
           .from("user_profiles").select("user_id, total_points, guild_id");
+        if (pErr) console.error("Profile Fetch Error:", pErr);
 
         if (gRes.data?.length) {
           const gXP = new Map<string, { xp: number; count: number }>();
@@ -322,7 +325,7 @@ export function LeaderboardPage() {
           })).filter(c => c.member_count >= 1).sort((a, b) => b.total_xp - a.total_xp));
         }
       } catch (err) {
-        console.error(err);
+        console.error("Leaderboard Load Error:", err);
       } finally {
         setLoading(false);
       }
@@ -330,7 +333,14 @@ export function LeaderboardPage() {
   }, []);
 
   const isMe = (id: string) => id === user?.id;
-  const currentData: any[] = tab === "Hunters" ? hunters : tab === "Guilds" ? guilds : clans;
+  
+  const currentData: any[] = useMemo(() => {
+    let base: any[] = tab === "Hunters" ? hunters : tab === "Guilds" ? guilds : clans;
+    if (searchQuery.trim()) {
+      base = base.filter((u: any) => u.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return base;
+  }, [tab, hunters, guilds, clans, searchQuery]);
 
   const podiumOrder = useMemo(() => {
     if (currentData.length >= 3) return [currentData[1], currentData[0], currentData[2]];
@@ -437,14 +447,26 @@ export function LeaderboardPage() {
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="lb-tabs">
-        {(["Hunters", "Guilds", "Clans"] as LBTab[]).map(t => (
-          <button key={t} className={`lb-tab${tab === t ? " lb-tab--active" : ""}`} onClick={() => setTab(t)}>
-            {t === "Hunters" ? <Swords size={13} /> : t === "Guilds" ? <Shield size={13} /> : <Trophy size={13} />}
-            {t}
-          </button>
-        ))}
+      {/* Tabs & Search */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, marginBottom: 36, flexWrap: "wrap" }}>
+        <div className="lb-tabs" style={{ marginBottom: 0, borderBottom: "none" }}>
+          {(["Hunters", "Guilds", "Clans"] as LBTab[]).map(t => (
+            <button key={t} className={`lb-tab${tab === t ? " lb-tab--active" : ""}`} onClick={() => setTab(t)}>
+              {t === "Hunters" ? <Swords size={13} /> : t === "Guilds" ? <Shield size={13} /> : <Trophy size={13} />}
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div className="lb-search-wrap">
+          <input 
+            type="text" 
+            className="lb-search-input" 
+            placeholder={`Search ${tab.toLowerCase()}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -485,7 +507,7 @@ export function LeaderboardPage() {
           display: flex; align-items: center; gap: 7px;
           background: transparent; border: 1px solid transparent;
           color: rgba(255,255,255,0.38); font-size: 0.82rem; font-weight: 700;
-          padding: 8px 18px; border-radius: 11px; cursor: pointer; transition: all 0.18s;
+          padding: 8px 18px; border-radius: var(--r-md); cursor: pointer; transition: all 0.18s;
           letter-spacing: 0.05em;
         }
         .lb-tab:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.65); }
@@ -493,6 +515,23 @@ export function LeaderboardPage() {
           background: rgba(168,168,255,0.09);
           border-color: rgba(168,168,255,0.22);
           color: var(--accent-primary);
+        }
+
+        /* SEARCH */
+        .lb-search-wrap {
+          flex: 1; min-width: 240px; max-width: 400px;
+        }
+        .lb-search-input {
+          width: 100%; padding: 12px 20px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: var(--r-md); color: #fff; font-size: 0.82rem;
+          transition: all 0.2s;
+        }
+        .lb-search-input:focus {
+          outline: none; background: rgba(255,255,255,0.05);
+          border-color: var(--accent-primary);
+          box-shadow: 0 0 15px rgba(168,168,255,0.1);
         }
 
         /* PODIUM */
@@ -507,7 +546,7 @@ export function LeaderboardPage() {
           background: rgba(10,10,18,0.4);
           backdrop-filter: blur(20px);
           border: 1px solid rgba(255,255,255,0.05);
-          border-top-width: 3px; border-radius: 24px;
+          border-top-width: 3px; border-radius: var(--r-xl);
           padding: 32px 12px 0; cursor: pointer;
           display: flex; flex-direction: column; align-items: center;
           transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -527,7 +566,7 @@ export function LeaderboardPage() {
         @keyframes crownPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.1); } }
 
         .pod-avatar {
-          width: 60px; height: 60px; border-radius: 18px;
+          width: 60px; height: 60px; border-radius: var(--r-md);
           background: rgba(255,255,255,0.03); border: 2px solid;
           display: flex; align-items: center; justify-content: center;
           font-size: 1.6rem; font-weight: 900; color: #fff;
@@ -557,7 +596,7 @@ export function LeaderboardPage() {
           background: rgba(255,255,255,0.03);
           backdrop-filter: blur(10px);
           border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 20px;
+          border-radius: var(--r-lg);
           display: flex;
           flex-direction: column;
           padding: 24px;
@@ -596,7 +635,7 @@ export function LeaderboardPage() {
         .lb-num { font-size: 0.8rem; font-weight: 900; color: var(--accent-primary); }
 
         .lb-avatar {
-          width: 54px; height: 54px; border-radius: 14px;
+          width: 54px; height: 54px; border-radius: var(--r-md);
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.1);
           display: flex; align-items: center; justify-content: center;
@@ -683,7 +722,7 @@ export function LeaderboardPage() {
         }
 
         .pp-id-card {
-          border-radius: 18px; padding: 22px;
+          border-radius: var(--r-lg); padding: 22px;
           background: rgba(0,0,0,0.3);
           border: 1px solid rgba(255,255,255,0.08);
         }
@@ -698,7 +737,7 @@ export function LeaderboardPage() {
         .pp-id-avatar {
           width: 68px; height: 84px; flex-shrink: 0;
           background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.09); border-radius: 11px;
+          border: 1px solid rgba(255,255,255,0.09); border-radius: var(--r-sm);
           display: flex; align-items: center; justify-content: center;
           font-size: 1.9rem; font-weight: 900; color: rgba(168,168,255,0.3);
         }
