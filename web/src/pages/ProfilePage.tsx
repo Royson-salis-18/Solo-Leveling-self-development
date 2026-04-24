@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { Edit3, Shield, Swords, Zap, Brain, Activity, Medal, Skull, Fingerprint, RefreshCw, QrCode } from "lucide-react";
+import { Edit3, Shield, Swords, Zap, Brain, Activity, Medal, Fingerprint, RefreshCw, QrCode } from "lucide-react";
 import { CLASS_TITLES, calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
 import { AuraCard } from "../components/AuraCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
@@ -44,12 +44,10 @@ type Skill = {
   rarity: string;
 };
 
-const CLASSES = Object.keys(CLASS_TITLES);
 
 export function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [skills, setSkills] = useState<Skill[]>([]);
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
     name: "", bio: "", player_class: "None", player_title: "Rookie",
@@ -71,9 +69,8 @@ export function ProfilePage() {
   const fetchProfile = async () => {
     if (!supabase || !user) return;
     setLoading(true);
-    const [profRes, skillRes, taskRes] = await Promise.all([
+    const [profRes, taskRes] = await Promise.all([
       supabase.from("user_profiles").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("skills").select("*").eq("user_id", user.id),
       supabase.from("tasks").select("category").eq("assigned_to", user.id).eq("is_completed", true)
     ]);
 
@@ -119,7 +116,6 @@ export function ProfilePage() {
         { category: "Social", value: Math.min(100, Math.floor((counts.Social * 5 + 10) * weights.Social)), fullMark: 100 },
       ]);
     }
-    if (skillRes.data) setSkills(skillRes.data);
     setLoading(false);
   };
 
@@ -193,7 +189,6 @@ export function ProfilePage() {
     </section>
   );
 
-  const computedLevel = calcLevel(profile.total_points);
   const xpPct = calcXpProgress(profile.total_points);
   const initial = profile.name.charAt(0).toUpperCase();
   const nextRank = nextRankInfo(profile.player_rank);
@@ -252,8 +247,8 @@ export function ProfilePage() {
               <div className="pf-face pf-front">
                 <AuraCard
                   name="" rankLabel="" rarityColor="#ffd700" isCollected={true}
-                  effectType={profile.guild_aura_card || "shadow"}
-                  className="hero-aura-wrapper" disableTilt={true}
+                  effectType={(profile.guild_aura_card as any) || "shadow"}
+                  className="hero-aura-wrapper"
                   style={{ width: "100%", height: "100%", padding: 0, margin: 0, borderRadius: 28, border: "2.5px solid rgba(168,168,255,0.4)" }}
                 >
                   <div className="pf-front-inner">
@@ -458,7 +453,7 @@ export function ProfilePage() {
             rankLabel="LEGENDARY"
             rarityColor="#ffd700"
             isCollected={!!profile.guild_aura_card}
-            effectType={profile.guild_aura_card || "shadow"}
+            effectType={(profile.guild_aura_card as any) || "shadow"}
             style={{ height: 260 }}
           />
         </div>

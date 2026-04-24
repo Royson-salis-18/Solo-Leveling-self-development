@@ -4,7 +4,6 @@ import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
   Cell, AreaChart, Area, CartesianGrid,
 } from "recharts";
-import { StatCard } from "../components/StatCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";

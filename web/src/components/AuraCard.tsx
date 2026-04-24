@@ -18,7 +18,6 @@ interface AuraCardProps {
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
-  disableTilt?: boolean;
 }
 
 export function AuraCard({
@@ -35,8 +34,7 @@ export function AuraCard({
   label,
   className = "",
   style,
-  children,
-  disableTilt = false
+  children
 }: AuraCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

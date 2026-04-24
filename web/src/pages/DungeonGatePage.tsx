@@ -48,8 +48,8 @@ export function DungeonGatePage() {
     return tasks.filter(t => {
       // Tab Filter
       let matchTab = false;
-      if (activeTab === "completed") matchTab = t.is_completed || t.is_failed;
-      else if (activeTab === "pending") matchTab = t.is_pending && !t.is_completed;
+      if (activeTab === "completed") matchTab = !!t.is_completed || !!t.is_failed;
+      else if (activeTab === "pending") matchTab = !!t.is_pending && !t.is_completed;
       else matchTab = !t.is_completed && !t.is_failed && !t.is_pending;
 
       if (!matchTab) return false;
@@ -315,7 +315,6 @@ export function DungeonGatePage() {
         isOpen={!!selectedGate}
         title="Mission Briefing"
         onClose={() => setSelectedGate(null)}
-        width={600}
         footer={
           <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'flex-end' }}>
             <Button variant="secondary" onClick={() => setSelectedGate(null)} style={{ opacity: 0.7 }}>Abort Briefing</Button>

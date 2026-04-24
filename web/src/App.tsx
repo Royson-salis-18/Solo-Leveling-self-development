@@ -3,7 +3,6 @@ import { AuthProvider }      from "./lib/authContext";
 import { NotificationProvider } from "./lib/notificationContext";
 import { ProtectedRoute }    from "./lib/ProtectedRoute";
 import { Sidebar }           from "./components/Sidebar";
-import { GooBackground }    from "./components/GooBackground";
 import { DashboardPage }     from "./pages/DashboardPage";
 import { DungeonGatePage }   from "./pages/DungeonGatePage";
 import { WarRoomPage }       from "./pages/WarRoomPage";

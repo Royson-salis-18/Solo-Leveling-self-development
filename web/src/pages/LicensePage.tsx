@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Medal, Shield, Swords, Zap, Fingerprint, QrCode, CreditCard, RefreshCw } from "lucide-react";
-import { AuraCard } from "../components/AuraCard";
+import { Fingerprint, QrCode, RefreshCw } from "lucide-react";
 
 export function LicensePage() {
   const { user } = useAuth();

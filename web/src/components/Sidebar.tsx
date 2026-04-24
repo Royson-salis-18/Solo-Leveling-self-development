@@ -1,4 +1,4 @@
-import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target, BookOpen, Bell, Flame, Backpack, Medal } from "lucide-react";
+import { Home, ScrollText, Gift, User, LogOut, Brain, Swords, Users, Target, BookOpen, Bell, Flame, Backpack } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";

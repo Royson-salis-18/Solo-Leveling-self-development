@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import {
   X, Shield, Swords, Trophy, Zap, MessageSquare, UserPlus,
-  Skull, Activity, Brain, Medal,
+  Skull, Medal,
 } from "lucide-react";
 import { Button } from "../components/Button";
 import { AuraCard } from "../components/AuraCard";
