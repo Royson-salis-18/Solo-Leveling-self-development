@@ -89,7 +89,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     category       TEXT DEFAULT 'General',
     points         INTEGER DEFAULT 10,
     is_completed   BOOLEAN DEFAULT FALSE,
+    is_pending     BOOLEAN DEFAULT FALSE,
     is_failed      BOOLEAN DEFAULT FALSE,
+    is_active      BOOLEAN DEFAULT FALSE,
+    is_recurring   BOOLEAN DEFAULT FALSE,
     priority       TEXT DEFAULT 'Normal',
     area           TEXT,
     deadline       DATE,
@@ -488,5 +491,28 @@ CREATE TABLE IF NOT EXISTS shadows (
 ALTER TABLE shadows ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can see own shadows" ON shadows;
-CREATE POLICY "Users can see own shadows" ON shadows FOR ALL USING (auth.uid() = user_id);
+-- ==========================================
+-- SKILLS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS skills (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    name           TEXT NOT NULL,
+    description    TEXT,
+    level          INTEGER DEFAULT 1,
+    max_level      INTEGER DEFAULT 10,
+    icon_type      TEXT DEFAULT 'Swords', -- Swords, Zap, Brain, Shield, etc.
+    rarity         TEXT DEFAULT 'Common',
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE skills ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own skills" ON skills;
+CREATE POLICY "Users can manage own skills" ON skills FOR ALL USING (auth.uid() = user_id);
+
+-- ==========================================
+-- GUILD ASSETS (Logos & Auras)
+-- ==========================================
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS aura_theme TEXT;
 

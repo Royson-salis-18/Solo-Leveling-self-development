@@ -97,7 +97,33 @@
   /* Sidebar */
   --sidebar-bg: rgba(10, 12, 16, 0.72);
   --sidebar-border: rgba(255,255,255,0.08);
+
+  /* Solo Leveling Design System Additions */
+  --monarch-purple: #7733cc;
+  --monarch-purple-glow: 100, 40, 220;
+  --frost-blue: #0077cc;
+  --frost-blue-glow: 0, 100, 220;
+  --destruction-red: #cc0000;
+  --destruction-red-glow: 200, 0, 0;
+  --beast-orange: #cc5500;
+  --beast-orange-glow: 200, 70, 0;
+  --plague-green: #00882b;
+  --plague-green-glow: 0, 150, 40;
 }
+
+.system-bg-overlay {
+  position: fixed; inset: 0; pointer-events: none; z-index: -1;
+  background: 
+    linear-gradient(rgba(10, 10, 15, 0.82), rgba(6, 6, 10, 0.90)),
+    url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40 L40 40 L40 0' fill='none' stroke='rgba(168,168,255,0.03)' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+}
+.system-bg-overlay::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(111, 60, 255, 0.05) 0%, transparent 70%);
+  animation: bgPulse 8s infinite alternate;
+}
+@keyframes bgPulse { from { opacity: 0.3; } to { opacity: 0.7; } }
 
 /* ─── RESET & BASE ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -105,21 +131,22 @@
 html { color-scheme: dark; }
 
 body {
-  background: var(--bg-root);
-  background-image:
-    radial-gradient(ellipse 110% 65% at 40% -25%, rgba(255,255,255,0.045) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 50% at 78% 92%, rgba(168, 168, 255, 0.055) 0%, transparent 58%),
-    radial-gradient(ellipse 55% 45% at 10% 78%, rgba(111, 60, 255, 0.030) 0%, transparent 62%);
-  background-size: 100% 100%;
+  background: #06060a;
   min-height: 100vh;
   color: var(--t1);
   overflow-x: hidden;
+  position: relative;
 }
 
 /* ─── Text utilities ─── */
-.text-accent { color: rgba(168,168,255,0.85); }
-
-/* ═══════════════════════════════════════════════
+.text-accent { color: var(--accent-primary); text-shadow: 0 0 12px rgba(168, 168, 255, 0.4); }
+.page-title { 
+  font-size: 2rem; font-weight: 900; 
+  color: #ffffff;
+  letter-spacing: -0.01em; margin-bottom: 4px;
+  text-shadow: 0 0 20px rgba(168, 168, 255, 0.25), 0 0 40px rgba(168, 168, 255, 0.1);
+}
+.page-subtitle { font-size: 0.9rem; color: var(--t2); font-weight: 500; }
    DESIGN SYSTEM UTILITIES (from provided HTML refs)
    - dark_glass_design_system.html
    - dark_solid_design_system.html
@@ -205,6 +232,18 @@ body {
       rgba(255,255,255,0.02)
     );
 }
+
+/* Monarch Card Aesthetic (from design system) */
+.monarch-card-premium {
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+  background-image: var(--bg-noise);
+}
+.monarch-card-premium:hover { transform: translateY(-5px); }
+.mc-top-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 3; }
+.mc-shine { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, transparent 50%); pointer-events: none; z-index: 1; border-radius: 20px; }
 
 /* Hero banner helper */
 .ds-hero {
@@ -473,9 +512,9 @@ body::before {
   transform: translate(-50%, -50%) rotate(-15deg);
   font-size: 25vw;
   font-weight: 900;
-  color: rgba(168, 168, 255, 0.035);
+  color: rgba(168, 168, 255, 0.08); /* Increased opacity for visibility */
   pointer-events: none;
-  z-index: -1;
+  z-index: 0; /* Move in front of background but behind content */
   white-space: nowrap;
   letter-spacing: 0.2em;
 }
@@ -546,7 +585,7 @@ button { font-family: inherit; }
   display: flex;
   min-height: 100vh;
   position: relative;
-  z-index: 1;
+  z-index: 1; /* Ensure content is above the 'ARISE' watermark */
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -577,29 +616,29 @@ button { font-family: inherit; }
 .sb-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 10px 18px;
+  gap: 12px;
+  padding: 14px 12px 16px;
   border-bottom: 1px solid var(--border-0);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .sb-brand-icon {
-  width: 36px; height: 36px;
-  border-radius: var(--r-sm);
-  background: var(--glass-2);
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  background: var(--glass-1);
   border: 1px solid var(--border-1);
   backdrop-filter: var(--blur-sm);
   display: flex; align-items: center; justify-content: center;
-  color: var(--t2);
+  color: var(--t1);
   box-shadow: var(--shadow-sm);
   flex-shrink: 0;
 }
 
 .sb-brand-title {
-  font-size: 0.80rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 800;
   color: var(--t1);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   line-height: 1.2;
 }
 
@@ -856,10 +895,11 @@ button { font-family: inherit; }
 }
 
 .page-title {
-  font-size: 1.5rem;
-  font-weight: 650;
+  font-size: 1.4rem;
+  font-weight: 800;
   color: var(--t1);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 15px rgba(168, 168, 255, 0.15);
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

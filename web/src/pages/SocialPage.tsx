@@ -15,8 +15,11 @@ type DM = {
   message: string; created_at: string; sender_name?: string;
 };
 
+import { useSearchParams } from "react-router-dom";
+
 export function SocialPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [searchCode, setSearchCode] = useState("");
   const [loading, setLoading] = useState(true);
@@ -134,6 +137,17 @@ export function SocialPage() {
     fetchData();
     cleanupOldMessages();
   }, [user]);
+
+  // Handle chat parameter from URL
+  useEffect(() => {
+    const chatUserId = searchParams.get("chat");
+    if (chatUserId && friends.length > 0) {
+      const friend = friends.find(f => f.user_id === chatUserId && f.status === "accepted");
+      if (friend) {
+        openChat(friend);
+      }
+    }
+  }, [searchParams, friends]);
 
   // Poll for new messages when in a chat
   useEffect(() => {

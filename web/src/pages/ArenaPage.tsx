@@ -68,6 +68,11 @@ export function ArenaPage() {
     title: "", description: "", type: "Rally", reward: 50, days: 3, opponentId: ""
   });
 
+  const [guildAssets, setGuildAssets] = useState({
+    logo: "⚜️",
+    aura: "shadow"
+  });
+
   /* ── fetch everything ── */
   const fetchAll = async () => {
     if (!supabase || !user) return;
@@ -163,11 +168,19 @@ export function ArenaPage() {
     setSaving(true);
     const { data, error } = await supabase.from("guilds").insert({
       name: form.name, description: form.desc,
-      leader_id: user.id, member_count: 1, min_rank: form.minRank
+      leader_id: user.id, member_count: 1, min_rank: form.minRank,
+      logo_url: guildAssets.logo, aura_theme: guildAssets.aura
     }).select().single();
     if (error) { alert("Failed to create guild: " + error.message); setSaving(false); return; }
     // Link guild to creator's profile (guild master)
-    if (data) await supabase.from("user_profiles").update({ guild_id: data.id }).eq("user_id", user.id);
+    if (data) {
+      await supabase.from("user_profiles").update({ 
+        guild_id: data.id,
+        guild_logo: guildAssets.logo,
+        guild_aura_card: guildAssets.aura,
+        guild_title: "Guild Master"
+      }).eq("user_id", user.id);
+    }
     setSaving(false); setShowCreateGuild(false); setForm({ ...form, name: "", desc: "" }); fetchAll();
   };
 
@@ -621,6 +634,26 @@ export function ArenaPage() {
           <input className="form-input" placeholder="e.g. Abyss Coalition" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
         <div className="form-group"><label className="form-label">Charter</label>
           <textarea className="form-textarea" placeholder="Guild doctrine..." value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} /></div>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group"><label className="form-label">Guild Logo</label>
+            <select className="form-select" value={guildAssets.logo} onChange={e => setGuildAssets({ ...guildAssets, logo: e.target.value })}>
+              <option value="⚜️">⚜️ Sovereign</option>
+              <option value="🗡️">🗡️ Vanguard</option>
+              <option value="🛡️">🛡️ Aegis</option>
+              <option value="🦅">🦅 Hunter</option>
+              <option value="🔥">🔥 Inferno</option>
+              <option value="⚡">⚡ Lightning</option>
+            </select></div>
+          <div className="form-group"><label className="form-label">Aura Theme</label>
+            <select className="form-select" value={guildAssets.aura} onChange={e => setGuildAssets({ ...guildAssets, aura: e.target.value })}>
+              <option value="shadow">Shadow (Purple)</option>
+              <option value="flame">Flame (Red)</option>
+              <option value="lightning">Lightning (Blue)</option>
+              <option value="smoke">Smoke (Gray)</option>
+            </select></div>
+        </div>
+
         <div className="form-group"><label className="form-label">Min Rank Required</label>
           <select className="form-select" value={form.minRank} onChange={e => setForm({ ...form, minRank: e.target.value })}>
             {["E","D","C","B","A","S"].map(r => <option key={r}>{r}</option>)}

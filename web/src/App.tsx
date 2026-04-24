@@ -3,8 +3,10 @@ import { AuthProvider }      from "./lib/authContext";
 import { NotificationProvider } from "./lib/notificationContext";
 import { ProtectedRoute }    from "./lib/ProtectedRoute";
 import { Sidebar }           from "./components/Sidebar";
+import { GooBackground }    from "./components/GooBackground";
 import { DashboardPage }     from "./pages/DashboardPage";
-import { QuestsPage }        from "./pages/QuestsPage";
+import { DungeonGatePage }   from "./pages/DungeonGatePage";
+import { WarRoomPage }       from "./pages/WarRoomPage";
 import { RewardsPage }       from "./pages/RewardsPage";
 import { LeaderboardPage }   from "./pages/LeaderboardPage";
 import { ProfilePage }       from "./pages/ProfilePage";
@@ -31,11 +33,13 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <div className="layout">
+              <div className="system-bg-overlay"></div>
               <Sidebar />
               <main className="content">
                 <Routes>
                   <Route path="/"            element={<DashboardPage />} />
-                  <Route path="/quests"      element={<QuestsPage />} />
+                  <Route path="/war-room"    element={<WarRoomPage />} />
+                  <Route path="/dungeon-gate" element={<DungeonGatePage />} />
                   <Route path="/collection"  element={<CollectionPage />} />
                   <Route path="/rewards"     element={<RewardsPage />} />
                   <Route path="/arena"       element={<ArenaPage />} />

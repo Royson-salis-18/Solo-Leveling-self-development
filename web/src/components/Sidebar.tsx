@@ -1,19 +1,18 @@
-import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target, BookOpen, Bell, Flame, Backpack } from "lucide-react";
+import { Home, ScrollText, Gift, Trophy, User, LogOut, Brain, Swords, Users, Target, BookOpen, Bell, Flame, Backpack, Medal } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
 
 const links = [
-  { to: "/",            label: "Dashboard",   icon: Home },
-  { to: "/quests",      label: "Quests",      icon: ScrollText },
-  { to: "/collection",  label: "Collection",  icon: Backpack },
-  { to: "/rewards",     label: "Rewards",     icon: Gift },
-  { to: "/arena",       label: "Arena",       icon: Swords },
-  { to: "/social",      label: "Social",      icon: Users },
-  { to: "/challenges",  label: "Challenges",  icon: Target },
-  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { to: "/guide",       label: "Guide",       icon: BookOpen },
-  { to: "/profile",     label: "Profile",     icon: User },
+  { to: "/",            label: "Dashboard",    icon: Home },
+  { to: "/war-room",    label: "War Room",      icon: Target },
+  { to: "/dungeon-gate", label: "Dungeon Gate",  icon: ScrollText },
+  { to: "/collection",  label: "Collection",   icon: Backpack },
+  { to: "/rewards",     label: "Rewards",      icon: Gift },
+  { to: "/arena",       label: "Arena",        icon: Swords },
+  { to: "/social",      label: "Social",       icon: Users },
+  { to: "/profile",     label: "Profile",        icon: User },
+  { to: "/guide",       label: "Guide",        icon: BookOpen },
 ];
 
 import { useNotifications } from "../lib/notificationContext";
@@ -45,7 +44,7 @@ export function Sidebar() {
         <div className="sb-brand-icon">
           <Brain size={20} strokeWidth={1.5} />
         </div>
-        <div>
+        <div className="sb-brand-meta">
           <div className="sb-brand-title">SOLO LEVELING</div>
           <div className="sb-brand-sub">Second Brain 5.0</div>
         </div>

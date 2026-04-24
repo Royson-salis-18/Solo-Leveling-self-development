@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "./Button";
-import { CheckCircle, Trash2, Edit3, Plus, Zap, AlertTriangle, Clock } from "lucide-react";
+import { CheckCircle, Trash2, Edit3, Plus, Zap, AlertTriangle, Clock, Activity } from "lucide-react";
+import { RaidTimer } from "./RaidTimer";
 
 export interface DBTask {
   id: string;
@@ -19,6 +20,8 @@ export interface DBTask {
   priority: string;
   assigned_to?: string | null;   // for clan/guild leader assignments
   is_recurring?: boolean;
+  is_active?: boolean;
+  started_at?: string | null;
   subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
 }
 
@@ -88,6 +91,12 @@ export function QuestItem({
         <div className="quest-content">
           <div className={`quest-title${isCompleted ? " quest-title-completed" : ""}`} style={{ color: quest.is_failed ? '#ff4444' : isPending ? '#ffa030' : undefined, textDecoration: quest.is_failed ? 'line-through' : undefined }}>
             {quest.title}
+            {quest.is_active && quest.started_at && (
+              <span style={{ marginLeft: 8, fontSize: "0.6rem", color: "#ff4d4d", fontWeight: 700,
+                background: "rgba(255,77,77,0.12)", padding: "1px 6px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3, border: "1px solid rgba(255,77,77,0.2)" }}>
+                <Activity size={9} className="animate-pulse" /> <RaidTimer startedAt={quest.started_at} />
+              </span>
+            )}
             {isPending && (
               <span style={{ marginLeft: 8, fontSize: "0.6rem", color: "#ffa030", fontWeight: 700,
                 background: "rgba(255,160,0,0.12)", padding: "1px 6px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3 }}>

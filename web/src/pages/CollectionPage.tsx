@@ -67,6 +67,15 @@ const SHADOW_CATALOG: (Shadow & { effectType?: 'shadow'|'flame'|'smoke'|'lightni
   { name: "Min Byung-gu", rarity: "Epic", effectType: "lightning", col: [[255, 200, 50], [255, 150, 0], [255, 250, 100]], glow: "255,200,0", icon: "⬟", sub: "Holy Healer" },
   { name: "Gray", rarity: "Legendary", effectType: "smoke", icon: "◫", sub: "Beast Monarch" },
   { name: "Greed", rarity: "Epic", effectType: "shadow", col: [[50, 50, 50], [20, 20, 20], [80, 80, 80]], glow: "40,40,40", icon: "◆", sub: "General Rank" },
+  { name: "Kaisel", rarity: "Epic", effectType: "lightning", col: [[180, 100, 255], [120, 40, 200], [220, 180, 255]], glow: "150,80,220", icon: "翼", sub: "Sky Drake" },
+  { name: "Jima", rarity: "Rare", effectType: "smoke", col: [[0, 100, 200], [0, 60, 150], [40, 150, 255]], glow: "0,80,180", icon: "⚓", sub: "Naga Leader" },
+  { name: "Orc Warrior", rarity: "Common", effectType: "flame", col: [[180, 40, 40], [120, 20, 20], [220, 60, 60]], glow: "150,30,30", icon: "◉", sub: "Tusk's Infantry" },
+  { name: "Frost Elf Archer", rarity: "Rare", effectType: "smoke", col: [[180, 230, 255], [130, 180, 255], [220, 250, 255]], glow: "160,200,255", icon: "❄", sub: "Baruka's Guard" },
+  { name: "Ashborn", rarity: "Mythic", effectType: "shadow", col: [[30, 10, 50], [10, 0, 30], [50, 20, 80]], glow: "40,10,60", icon: "👑", sub: "The Original Shadow Monarch" },
+  { name: "Antares", rarity: "Mythic", effectType: "flame", col: [[255, 30, 0], [200, 10, 0], [255, 80, 20]], glow: "220,20,0", icon: "🔥", sub: "Monarch of Destruction" },
+  { name: "Rulers of Light", rarity: "Mythic", effectType: "lightning", col: [[255, 255, 180], [255, 240, 100], [255, 255, 220]], glow: "255,255,150", icon: "✨", sub: "The Absolute Beings" },
+  { name: "Igris (Reawakened)", rarity: "Legendary", effectType: "shadow", col: [[255, 0, 0], [150, 0, 0], [200, 0, 0]], glow: "200,0,0", icon: "⚔", sub: "Commander of the Shadows" },
+  { name: "Beru (Post-Island)", rarity: "Legendary", effectType: "smoke", col: [[255, 255, 255], [200, 200, 200], [255, 255, 255]], glow: "255,255,255", icon: "👑", sub: "Grand Marshal of the Hive" },
 ];
 
 const ITEM_CATALOG: InventoryItem[] = [
@@ -98,6 +107,15 @@ const ITEM_CATALOG: InventoryItem[] = [
   { name: "Shadow Monarch's Cloak", description: "A cloak that hides the user's presence from lower-rank enemies.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
   { name: "Instance Dungeon Key", description: "A key that opens a portal to a special training dungeon.", item_type: "TOOL", item_category: "Tool", rarity: "Rare" },
   { name: "Revive Token", description: "A one-time use token that prevents XP loss upon failure.", item_type: "TOOL", item_category: "Tool", rarity: "Legendary" },
+  { name: "Chalice of Rebirth", description: "A divine vessel containing the power to reset time.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
+  { name: "Ruler's Heart", description: "Pulse of the Primordial Light. Drastically boosts mana regen.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Legendary" },
+  { name: "Mana Crystal (High)", description: "A shimmering crystal packed with immense magical energy.", item_type: "TOOL", item_category: "Tool", rarity: "Epic" },
+  { name: "Sovereign's Scepter", description: "Authority over the dead. Increases shadow extraction success.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Dragon King's Spear", description: "Forged in the heart of a dying star by Antares.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Black Heart", description: "The core of the Shadow Monarch. Infinite mana potential.", item_type: "ARTIFACT", item_category: "Artifact", rarity: "Mythic" },
+  { name: "Ruler's Authority (Fragment)", description: "Allows the user to manipulate objects through telekinesis.", item_type: "TOOL", item_category: "Tool", rarity: "Legendary" },
+  { name: "Phoenix Down", description: "A mystical feather that can revive a fallen shadow.", item_type: "TOOL", item_category: "Tool", rarity: "Epic" },
+  { name: "Shadow Extract", description: "A rare elixir that increases the success rate of Shadow Extraction.", item_type: "TOOL", item_category: "Tool", rarity: "Rare" },
 ];
 
 /* ─────────────────────── component ─────────────────────── */
@@ -229,10 +247,12 @@ export function CollectionPage() {
               {filteredShadows.map((s) => {
                 const isCollected = s.collected;
                 const color = RARITY_COLORS[s.rarity.toUpperCase() as keyof typeof RARITY_COLORS] || '#475569';
-                const rankLabel = s.rarity === 'Legendary' ? 'GRAND MARSHAL' : 
+                const rankLabel = s.rarity === 'Mythic' ? 'MONARCH' :
+                                  s.rarity === 'Legendary' ? 'GRAND MARSHAL' : 
                                   s.rarity === 'Epic' ? 'COMMANDER' : 
                                   s.rarity === 'Rare' ? 'KNIGHT' : 'ELITE';
-                const bonus = s.rarity === 'Legendary' ? 10 : 
+                const bonus = s.rarity === 'Mythic' ? 20 :
+                              s.rarity === 'Legendary' ? 10 : 
                               s.rarity === 'Epic' ? 5 : 
                               s.rarity === 'Rare' ? 3 : 1;
                 return (

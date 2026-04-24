@@ -15,6 +15,10 @@ interface AuraCardProps {
   sub?: string;
   bonus?: number;
   label?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  children?: React.ReactNode;
+  disableTilt?: boolean;
 }
 
 export function AuraCard({
@@ -28,7 +32,11 @@ export function AuraCard({
   icon = '◆',
   sub = 'Shadow Extraction',
   bonus = 0,
-  label
+  label,
+  className = "",
+  style,
+  children,
+  disableTilt = false
 }: AuraCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -351,10 +359,11 @@ export function AuraCard({
   return (
     <div
       ref={containerRef}
-      className={`aura-card ${!isCollected ? 'aura-locked' : 'aura-unlocked'}`}
+      className={`aura-card ${!isCollected ? 'aura-locked' : 'aura-unlocked'} ${className}`}
       style={{
         '--accent-border': isCollected ? rarityColor : `${rarityColor}22`,
         '--rarity-glow': isCollected ? rarityColor : 'transparent',
+        ...style
       } as React.CSSProperties}
     >
       <canvas ref={canvasRef} style={{ opacity: isCollected ? 1 : 0.7 }} />
@@ -362,22 +371,26 @@ export function AuraCard({
       <div className="glitch-bar"></div>
       <div className="scanline"></div>
 
-      {!isCollected && (
+      {children}
+
+      {!children && !isCollected && (
         <Lock size={13} className="aura-lock-icon" />
       )}
 
-      <span className="card-rank">{rankLabel}</span>
+      {!children && <span className="card-rank">{rankLabel}</span>}
 
-      <div className="card-content">
-        <div className="card-label" style={{ paddingBottom: '2px', opacity: isCollected ? 0.8 : 0.35, color: isCollected ? rarityColor : 'inherit' }}>
-          {label || effectType}
+      {!children && (
+        <div className="card-content">
+          <div className="card-label" style={{ paddingBottom: '2px', opacity: isCollected ? 0.8 : 0.35, color: isCollected ? rarityColor : 'inherit' }}>
+            {label || effectType}
+          </div>
+          <span className="card-icon" style={{ opacity: isCollected ? 1 : 0.4 }}>{icon}</span>
+          <div className="card-name" style={{ lineHeight: 1.2, opacity: isCollected ? 1 : 0.5 }}>{name}</div>
+          <div className="card-sub" style={{ marginTop: '4px', opacity: isCollected ? 0.6 : 0.3 }}>{sub}</div>
         </div>
-        <span className="card-icon" style={{ opacity: isCollected ? 1 : 0.4 }}>{icon}</span>
-        <div className="card-name" style={{ lineHeight: 1.2, opacity: isCollected ? 1 : 0.5 }}>{name}</div>
-        <div className="card-sub" style={{ marginTop: '4px', opacity: isCollected ? 0.6 : 0.3 }}>{sub}</div>
-      </div>
+      )}
 
-      {isCollected && bonus > 0 && (
+      {!children && isCollected && bonus > 0 && (
         <div
           className="bonus-pill"
           style={{
