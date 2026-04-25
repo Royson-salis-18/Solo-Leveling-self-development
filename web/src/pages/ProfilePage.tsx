@@ -4,10 +4,11 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { Edit3, Shield, Swords, Zap, Brain, Activity, Medal, Fingerprint, RefreshCw, QrCode } from "lucide-react";
+import { Edit3, Shield, Swords, Zap, Brain, Activity, Medal, Fingerprint, RefreshCw, QrCode, Crosshair, Wind, Flame, Droplet, Skull, Sparkles, Star } from "lucide-react";
 import { calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
 import { AuraCard } from "../components/AuraCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
+import { PLAYER_CLASSES, PLAYER_JOBS, MONARCHS, SKILL_CATALOG, ITEM_CATALOG } from "../lib/catalog";
 
 type Profile = {
   user_id: string;
@@ -32,19 +33,35 @@ type Profile = {
   guild_aura_card?: string;
   guild_title?: string;
   guild_logo?: string;
+  player_job?: string;
+  monarch_allegiance?: string;
 };
 
 
+
+const getSkillIcon = (type: string, isS: boolean, color: string) => {
+  const t = type.toLowerCase();
+  if (t.includes('stealth') || t.includes('assassin') || t.includes('shadow')) return <Skull size={16} color={color} />;
+  if (t.includes('magic') || t.includes('mana')) return <Sparkles size={16} color={color} />;
+  if (t.includes('defense') || t.includes('tank')) return <Shield size={16} color={color} />;
+  if (t.includes('lightning') || t.includes('speed') || t.includes('dash')) return <Zap size={16} color={color} />;
+  if (t.includes('fire') || t.includes('flame')) return <Flame size={16} color={color} />;
+  if (t.includes('wind') || t.includes('air')) return <Wind size={16} color={color} />;
+  if (t.includes('water') || t.includes('ice') || t.includes('heal')) return <Droplet size={16} color={color} />;
+  if (t.includes('combat') || t.includes('strike')) return <Crosshair size={16} color={color} />;
+  return <Star size={16} fill={isS ? "#ffd700" : "transparent"} color={color} />;
+};
 
 export function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
-    name: "", bio: "", player_class: "None", player_title: "Rookie",
-    age: 0, weapon_of_choice: "None", gear_style: "Hybrid",
+    name: "", bio: "", player_class: "Warrior", player_title: "Rookie",
+    age: 0, weapon_of_choice: "Starter Blade", gear_style: "Modern",
     strength: 10, agility: 10, intelligence: 10, vitality: 10,
-    guild_aura_card: "shadow", guild_title: "", guild_logo: ""
+    guild_aura_card: "shadow", guild_title: "", guild_logo: "",
+    player_job: "Berserker", monarch_allegiance: "None"
   });
   const [areaStats, setAreaStats] = useState([
     { category: "Work", value: 0, fullMark: 100 },
@@ -80,7 +97,9 @@ export function ProfilePage() {
         vitality: prof.vitality || 10,
         guild_aura_card: prof.guild_aura_card || "shadow",
         guild_title: prof.guild_title || "",
-        guild_logo: prof.guild_logo || ""
+        guild_logo: prof.guild_logo || "",
+        player_job: prof.player_job || (PLAYER_JOBS[prof.player_class]?.[0] || ""),
+        monarch_allegiance: prof.monarch_allegiance || "None"
       });
 
       const tasks = taskRes.data || [];
@@ -152,7 +171,9 @@ export function ProfilePage() {
         vitality: editData.vitality,
         guild_aura_card: editData.guild_aura_card,
         guild_title: editData.guild_title,
-        guild_logo: editData.guild_logo
+        guild_logo: editData.guild_logo,
+        player_job: editData.player_job,
+        monarch_allegiance: editData.monarch_allegiance
       })
       .eq("user_id", user.id)
       .select()
@@ -199,15 +220,20 @@ export function ProfilePage() {
     { label: "Vitality", icon: Activity, value: profile.vitality, color: "#34d399" },
   ];
 
-  const WEAPONS = [
-    { name: "Starter Blade", rank: "E", color: "#94a3b8", type: "shadow" },
-    { name: "Knight's Steel", rank: "C", color: "#6366f1", type: "shadow" },
-    { name: "Baruka's Dagger", rank: "A", color: "#ff4d4d", type: "flame" },
-    { name: "Demon King's Longsword", rank: "S", color: "#34d399", type: "lightning" },
-    { name: "Kamish's Wrath", rank: "S", color: "#ffcc00", type: "flame" },
-  ];
+  const WEAPONS = ITEM_CATALOG.filter(i => i.item_type === "WEAPON").map(i => ({
+    name: i.name,
+    rank: i.rarity.replace("-Rank", ""),
+    color: (i as any).rarityColor || "#94a3b8",
+    type: (i as any).effectType || "shadow"
+  }));
 
   const currentWeapon = WEAPONS.find(w => w.name === profile.weapon_of_choice) || WEAPONS[0];
+
+  const userSkills = SKILL_CATALOG.filter(s => 
+    s.required_class === profile.player_class || 
+    s.required_monarch === profile.monarch_allegiance ||
+    (!s.required_class && !s.required_monarch)
+  );
 
   return (
     <section className={`page profile-page ${roleClass}`}>
@@ -258,9 +284,15 @@ export function ProfilePage() {
                           <span className="pf-lbl">MONARCH IDENTITY</span>
                           <div className="pf-val pf-val-name">{profile.name}</div>
                         </div>
+                         <div className="pf-field">
+                          <span className="pf-lbl">CLASS & JOB</span>
+                          <div className="pf-val" style={{ color: "var(--accent-primary)", fontSize: "0.9rem" }}>
+                            {profile.player_class} • {profile.player_job || "None"}
+                          </div>
+                        </div>
                         <div className="pf-field">
-                          <span className="pf-lbl">CLASS</span>
-                          <div className="pf-val" style={{ color: "var(--accent-primary)", fontSize: "0.9rem" }}>{profile.player_class}</div>
+                          <span className="pf-lbl">MONARCH ALLEGIANCE</span>
+                          <div className="pf-val" style={{ fontSize: "0.8rem", color: "#ffd700" }}>{profile.monarch_allegiance || "None"}</div>
                         </div>
                         <div className="pf-field">
                           <span className="pf-lbl">TITLE</span>
@@ -419,34 +451,41 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* ── SYSTEM COLLECTION ── */}
-      <div className="pf-collection">
+      {/* ── SKILLS SECTION ── */}
+      <div className="pf-collection" style={{ marginTop: 60 }}>
         <div className="pf-collection-header">
           <div className="pf-divider-line" />
-          <Medal size={18} style={{ color: "var(--accent-primary)" }} />
-          <h2 className="pf-collection-title">System Collection</h2>
+          <Sparkles size={18} style={{ color: "#ffd700" }} />
+          <h2 className="pf-collection-title">Awakened Skills</h2>
           <div className="pf-divider-line pf-divider-long" />
         </div>
-        <div className="pf-collection-grid">
-          {WEAPONS.slice(2).map(w => (
-            <AuraCard
-              key={w.name}
-              name={w.name}
-              rankLabel={`${w.rank}-RANK`}
-              rarityColor={w.color}
-              isCollected={profile.weapon_of_choice === w.name}
-              effectType={w.type as any}
-              style={{ height: 260 }}
-            />
-          ))}
-          <AuraCard
-            name="Shadow Monarch Essence"
-            rankLabel="LEGENDARY"
-            rarityColor="#ffd700"
-            isCollected={!!profile.guild_aura_card}
-            effectType={(profile.guild_aura_card as any) || "shadow"}
-            style={{ height: 260 }}
-          />
+        <div className="skills-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {userSkills.map(s => {
+            const isS = s.rank === 'S';
+            const color = isS ? "#ffd700" : s.rank === 'A' ? "#ff4040" : s.rank === 'B' ? "#ff69b4" : "var(--accent-primary)";
+            const effect = s.type.toLowerCase().includes('shadow') ? 'shadow' :
+                           s.type.toLowerCase().includes('flame') || s.type.toLowerCase().includes('fire') ? 'flame' :
+                           s.type.toLowerCase().includes('lightning') ? 'lightning' : 'smoke';
+            return (
+              <AuraCard
+                key={s.name}
+                name={s.name}
+                rankLabel={`${s.rank}-RANK SKILL`}
+                rarityColor={color}
+                isCollected={true}
+                effectType={effect}
+                label={s.type}
+                sub={s.description + (s.required_monarch ? ` (Req: ${s.required_monarch})` : "")}
+                icon={getSkillIcon(s.type, isS, color)}
+                style={{ width: "100%", minHeight: "260px" }}
+              />
+            );
+          })}
+          {userSkills.length === 0 && (
+            <div className="panel panel-empty" style={{ gridColumn: '1/-1' }}>
+              <p className="text-muted">No skills awakened yet for this class configuration.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -471,9 +510,37 @@ export function ProfilePage() {
         
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group">
+            <label className="form-label">Hunter Class</label>
+            <select className="form-select" value={editData.player_class} 
+              onChange={e => {
+                const cls = e.target.value;
+                setEditData({ ...editData, player_class: cls, player_job: PLAYER_JOBS[cls]?.[0] || "" });
+              }}>
+              {PLAYER_CLASSES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Specialization (Job)</label>
+            <select className="form-select" value={editData.player_job} 
+              onChange={e => setEditData({ ...editData, player_job: e.target.value })}>
+              {(PLAYER_JOBS[editData.player_class] || []).map(j => <option key={j}>{j}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Monarch Allegiance</label>
+          <select className="form-select" value={editData.monarch_allegiance} 
+            onChange={e => setEditData({ ...editData, monarch_allegiance: e.target.value })}>
+            {MONARCHS.map(m => <option key={m}>{m}</option>)}
+          </select>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-group">
             <label className="form-label">Primary Armament</label>
             <select className="form-select" value={editData.weapon_of_choice} onChange={e => setEditData({ ...editData, weapon_of_choice: e.target.value })}>
-              {WEAPONS.map(w => <option key={w.name}>{w.name}</option>)}
+              {ITEM_CATALOG.filter(i => i.item_category === "Weapon").map(w => <option key={w.name}>{w.name}</option>)}
             </select>
           </div>
           <div className="form-group">
@@ -798,6 +865,10 @@ export function ProfilePage() {
           margin-bottom: 6px;
         }
         .pf-stat-lbl { font-size: 0.63rem; font-weight: 900; text-transform: uppercase; opacity: 0.45; letter-spacing: 1px; }
+
+        .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+
+
         .pf-stat-val { font-size: 1rem; font-weight: 900; }
         .pf-track { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
         .pf-fill  { height: 100%; border-radius: 3px; transition: width 1s ease-out; }

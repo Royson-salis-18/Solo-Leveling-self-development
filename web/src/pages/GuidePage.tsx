@@ -1,516 +1,545 @@
 import { useState } from "react";
-import {
-  BookOpen, Swords, Shield, ScrollText, Gift,
-  Target, Zap, Star, ChevronDown, ChevronRight, Brain, Award,
-  TrendingUp, Clock, AlertTriangle, CheckCircle
+import { 
+  Shield, Brain, Zap, Star, Scroll, Skull, 
+  Swords, Target, Clock, AlertTriangle, Book,
+  CheckCircle, ChevronRight, Activity, Flame
 } from "lucide-react";
 
-/* ─── Guide Sections ─── */
-type Section = {
-  id: string;
-  icon: any;
+/* ─── The Commandments ─── */
+type Commandment = {
+  num: string;
   title: string;
   subtitle: string;
-  color: string;
+  icon: React.ReactNode;
   content: React.ReactNode;
 };
 
-const SECTIONS: Section[] = [
+const COMMANDMENTS: Commandment[] = [
   {
-    id: "philosophy",
-    icon: Brain,
-    title: "The Philosophy",
-    subtitle: "Why this system exists",
-    color: "#a8a8ff",
+    num: "I",
+    title: "Evolve or Perish",
+    subtitle: "The Philosophy of the System",
+    icon: <Flame size={120} strokeWidth={1} />,
     content: (
-      <div className="guide-content">
-        <p>
-          <strong>Solo Leveling</strong> is a gamified self-development system built around one idea:
-          <em> real growth requires consistent action, not motivation.</em>
-        </p>
-        <p>
-          Most productivity tools track tasks. This one tracks <strong>you</strong> — your XP, rank,
-          class, streaks, and standing among other hunters. Every task you complete earns XP.
-          Every task you ignore costs you. There's no "neutral" — you're always moving up or down.
-        </p>
-        <div className="guide-callout">
-          <AlertTriangle size={14} />
-          <span>This system is designed for people who want to take their personal growth seriously.
-          If you're looking for a simple to-do list, this isn't it.</span>
+      <>
+        <p>This is not a mere tool for organization. It is a <strong style={{ color: "var(--accent-primary)" }}>self-development engine</strong> designed to transcend your current limits.</p>
+        <p>In this world, there is no stagnation. Every action you take—or fail to take—manifests as growth or decay. XP is your lifeblood; Mana is your momentum.</p>
+        <div className="lore-callout">
+          <AlertTriangle size={20} color="#ffcc00" />
+          <span>If you seek comfort, look elsewhere. If you seek power, follow the System.</span>
         </div>
-        <h4>Core Principles</h4>
-        <ul>
-          <li><strong>Action over intention</strong> — Planned tasks must be completed or you take penalties</li>
-          <li><strong>Holistic growth</strong> — Categories span Fitness, Mindfulness, Finance, Social, Creative, and more</li>
-          <li><strong>Accountability</strong> — Overdue tasks don't vanish; they become Pending and demand resolution</li>
-          <li><strong>Community</strong> — Clans and Guilds let you grow with others and compete</li>
+      </>
+    )
+  },
+  {
+    num: "II",
+    title: "Ascend the Tiers",
+    subtitle: "XP, Levels & Military Ranks",
+    icon: <Activity size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>Your worth is measured by your progression. Accumulate Mana through Quests to elevate your status.</p>
+        <div className="lore-stat-grid">
+           <div className="lore-stat"><span style={{ color: "#ffcc00" }}>S-Rank</span><strong>50+ LVL</strong></div>
+           <div className="lore-stat"><span style={{ color: "#e2e2e2" }}>A-Rank</span><strong>35-49 LVL</strong></div>
+           <div className="lore-stat"><span style={{ color: "#cd7f32" }}>B-Rank</span><strong>20-34 LVL</strong></div>
+           <div className="lore-stat"><span style={{ color: "var(--t3)" }}>C-Rank</span><strong>10-19 LVL</strong></div>
+        </div>
+        <p>Your Title will shift as you reach new plateaus of power. Do not settle for E-Rank existence.</p>
+      </>
+    )
+  },
+  {
+    num: "III",
+    title: "Accept the Mission",
+    subtitle: "Quest Lifecycle & Execution",
+    icon: <Target size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>Every objective is a Quest. Once accepted, it must be conquered. Failure results in immediate Mana deduction.</p>
+        <ul className="lore-list">
+          <li><strong>Active</strong> — Missions currently in the field.</li>
+          <li><strong>Pending</strong> — Missions that have breached their window.</li>
+          <li><strong style={{ color: "rgba(255,100,100,0.8)" }}>Failed</strong> — Missions that have cost you your essence.</li>
         </ul>
-      </div>
-    ),
+      </>
+    )
   },
   {
-    id: "xp-ranks",
-    icon: TrendingUp,
-    title: "XP, Levels & Ranks",
-    subtitle: "How progression works",
-    color: "#ffcc00",
+    num: "IV",
+    title: "Maintain the Balance",
+    subtitle: "The Skill Matrix",
+    icon: <Brain size={120} strokeWidth={1} />,
     content: (
-      <div className="guide-content">
-        <h4>XP (Mana Points)</h4>
-        <p>
-          Every completed quest earns XP based on its <strong>XP Tier</strong>:
-        </p>
-        <table className="guide-table">
-          <thead><tr><th>Tier</th><th>XP</th><th>Use For</th></tr></thead>
-          <tbody>
-            <tr><td>Low</td><td className="text-muted">+10</td><td>Quick errands, routine chores</td></tr>
-            <tr><td>Mid</td><td style={{color:"#34d399"}}>+25</td><td>Meaningful daily tasks</td></tr>
-            <tr><td>High</td><td style={{color:"#c4b5fd"}}>+50</td><td>Important milestones</td></tr>
-            <tr><td>Super</td><td style={{color:"#a78bfa"}}>+100</td><td>Major achievements</td></tr>
-            <tr><td>Legendary</td><td style={{color:"#ffcc00"}}>+250</td><td>Life-changing accomplishments</td></tr>
-          </tbody>
-        </table>
-
-        <h4>Levels & Ranks</h4>
-        <p>XP accumulates → your level increases → your military rank upgrades automatically:</p>
-        <table className="guide-table">
-          <thead><tr><th>Rank</th><th>Level Range</th><th>Title</th></tr></thead>
-          <tbody>
-            <tr><td>E</td><td>1 – 4</td><td>Newcomer → Initiate</td></tr>
-            <tr><td>D</td><td>5 – 9</td><td>Apprentice → Scout</td></tr>
-            <tr><td>C</td><td>10 – 19</td><td>Fighter → Sentinel</td></tr>
-            <tr><td>B</td><td>20 – 34</td><td>Knight → Vanguard</td></tr>
-            <tr><td>A</td><td>35 – 49</td><td>Champion → Warlord</td></tr>
-            <tr><td>S</td><td>50+</td><td>Monarch → Shadow Sovereign</td></tr>
-          </tbody>
-        </table>
-
-        <div className="guide-callout guide-callout-tip">
-          <Star size={14} />
-          <span>Your rank and title update automatically whenever your XP changes. No manual action needed.</span>
+      <>
+        <p>A true Monarch is balanced. Neglecting one area creates a vulnerability that will be exploited.</p>
+        <div className="category-matrix ds-glass">
+           <div className="matrix-item">Fitness</div>
+           <div className="matrix-dot">•</div>
+           <div className="matrix-item">Mind</div>
+           <div className="matrix-dot">•</div>
+           <div className="matrix-item">Learning</div>
+           <div className="matrix-dot">•</div>
+           <div className="matrix-item">Social</div>
+           <div className="matrix-dot">•</div>
+           <div className="matrix-item">Work</div>
         </div>
-      </div>
-    ),
+        <p>Monitor your <strong>Resonance Radar</strong> on the Dashboard. If the matrix becomes lopsided, the System will warn you.</p>
+      </>
+    )
   },
   {
-    id: "quests",
-    icon: ScrollText,
-    title: "Quests & Tasks",
-    subtitle: "Creating, completing, and managing tasks",
-    color: "#fff",
+    num: "V",
+    title: "Honor the Deadline",
+    subtitle: "Pending Penalties",
+    icon: <Clock size={120} strokeWidth={1} />,
     content: (
-      <div className="guide-content">
-        <h4>Creating Quests</h4>
-        <p>Every task is a <strong>Quest</strong>. When creating one, you set:</p>
-        <ul>
-          <li><strong>Category</strong> — What area of your life this covers (see Categories below)</li>
-          <li><strong>Urgency</strong> — How time-sensitive it is (Low / Normal / High / URGENT)</li>
-          <li><strong>XP Tier</strong> — How much it's worth (this is <em>separate</em> from urgency)</li>
-          <li><strong>Deadline + Time</strong> — When it must be done by</li>
-          <li><strong>Subtasks</strong> — Break big quests into unlimited-depth sub-quests</li>
-        </ul>
-
-        <h4>Quest Lifecycle</h4>
-        <div className="guide-flow">
-          <div className="guide-flow-step">
-            <CheckCircle size={16} style={{color:"#34d399"}} />
-            <div>
-              <strong>Active</strong>
-              <span>Your current to-do list</span>
-            </div>
-          </div>
-          <ChevronRight size={14} className="guide-flow-arrow" />
-          <div className="guide-flow-step">
-            <Clock size={16} style={{color:"#ffa030"}} />
-            <div>
-              <strong>Pending</strong>
-              <span>Overdue or manually deferred</span>
-            </div>
-          </div>
-          <ChevronRight size={14} className="guide-flow-arrow" />
-          <div className="guide-flow-step">
-            <CheckCircle size={16} style={{color:"#c4b5fd"}} />
-            <div>
-              <strong>Resolve / Fail</strong>
-              <span>You choose the outcome</span>
-            </div>
-          </div>
+      <>
+        <p>Time is a finite resource. When a Quest exceeds its allocated window, it enters the <strong style={{ color: "#ffcc00" }}>Pending</strong> state.</p>
+        <p>You must then choose: <strong>Resolve</strong> it late for full XP, or <strong>Fail</strong> it and suffer the XP penalty. The System does not forget.</p>
+      </>
+    )
+  },
+  {
+    num: "VI",
+    title: "Extract the Shadows",
+    subtitle: "The Army of the Dead",
+    icon: <Skull size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>When a powerful foe is defeated (High-Tier Quests), you may attempt <strong style={{ color: "var(--accent-primary)" }}>Shadow Extraction</strong>.</p>
+        <p>Commands: <em>"Arise"</em>. Your extracted shadows provide passive Mana boosts and permanent stat enhancements.</p>
+        <div className="lore-callout tip">
+          <Zap size={20} color="var(--accent-primary)" />
+          <span>Marshall grade shadows offer the highest resonance. Seek them out in the Collection.</span>
         </div>
-
-        <div className="guide-callout guide-callout-warn">
-          <AlertTriangle size={14} />
-          <span><strong>Failing</strong> a quest deducts XP equal to its tier value. <strong>Resolving</strong> a pending quest still grants full XP. Choose wisely.</span>
-        </div>
-      </div>
-    ),
+      </>
+    )
   },
   {
-    id: "categories",
-    icon: Target,
-    title: "Categories & Growth Areas",
-    subtitle: "Covering your whole life, not just work",
-    color: "#34d399",
+    num: "VII",
+    title: "Equip the Divine",
+    subtitle: "Arsenal & Vault",
+    icon: <Swords size={120} strokeWidth={1} />,
     content: (
-      <div className="guide-content">
-        <p>
-          Categories ensure you're developing as a <em>whole person</em>, not just grinding one area.
-          Your Skill Matrix radar chart on the Dashboard reflects balance across these:
-        </p>
-        <table className="guide-table">
-          <thead><tr><th>Category</th><th>XP Weight</th><th>What It Covers</th></tr></thead>
-          <tbody>
-            <tr><td>🏋️ Fitness</td><td style={{color:"#34d399"}}>Full</td><td>Exercise, sports, physical health, diet tracking</td></tr>
-            <tr><td>📚 Learning</td><td style={{color:"#34d399"}}>Full</td><td>Personal skill-building, reading, courses <em>you chose</em></td></tr>
-            <tr><td>🧘 Mindfulness</td><td style={{color:"#34d399"}}>Full</td><td>Meditation, journaling, therapy, mental health</td></tr>
-            <tr><td>💰 Finance</td><td style={{color:"#34d399"}}>Full</td><td>Budgeting, investing, saving goals, financial literacy</td></tr>
-            <tr><td>👥 Social</td><td style={{color:"#34d399"}}>Full</td><td>Relationships, networking, community service</td></tr>
-            <tr><td>🎨 Creative</td><td style={{color:"#34d399"}}>Full</td><td>Art, music, writing, design, side projects</td></tr>
-            <tr><td>💼 Work</td><td style={{color:"#34d399"}}>Full</td><td>Professional tasks, career goals, deadlines</td></tr>
-            <tr><td>🏠 Errands</td><td style={{color:"#34d399"}}>Full</td><td>Chores, appointments, logistics, everyday tasks</td></tr>
-            <tr><td>🎓 Academics</td><td style={{color:"#ffa030"}}>Reduced</td><td>School/college assignments, exams, homework</td></tr>
-            <tr><td>📋 General</td><td style={{color:"#ffa030"}}>Reduced</td><td>Anything that doesn't fit elsewhere</td></tr>
-          </tbody>
-        </table>
-
-        <div className="guide-callout guide-callout-tip">
-          <Star size={14} />
-          <span>
-            <strong>Why Academics has reduced XP weight:</strong> Institutional learning is
-            mandatory and externally structured. Personal learning (the "Learning" category) is
-            self-directed and represents genuine curiosity-driven growth — that's what this
-            system rewards most.
-          </span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "pending",
-    icon: Clock,
-    title: "Pending & Penalties",
-    subtitle: "What happens when you miss deadlines",
-    color: "#ffa030",
-    content: (
-      <div className="guide-content">
-        <h4>How Tasks Become Pending</h4>
-        <ul>
-          <li><strong>Automatically</strong> — Any task past its deadline becomes Pending on next page load</li>
-          <li><strong>Manually</strong> — Click the ⏰ <em>Pending</em> button to defer a task yourself</li>
-        </ul>
-
-        <h4>Resolving Pending Tasks</h4>
-        <p>Once a task is Pending, you have two choices:</p>
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
-          <div className="guide-option guide-option-good">
-            <CheckCircle size={18} />
-            <strong>Resolve</strong>
-            <p>Complete the task late. You still earn <em>full XP</em>.</p>
-          </div>
-          <div className="guide-option guide-option-bad">
-            <AlertTriangle size={18} />
-            <strong>Fail</strong>
-            <p>Admit defeat. You <em>lose XP</em> equal to the task's tier value.</p>
-          </div>
-        </div>
-
-        <div className="guide-callout guide-callout-warn">
-          <AlertTriangle size={14} />
-          <span>Pending tasks don't auto-penalize. You must explicitly choose. But don't let them pile up — it's a sign your planning needs adjustment.</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "clans-guilds",
-    icon: Shield,
-    title: "Clans & Guilds",
-    subtitle: "Team up for accountability",
-    color: "#a78bfa",
-    content: (
-      <div className="guide-content">
-        <h4>Clans (3–5 Hunters)</h4>
-        <p>
-          Clans are <strong>tight-knit strike teams</strong>. You can be in multiple clans simultaneously.
-          Leaders can assign quests to members and organize events.
-        </p>
-        <ul>
-          <li>Max <strong>5 members</strong> per clan</li>
-          <li>Leaders/Officers can <strong>assign quests</strong> to members</li>
-          <li>Organize <strong>Raids, Rallies, Training sessions</strong></li>
-          <li>Declare <strong>Clan Wars</strong> against other clans</li>
-        </ul>
-
-        <h4>Guilds (5–20 Hunters)</h4>
-        <p>
-          Guilds are <strong>large organizations</strong> for broader community. They have minimum rank
-          requirements and host larger-scale events.
-        </p>
-
-        <h4>Clan Wars ⚔️</h4>
-        <p>
-          When you create a <strong>War</strong> event, you pick an opponent clan/guild. Both sides race to
-          earn XP during the event window. The side with more total XP earned wins, and every member
-          of the winning team gets bonus XP.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "duels",
-    icon: Swords,
-    title: "1v1 Duels",
-    subtitle: "Personal rivalry",
-    color: "#ff6b6b",
-    content: (
-      <div className="guide-content">
-        <p>
-          Challenge any hunter to a <strong>1v1 duel</strong>. Both players start at 0 and race to
-          earn a target amount of XP within a time limit.
-        </p>
-        <h4>How It Works</h4>
-        <ol>
-          <li>Enter opponent's <strong>Hunter ID</strong> (the 8-char code from their profile)</li>
-          <li>Set a <strong>target XP</strong> and <strong>duration</strong></li>
-          <li>Both hunters earn XP from their normal quests</li>
-          <li>First to hit the target — or whoever is ahead when time runs out — wins</li>
-        </ol>
-      </div>
-    ),
-  },
-  {
-    id: "army-of-shadows",
-    icon: Swords,
-    title: "Army of Shadows",
-    subtitle: "Extraction & Passive Buffs",
-    color: "#a8a8ff",
-    content: (
-      <div className="guide-content">
-        <h4>Arise! Extraction Basics</h4>
-        <p>
-          Completing high-tier tasks triggers a chance for <strong>Shadow Extraction</strong>. 
-          The higher the XP tier, the more powerful the shadow you can summon:
-        </p>
-        <ul>
-          <li><strong>Mid/High Tasks</strong>: Regular Infantry, High Orcs, Knights</li>
-          <li><strong>Super Tasks</strong>: Elite Knights, Commanders (Igris, Tank)</li>
-          <li><strong>Legendary Tasks</strong>: Marshal Grade (Beru, Bellion)</li>
-        </ul>
-        <h4>Passive Buffs</h4>
-        <p>
-          Each shadow in your army provides a permanent <strong>XP Multiplier</strong>. 
-          Epic shadows can boost your mana gain by up to 10% per shadow.
-        </p>
-        <div className="guide-callout guide-callout-tip">
-          <Star size={14} />
-          <span>Collect them all in the <strong>Collection</strong> page to maximize your leveling speed.</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "arsenal-vault",
-    icon: Gift,
-    title: "Arsenal & Vault",
-    subtitle: "Weapons and Ancient Artifacts",
-    color: "#3b82f6",
-    content: (
-      <div className="guide-content">
-        <h4>The Arsenal (Weapons)</h4>
-        <p>
-          Weapons are rare rewards for consistent high-performance. They are categorized by rank 
-          (E to S) and include daggers, longswords, and more.
-        </p>
-        <h4>The Vault (Artifacts)</h4>
-        <p>
-          Artifacts are ancient relics like the <strong>Rulers' Authority</strong>. They provide unique 
-          System benefits, such as task skips or penalty protection.
-        </p>
-        <p>
-          View your full discovery progress in the <strong>Collection</strong> tab to see what you're missing.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "ragnarok-era",
-    icon: Zap,
-    title: "Ragnarok: The New Era",
-    subtitle: "Legacy of the Shadow Monarch",
-    color: "#ff6b6b",
-    content: (
-      <div className="guide-content">
-        <p>
-          The system has evolved. The power of the Monarch now flows through his bloodline. 
-          <strong>Solo Leveling: Ragnarok</strong> content is now integrated:
-        </p>
-        <ul>
-          <li><strong>Sung Su-ho's Gear</strong>: Discover artifacts belonging to the Monarch's son.</li>
-          <li><strong>Divine Bloodline</strong>: Unlock the special S-Rank passive to transcend normal limits.</li>
-          <li><strong>Ragnarok Shadows</strong>: New entities like Kira and Sid can now be extracted.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    id: "rewards",
-    icon: Star,
-    title: "Rewards & Inventory",
-    subtitle: "System Gifts and Loot",
-    color: "#f472b6",
-    content: (
-      <div className="guide-content">
-        <p>
-          As you level up and complete milestones, the System grants <strong>Rewards</strong>.
-          These include:
-        </p>
-        <ul>
-          <li><strong>System Gifts</strong>: Random loot boxes containing weapons or artifacts.</li>
-          <li><strong>Task Skips</strong>: Instantly complete a task using the System's power.</li>
-          <li><strong>XP Boosters</strong>: Temporarily double your Mana gain.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    id: "dashboard",
-    icon: Award,
-    title: "Reading Your Dashboard",
-    subtitle: "Understanding your stats",
-    color: "#c4b5fd",
-    content: (
-      <div className="guide-content">
-        <h4>Key Metrics</h4>
-        <ul>
-          <li><strong>Active Quests</strong> — Tasks currently in progress</li>
-          <li><strong>Pending</strong> — Overdue tasks awaiting your decision</li>
-          <li><strong>Weekly XP</strong> — Points earned in the last 7 days (momentum indicator)</li>
-          <li><strong>Completion Rate</strong> — Percentage of tasks you've actually finished</li>
-        </ul>
-
-        <h4>Charts</h4>
-        <ul>
-          <li><strong>Weekly XP</strong> — Bar chart showing daily XP over the past week</li>
-          <li><strong>Category Breakdown</strong> — Donut chart showing where your effort goes</li>
-          <li><strong>Skill Matrix</strong> — Radar chart revealing balance across life areas</li>
-          <li><strong>XP Trend</strong> — Line chart tracking your momentum over time</li>
-        </ul>
-
-        <div className="guide-callout guide-callout-tip">
-          <Star size={14} />
-          <span>If your Skill Matrix is lopsided (e.g. all Work, no Fitness), that's a signal to diversify your quests.</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "tips",
-    icon: Zap,
-    title: "Pro Tips",
-    subtitle: "How to get the most out of the system",
-    color: "#ffcc00",
-    content: (
-      <div className="guide-content">
-        <div className="guide-tips-grid">
-          <div className="guide-tip-card">
-            <div className="guide-tip-num">01</div>
-            <strong>Start small</strong>
-            <p>Begin with 3–5 daily Low-tier quests. Build consistency before intensity.</p>
-          </div>
-          <div className="guide-tip-card">
-            <div className="guide-tip-num">02</div>
-            <strong>Set deadlines on everything</strong>
-            <p>Tasks without deadlines never become Pending. Use deadlines as accountability.</p>
-          </div>
-          <div className="guide-tip-card">
-            <div className="guide-tip-num">03</div>
-            <strong>Use subtasks for big goals</strong>
-            <p>"Get fit" is vague. "Run 2km → Run 3km → Run 5km" is trackable.</p>
-          </div>
-          <div className="guide-tip-card">
-            <div className="guide-tip-num">04</div>
-            <strong>Balance your categories</strong>
-            <p>Check your Skill Matrix weekly. A well-rounded hunter is a strong hunter.</p>
-          </div>
-          <div className="guide-tip-card">
-            <div className="guide-tip-num">05</div>
-            <strong>Join a clan</strong>
-            <p>Accountability partners make you 2x more likely to follow through.</p>
-          </div>
-          <div className="guide-tip-card">
-            <div className="guide-tip-num">06</div>
-            <strong>Don't fear Fail</strong>
-            <p>Failing a quest is better than ignoring it. Own it, learn, move on.</p>
-          </div>
-        </div>
-      </div>
-    ),
-  },
+      <>
+        <p>Your progress grants you access to the System's <strong>Arsenal</strong>. Discover legendary daggers, longswords, and ancient artifacts like the <em>Rulers' Authority</em>.</p>
+        <p>Each item has a rank (E to S). The more you complete, the more likely the System is to grant you a Gift.</p>
+      </>
+    )
+  }
 ];
 
-/* ─── Component ─── */
 export function GuidePage() {
-  const [openSection, setOpenSection] = useState<string>("philosophy");
-
-  const toggle = (id: string) => {
-    setOpenSection(prev => prev === id ? "" : id);
-  };
+  const [activeTab, setActiveTab] = useState(0);
 
   return (
-    <section className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title"><BookOpen size={22} style={{display:"inline",marginRight:8,verticalAlign:"middle"}} /> Hunter's Guide</h2>
-          <p className="text-xs text-muted">Everything you need to know — from zero to Shadow Sovereign</p>
-        </div>
-      </div>
+    <section className="cartenon-guide">
+      {/* Immersive Background */}
+      <div className="temple-bg" />
+      <div className="temple-overlay" />
 
-      {/* Quick-start banner */}
-      <div className="guide-hero">
-        <div className="guide-hero-inner">
-          <div className="guide-hero-icon"><Brain size={32} /></div>
-          <div>
-            <h3 style={{margin:0,fontSize:"1rem",fontWeight:800}}>Welcome, Hunter.</h3>
-            <p style={{margin:"6px 0 0",fontSize:"0.78rem",color:"var(--t2)",lineHeight:1.5}}>
-              This isn't a to-do app. It's a <strong>self-development engine</strong> disguised as an RPG.
-              Every action has consequences — XP gained, XP lost, rank shifts. Read this guide to
-              understand the rules of the game you've chosen to play.
-            </p>
+      <div className="temple-container">
+        <div className="temple-header">
+           <div className="ancient-script">תמשחלאמרי</div>
+           <h2 className="temple-title">RULES OF THE SYSTEM</h2>
+           <p className="temple-subtitle">Cartenon Temple • Hunter's Manual v4.2</p>
+        </div>
+
+        <div className="tablet-layout">
+          {/* Left Sidebar: Commandment List */}
+          <div className="tablet-sidebar ds-glass">
+            {COMMANDMENTS.map((cmd, idx) => (
+              <button 
+                key={idx} 
+                className={`cmd-btn ${activeTab === idx ? 'active' : ''}`}
+                onClick={() => setActiveTab(idx)}
+              >
+                <div className="cmd-num">{cmd.num}</div>
+                <div className="cmd-meta">
+                   <div className="cmd-title">{cmd.title}</div>
+                   <div className="cmd-sub">{cmd.subtitle}</div>
+                </div>
+                <ChevronRight size={14} className="cmd-arrow" />
+              </button>
+            ))}
+          </div>
+
+          {/* Right Panel: Content */}
+          <div className="tablet-content ds-glass">
+             <div className="content-bg-icon">
+               {COMMANDMENTS[activeTab].icon}
+             </div>
+             <div className="content-inner">
+                <div className="tablet-header-decor">
+                   <Scroll size={16} />
+                   <span>SYSTEM COMMANDMENT // {COMMANDMENTS[activeTab].num}</span>
+                </div>
+                
+                <h1 className="content-title">{COMMANDMENTS[activeTab].title}</h1>
+                <div className="content-subtitle-line" />
+                
+                <div className="content-body">
+                   {COMMANDMENTS[activeTab].content}
+                </div>
+
+                <div className="content-footer">
+                   <Book size={16} />
+                   <span>STUDY THE RULES. SURVIVE THE SYSTEM.</span>
+                </div>
+             </div>
           </div>
         </div>
       </div>
 
-      {/* Accordion sections */}
-      <div className="guide-sections">
-        {SECTIONS.map((s, i) => {
-          const isOpen = openSection === s.id;
-          const Icon = s.icon;
-          return (
-            <div key={s.id} className={`guide-section${isOpen ? " guide-section--open" : ""}`}>
-              <button className="guide-section-header" onClick={() => toggle(s.id)}>
-                <div className="guide-section-left">
-                  <span className="guide-section-num">{String(i + 1).padStart(2, "0")}</span>
-                  <div className="guide-section-icon" style={{ color: s.color }}>
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <div className="guide-section-title">{s.title}</div>
-                    <div className="guide-section-subtitle">{s.subtitle}</div>
-                  </div>
-                </div>
-                <ChevronDown
-                  size={16}
-                  className={`guide-chevron${isOpen ? " guide-chevron--open" : ""}`}
-                />
-              </button>
-              {isOpen && (
-                <div className="guide-section-body">
-                  {s.content}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <style>{`
+        .cartenon-guide {
+          position: relative;
+          height: 100vh;
+          overflow: hidden;
+          background: #0a0a0f;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px;
+          box-sizing: border-box;
+        }
+
+        .temple-bg {
+          position: absolute;
+          inset: 0;
+          background-image: url('/assets/cartenon_tablet.png');
+          background-size: cover;
+          background-position: center;
+          opacity: 0.6;
+          filter: saturate(0.5) contrast(1.2) brightness(0.7);
+          z-index: 0;
+        }
+
+        .temple-overlay {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at center, transparent, rgba(0,0,0,0.8));
+          z-index: 1;
+        }
+
+        .temple-container {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          max-width: 1000px;
+          padding: 0 20px;
+          margin: 0 auto;
+          height: calc(100vh - 120px);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .temple-header {
+          text-align: center;
+          margin-bottom: 40px;
+          animation: fadeInDown 1s ease-out;
+        }
+
+        .ancient-script {
+          font-size: 2.5rem;
+          color: rgba(255,255,255,0.15);
+          letter-spacing: 15px;
+          margin-bottom: 10px;
+          font-family: serif;
+        }
+
+        .temple-title {
+          font-size: 2.2rem;
+          font-weight: 900;
+          letter-spacing: 6px;
+          color: #fff;
+          margin: 0;
+          text-shadow: 0 0 20px rgba(168,168,255,0.4);
+        }
+
+        .temple-subtitle {
+          font-size: 0.65rem;
+          color: var(--accent-primary);
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          margin-top: 8px;
+          opacity: 0.7;
+        }
+
+        .tablet-layout {
+          display: grid;
+          grid-template-columns: 280px 1fr;
+          gap: 24px;
+          flex: 1;
+          min-height: 0;
+        }
+
+        .tablet-sidebar {
+          background: rgba(15, 15, 20, 0.7);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: var(--r-xl);
+          padding: 20px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .tablet-sidebar::-webkit-scrollbar { display: none; }
+
+        .cmd-btn {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid transparent;
+          padding: 16px;
+          border-radius: var(--r-lg);
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.3s;
+          color: #fff;
+        }
+
+        .cmd-btn:hover {
+          background: rgba(255,255,255,0.05);
+          border-color: rgba(168,168,255,0.2);
+        }
+
+        .cmd-btn.active {
+          background: rgba(168,168,255,0.1);
+          border-color: var(--accent-primary);
+          box-shadow: 0 0 20px rgba(168,168,255,0.15);
+        }
+
+        .cmd-num {
+          font-size: 1.2rem;
+          font-weight: 900;
+          color: var(--accent-primary);
+          width: 30px;
+          text-align: center;
+        }
+
+        .cmd-meta { flex: 1; }
+        .cmd-title { font-size: 0.85rem; font-weight: 800; margin-bottom: 2px; }
+        .cmd-sub { font-size: 0.58rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+        .cmd-arrow { opacity: 0; transition: 0.3s; transform: translateX(-10px); }
+        .cmd-btn.active .cmd-arrow { opacity: 1; transform: translateX(0); color: var(--accent-primary); }
+
+        .tablet-content {
+          background: rgba(20, 20, 25, 0.7);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: var(--r-xl);
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.02);
+          display: flex;
+          flex-direction: column;
+          backdrop-filter: blur(30px);
+        }
+
+        .tablet-content::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 80% 20%, rgba(168,168,255,0.1) 0%, transparent 50%);
+          pointer-events: none;
+        }
+
+        .content-bg-icon {
+          position: absolute;
+          right: -20px;
+          bottom: -20px;
+          opacity: 0.05;
+          transform: scale(3.5);
+          color: #fff;
+          pointer-events: none;
+          z-index: 0;
+          transition: all 0.5s ease;
+        }
+
+        .content-inner {
+          padding: 60px;
+          height: 100%;
+          overflow-y: auto;
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .content-inner::-webkit-scrollbar { display: none; }
+
+        .tablet-header-decor {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 0.65rem;
+          font-weight: 900;
+          color: var(--accent-primary);
+          letter-spacing: 3px;
+          margin-bottom: 16px;
+          opacity: 0.9;
+        }
+
+        .content-title {
+          font-size: 2rem;
+          font-weight: 900;
+          color: #fff;
+          margin: 0 0 16px;
+          line-height: 1.1;
+          text-transform: uppercase;
+          letter-spacing: -0.5px;
+          text-shadow: 0 0 20px rgba(168,168,255,0.2);
+        }
+
+        .content-subtitle-line {
+          width: 60px;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent-primary), transparent);
+          margin-bottom: 24px;
+          border-radius: 2px;
+        }
+
+        .content-body {
+          font-size: 0.88rem;
+          line-height: 1.6;
+          color: rgba(255,255,255,0.85);
+          flex: 1;
+        }
+
+        .content-body p { margin-bottom: 16px; }
+
+        .lore-callout {
+          background: rgba(168,168,255,0.05);
+          border-left: 3px solid var(--accent-primary);
+          padding: 16px 20px;
+          border-radius: 0 12px 12px 0;
+          margin: 24px 0;
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          font-style: italic;
+          color: #fff;
+          box-shadow: inset 0 0 20px rgba(168,168,255,0.02);
+        }
+
+        .lore-callout span {
+          font-size: 0.82rem;
+          line-height: 1.5;
+        }
+
+        .lore-stat-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 16px;
+          margin: 24px 0;
+        }
+
+        .lore-stat {
+          background: rgba(255,255,255,0.02);
+          padding: 16px 20px;
+          border-radius: 12px;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid rgba(255,255,255,0.06);
+          box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+          transition: transform 0.2s;
+        }
+
+        .lore-stat:hover {
+          transform: translateY(-3px);
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(168,168,255,0.2);
+        }
+
+        .lore-stat span { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+        .lore-stat strong { font-size: 1.25rem; margin-top: 4px; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
+
+        .lore-list {
+          list-style: none;
+          padding: 0;
+          margin: 24px 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .lore-list li {
+          padding-left: 24px;
+          position: relative;
+          font-size: 0.88rem;
+        }
+
+        .lore-list li::before {
+          content: '◇';
+          position: absolute;
+          left: 0;
+          top: 0px;
+          color: var(--accent-primary);
+          font-size: 1rem;
+        }
+
+        .category-matrix {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin: 24px 0;
+          padding: 20px;
+          border-radius: 14px;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .matrix-item {
+          color: #fff;
+          font-weight: 800;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          padding: 6px 10px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .matrix-dot {
+          color: var(--accent-primary);
+          opacity: 0.5;
+        }
+
+        .content-footer {
+          margin-top: auto;
+          padding-top: 24px;
+          border-top: 1px solid rgba(255,255,255,0.08);
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 0.65rem;
+          font-weight: 900;
+          color: rgba(255,255,255,0.4);
+          letter-spacing: 2px;
+        }
+
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Scrollbar Styling */
+        .tablet-sidebar::-webkit-scrollbar,
+        .content-inner::-webkit-scrollbar {
+          width: 6px;
+        }
+        .tablet-sidebar::-webkit-scrollbar-thumb,
+        .content-inner::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.1);
+          border-radius: 3px;
+        }
+      `}</style>
     </section>
   );
 }

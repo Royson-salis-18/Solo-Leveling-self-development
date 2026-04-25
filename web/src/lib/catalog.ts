@@ -110,4 +110,74 @@ export const ITEM_CATALOG: InventoryItem[] = [
   { name: "Phoenix Down", description: "A mystical feather that can revive a fallen shadow.", item_type: "TOOL", item_category: "Tool", rarity: "Epic" },
   { name: "Shadow Extract", description: "A rare elixir that increases the success rate of Shadow Extraction.", item_type: "TOOL", item_category: "Tool", rarity: "Rare" },
   { name: "TASK_SKIP", description: "A specialized token that allows you to skip a task and still receive XP.", item_type: "TASK_SKIP", item_category: "Tool", rarity: "Epic" },
+  { name: "Greatsword of the Abyss", description: "A massive blade that consumes the light around it.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Shield of the Eternal", description: "A shield that can withstand the breath of a dragon.", item_type: "WEAPON", item_category: "Weapon", rarity: "A-Rank" },
+  { name: "Staff of the Archmage", description: "Increases mana regeneration by 200%.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Grimoire of Souls", description: "Allows the user to store and summon captured spirits.", item_type: "WEAPON", item_category: "Weapon", rarity: "A-Rank" },
+  { name: "Twin Shadows", description: "A pair of daggers that leave a trail of darkness.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Poison Needle", description: "A hidden weapon that deals massive damage over time.", item_type: "WEAPON", item_category: "Weapon", rarity: "B-Rank" },
+  { name: "Dragon-Bone Bow", description: "A bow carved from the bones of a dragon.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Star-Fall Bow", description: "Arrows fired from this bow fall like meteorites.", item_type: "WEAPON", item_category: "Weapon", rarity: "A-Rank" },
+  { name: "Staff of Life", description: "Can revive a fallen ally once per dungeon.", item_type: "WEAPON", item_category: "Weapon", rarity: "S-Rank" },
+  { name: "Holy Orb", description: "Emits a light that burns undead and heals allies.", item_type: "WEAPON", item_category: "Weapon", rarity: "B-Rank" },
+];
+
+export const PLAYER_CLASSES = [
+  "Warrior", "Mage", "Assassin", "Tank", "Healer", "Archer", "Shadow Monarch"
+] as const;
+
+export const PLAYER_JOBS: Record<string, string[]> = {
+  "Warrior": ["Berserker", "Paladin", "Warlord"],
+  "Mage": ["Necromancer", "Archmage", "Enchanter"],
+  "Assassin": ["Shadow Blade", "Phantom", "Stalker"],
+  "Tank": ["Guardian", "Immortal", "Colossus"],
+  "Healer": ["Saint", "High Priest", "Druid"],
+  "Archer": ["Sniper", "Wind Walker", "Ranger"],
+  "Shadow Monarch": ["Monarch of Shadows", "King of the Dead", "Arise"]
+};
+
+export const MONARCHS = [
+  "None",
+  "Shadow Monarch (Ashborn)",
+  "Monarch of Destruction (Antares)",
+  "Monarch of Frost",
+  "Monarch of Beastly Fangs",
+  "Monarch of Plagues (Querehsha)",
+  "Monarch of Iron Body",
+  "Monarch of Transfiguration (Yogumunt)",
+  "Monarch of White Flames (Baran)",
+  "Monarch of Beginning (Legia)"
+] as const;
+
+export type Skill = {
+  name: string;
+  description: string;
+  type: 'PASSIVE' | 'ACTIVE';
+  rank: string;
+  required_class?: string;
+  required_monarch?: string;
+  icon?: string;
+};
+
+export const SKILL_CATALOG: Skill[] = [
+  { name: "Shadow Extraction", description: "Extract shadows from fallen enemies to join your army.", type: "ACTIVE", rank: "S", required_class: "Shadow Monarch", required_monarch: "Shadow Monarch (Ashborn)" },
+  { name: "Ruler's Authority", description: "Control objects through telekinesis.", type: "ACTIVE", rank: "S", required_class: "Shadow Monarch" },
+  { name: "Dragon's Fear", description: "Release a roar that paralyzes enemies with lower mana.", type: "ACTIVE", rank: "S", required_monarch: "Monarch of Destruction (Antares)" },
+  { name: "Bloodlust", description: "Drastically increases attack power at the cost of defense.", type: "PASSIVE", rank: "B", required_class: "Warrior" },
+  { name: "Stealth", description: "Completely hide your presence and mana.", type: "ACTIVE", rank: "A", required_class: "Assassin" },
+  { name: "Mana Siphon", description: "Absorb mana from enemies you damage.", type: "PASSIVE", rank: "B", required_class: "Mage" },
+  { name: "Iron Defense", description: "Briefly become immune to all physical damage.", type: "ACTIVE", rank: "A", required_class: "Tank" },
+  { name: "Holy Grace", description: "Heal all nearby allies and remove debuffs.", type: "ACTIVE", rank: "B", required_class: "Healer" },
+  { name: "Wind Walker", description: "Increases movement speed and agility by 50%.", type: "PASSIVE", rank: "A", required_class: "Archer" },
+  { name: "Domain of the Monarch", description: "Strengthens all shadows within the domain.", type: "ACTIVE", rank: "S", required_class: "Shadow Monarch" },
+  { name: "Hellfire", description: "Summon flames that incinerate everything in their path.", type: "ACTIVE", rank: "S", required_monarch: "Monarch of White Flames (Baran)" },
+  { name: "Frost Aura", description: "Slows down and eventually freezes nearby enemies.", type: "PASSIVE", rank: "A", required_monarch: "Monarch of Frost" },
+  { name: "Querehsha's Kiss", description: "Inflict a lethal venom that spreads between enemies.", type: "ACTIVE", rank: "S", required_monarch: "Monarch of Plagues (Querehsha)" },
+  { name: "Iron Will", description: "Negate any movement-restricting effects.", type: "PASSIVE", rank: "A", required_monarch: "Monarch of Iron Body" },
+  { name: "Beastly Rampage", description: "Transform partially into a beast, doubling strength.", type: "ACTIVE", rank: "S", required_monarch: "Monarch of Beastly Fangs" },
+  { name: "Shadow Exchange", description: "Swap places with any of your shadows instantly.", type: "ACTIVE", rank: "S", required_class: "Shadow Monarch" },
+  { name: "Full Strike", description: "A powerful overhead swing that shatters armor.", type: "ACTIVE", rank: "C", required_class: "Warrior" },
+  { name: "Meteor Shower", description: "Call down a barrage of magical fireballs.", type: "ACTIVE", rank: "S", required_class: "Mage" },
+  { name: "Dagger Rush", description: "Perform a series of lightning-fast stabs.", type: "ACTIVE", rank: "B", required_class: "Assassin" },
+  { name: "Rain of Arrows", description: "Fire hundreds of arrows that cover a wide area.", type: "ACTIVE", rank: "A", required_class: "Archer" },
 ];

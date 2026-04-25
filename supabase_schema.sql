@@ -463,6 +463,11 @@ BEGIN
         ALTER TABLE user_profiles ADD COLUMN guild_logo TEXT DEFAULT '';
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'user_profiles' AND COLUMN_NAME = 'player_job') THEN
+        ALTER TABLE user_profiles ADD COLUMN player_job TEXT;
+        ALTER TABLE user_profiles ADD COLUMN monarch_allegiance TEXT;
+    END IF;
+
 END $$;
 
 
