@@ -3,7 +3,7 @@ import { Modal }          from "../components/Modal";
 import { Button }         from "../components/Button";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
-import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity } from "lucide-react";
+import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
@@ -24,7 +24,8 @@ export function DungeonGatePage() {
   const [activeTab,    setActiveTab]    = useState<"active" | "completed" | "pending">("active");
   const [showModal,    setShowModal]    = useState(false);
   const [showNLP,      setShowNLP]      = useState(false);
-  const [formData,     setFormData]     = useState(EMPTY_FORM);
+   const [formData,     setFormData]     = useState(EMPTY_FORM);
+  const [editingId,    setEditingId]    = useState<string | null>(null);
   const [saving,       setSaving]       = useState(false);
 
   // Filters & Details
@@ -101,7 +102,7 @@ export function DungeonGatePage() {
     if (!supabase || !user || !formData.title.trim()) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         user_id: user.id,
         assigned_to: user.id,
         title: formData.title,
@@ -114,20 +115,55 @@ export function DungeonGatePage() {
         priority: formData.priority,
         xp_tier: formData.xp_tier,
         is_recurring: formData.is_recurring,
-        is_active: false,
-        is_completed: false
       };
 
-      const { error } = await supabase.from("tasks").insert(payload);
-      if (error) throw error;
+      if (editingId) {
+        const { error } = await supabase.from("tasks").update(payload).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        payload.is_active = false;
+        payload.is_completed = false;
+        const { error } = await supabase.from("tasks").insert(payload);
+        if (error) throw error;
+      }
       
       await fetchQuests();
       setShowModal(false);
+      setEditingId(null);
       setFormData(EMPTY_FORM);
     } catch (err) {
       console.error("Error manifesting gate:", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEdit = (gate: DBTask) => {
+    setEditingId(gate.id);
+    setFormData({
+      title: gate.title,
+      category: gate.category,
+      description: gate.description || "",
+      deadline: gate.deadline || "",
+      start_time: gate.start_time || "",
+      end_time: gate.end_time || "",
+      priority: gate.priority,
+      xp_tier: gate.xp_tier || "Low",
+      parentId: gate.parent_id,
+      assignTo: gate.assigned_to || "",
+      is_recurring: gate.is_recurring || false,
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!supabase || !confirm("Are you sure you want to dismantle this gate?")) return;
+    try {
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) throw error;
+      await fetchQuests();
+    } catch (err) {
+      console.error("Error dismantling gate:", err);
     }
   };
 
@@ -252,7 +288,7 @@ export function DungeonGatePage() {
         </div>
         <div className="flex gap-12">
            <Button variant="secondary" onClick={() => setShowNLP(true)}><Download size={14} /> Import Data</Button>
-           <Button variant="primary" onClick={() => setShowModal(true)}><Plus size={14} /> Found New Gate</Button>
+           <Button variant="primary" onClick={() => { setEditingId(null); setFormData(EMPTY_FORM); setShowModal(true); }}><Plus size={14} /> Found New Gate</Button>
         </div>
       </div>
 
@@ -321,15 +357,34 @@ export function DungeonGatePage() {
                   <div className="gate-content">
                     <div className="gate-header-row">
                       <span className="gate-category" style={{ color }}>{gate.category}</span>
-                      <span className="gate-id">ID: {gate.id.slice(0,6).toUpperCase()}</span>
+                      <div className="gate-actions-row">
+                        <span className="gate-id">ID: {gate.id.slice(0,6).toUpperCase()}</span>
+                        <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleEdit(gate); }} title="Edit Gate">
+                          <Edit3 size={12} />
+                        </button>
+                        <button className="gate-mini-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(gate.id); }} title="Dismantle Gate">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
                     <h3 className="gate-title-text">{gate.title}</h3>
                     <p className="gate-desc">{gate.description || "No mission brief provided by the System."}</p>
                     
                     <div className="gate-footer">
-                       <div className="gate-reward">
-                          <Zap size={14} style={{ color }} />
-                          <span>+{gate.points} XP</span>
+                       <div className="gate-meta-info">
+                          <div className="gate-reward">
+                             <Zap size={14} style={{ color }} />
+                             <span>+{gate.points} XP</span>
+                          </div>
+                          {(gate.deadline || gate.start_time) && (
+                            <div className="gate-time-info">
+                               <Clock size={12} />
+                               <span>
+                                 {gate.deadline ? new Date(gate.deadline).toLocaleDateString() : ""}
+                                 {gate.start_time ? ` @ ${gate.start_time}` : ""}
+                               </span>
+                            </div>
+                          )}
                        </div>
                        <div className="gate-action-hint" style={{ color }}>
                           SCAN BRIEF <ChevronRight size={14} />
@@ -437,12 +492,12 @@ export function DungeonGatePage() {
       {/* Creation Modal */}
       <Modal
         isOpen={showModal}
-        title="Initialize New Dungeon Gate"
-        onClose={() => { setShowModal(false); setFormData(EMPTY_FORM); }}
+        title={editingId ? "Reconfigure Dungeon Gate" : "Initialize New Dungeon Gate"}
+        onClose={() => { setShowModal(false); setEditingId(null); setFormData(EMPTY_FORM); }}
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setShowModal(false); setFormData(EMPTY_FORM); }}>Abort</Button>
-            <Button variant="primary" onClick={handleSave} disabled={saving}>Manifest Gate</Button>
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditingId(null); setFormData(EMPTY_FORM); }}>Abort</Button>
+            <Button variant="primary" onClick={handleSave} disabled={saving}>{editingId ? "Update Gate" : "Manifest Gate"}</Button>
           </>
         }
       >
@@ -558,8 +613,19 @@ export function DungeonGatePage() {
         .gate-desc { font-size: 0.8rem; color: var(--t3); line-height: 1.5; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         
         .gate-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+        .gate-meta-info { display: flex; flex-direction: column; gap: 4px; }
         .gate-reward { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 800; color: var(--t2); }
+        .gate-time-info { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; color: var(--t3); opacity: 0.7; }
         .gate-action-hint { font-size: 0.65rem; font-weight: 900; letter-spacing: 1.5px; display: flex; align-items: center; gap: 4px; }
+
+        .gate-actions-row { display: flex; align-items: center; gap: 10px; }
+        .gate-mini-btn {
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+          color: var(--t3); padding: 4px; border-radius: 6px; cursor: pointer;
+          transition: 0.2s; display: flex; align-items: center; justify-content: center;
+        }
+        .gate-mini-btn:hover { background: rgba(255,255,255,0.15); color: var(--accent-primary); border-color: var(--accent-primary); }
+        .gate-mini-btn.delete:hover { background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: #ef4444; }
 
         .gate-filters-container {
           margin-bottom: 32px; padding: 12px; border-radius: var(--r-lg);
