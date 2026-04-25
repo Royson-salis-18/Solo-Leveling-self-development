@@ -3,7 +3,7 @@ import { Modal }          from "../components/Modal";
 import { Button }         from "../components/Button";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
-import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock } from "lucide-react";
+import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
@@ -33,14 +33,51 @@ export function DungeonGatePage() {
   const [prioFilter,   setPrioFilter]   = useState("All");
   const [selectedGate, setSelectedGate] = useState<DBTask | null>(null);
 
+  const buildTaskTree = (flatTasks: any[]) => {
+    const taskMap: Record<string, any> = {};
+    flatTasks.forEach(t => {
+      taskMap[t.id] = { ...t, subtasks: [] };
+    });
+    
+    const tree: any[] = [];
+    flatTasks.forEach(t => {
+      const task = taskMap[t.id];
+      if (t.parent_id && taskMap[t.parent_id] && t.parent_id !== t.id) {
+        taskMap[t.parent_id].subtasks.push(task);
+      } else {
+        tree.push(task);
+      }
+    });
+    return tree;
+  };
+
+  const findTaskById = (list: DBTask[], id: string, maxDepth = 10): DBTask | undefined => {
+    if (maxDepth <= 0) return undefined;
+    for (const t of list) {
+      if (t.id === id) return t;
+      if (t.subtasks && t.subtasks.length > 0) {
+        const found = findTaskById(t.subtasks, id, maxDepth - 1);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+
   const fetchQuests = async () => {
     if (!supabase || !user?.id) return;
     setLoading(true);
-    const { data } = await supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-    if (data) {
-       setTasks(data.map(t => ({ ...t, subtasks: [] })));
+    try {
+      const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      if (error) throw error;
+      if (data) {
+        const tree = buildTaskTree(data);
+        setTasks(tree);
+      }
+    } catch (err) {
+      console.error("Fetch Error:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchQuests(); }, [user]);
@@ -115,6 +152,7 @@ export function DungeonGatePage() {
         priority: formData.priority,
         xp_tier: formData.xp_tier,
         is_recurring: formData.is_recurring,
+        parent_id: formData.parentId,
       };
 
       if (editingId) {
@@ -136,6 +174,12 @@ export function DungeonGatePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleOpenAdd = (parentId: string | null = null) => {
+    setEditingId(null);
+    setFormData({ ...EMPTY_FORM, parentId });
+    setShowModal(true);
   };
 
   const handleEdit = (gate: DBTask) => {
@@ -211,10 +255,110 @@ export function DungeonGatePage() {
     }
   };
 
+  const handlePauseRaid = async (id: string) => {
+    if (!supabase) return;
+    try {
+      console.log("--- ATTEMPTING RAID PAUSE ---", id);
+      setSaving(true);
+      const paused_at = new Date().toISOString();
+      const { error } = await supabase.from("tasks").update({ is_paused: true, paused_at }).eq("id", id);
+      if (error) throw error;
+      
+      await fetchQuests();
+      setSelectedGate(prev => prev ? { ...prev, is_paused: true, paused_at } : null);
+      console.log("PAUSE SUCCESS");
+    } catch (err: any) { 
+      console.error("PAUSE CRITICAL FAILURE:", err); 
+      alert(`⚠️ SYSTEM ERROR: ${err.message || 'Check database columns'}`);
+    } finally { setSaving(false); }
+  };
+
+  const handleResumeRaid = async (id: string) => {
+    if (!supabase) return;
+    try {
+      console.log("--- ATTEMPTING RAID RESUME ---", id);
+      setSaving(true);
+      const { error } = await supabase.from("tasks").update({ is_paused: false, paused_at: null }).eq("id", id);
+      if (error) throw error;
+      
+      await fetchQuests();
+      setSelectedGate(prev => prev ? { ...prev, is_paused: false, paused_at: null } : null);
+      console.log("RESUME SUCCESS");
+    } catch (err: any) { 
+      console.error("RESUME CRITICAL FAILURE:", err); 
+      alert(`⚠️ SYSTEM ERROR: ${err.message || 'Check database columns'}`);
+    } finally { setSaving(false); }
+  };
+
+  const handleResetRaid = async (id: string) => {
+    if (!supabase || !confirm("⚠️ RESTART RAID? Progress will be lost and the gate will return to an INACTIVE state.")) return;
+    try {
+      console.log("--- ATTEMPTING RAID RESET ---", id);
+      setSaving(true);
+      const { error } = await supabase.from("tasks").update({ 
+        is_active: false, 
+        started_at: null, 
+        is_paused: false, 
+        paused_at: null 
+      }).eq("id", id);
+      if (error) throw error;
+      
+      await fetchQuests();
+      setSelectedGate(prev => prev ? { ...prev, is_active: false, started_at: null, is_paused: false, paused_at: null } : null);
+      console.log("RESET SUCCESS");
+      alert("RAID RESET COMPLETE. Gate is now inactive.");
+    } catch (err: any) { 
+      console.error("RESET CRITICAL FAILURE:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+    } finally { setSaving(false); }
+  };
+
+  const handleReactivate = async (id: string) => {
+    if (!supabase) return;
+    try {
+      setSaving(true);
+      const { error } = await supabase.from("tasks").update({ 
+        is_completed: false, 
+        is_failed: false, 
+        is_active: false,
+        completed_at: null,
+        started_at: null,
+        is_paused: false,
+        paused_at: null
+      }).eq("id", id);
+      if (error) throw error;
+      await fetchQuests();
+      if (selectedGate?.id === id) {
+        setSelectedGate(null);
+        alert("GATE RE-MANIFESTED. Mission has returned to pending sector.");
+      } else {
+        setSelectedGate(prev => {
+          if (!prev) return null;
+          const resetRecursive = (t: any, d = 0): any => {
+            if (d > 10) return t;
+            if (t.id === id) return { ...t, is_completed: false, is_failed: false, is_active: false, completed_at: null, started_at: null, is_paused: false, paused_at: null };
+            if (t.subtasks) return { ...t, subtasks: t.subtasks.map((s: any) => resetRecursive(s, d + 1)) };
+            return t;
+          };
+          return resetRecursive(prev);
+        });
+      }
+    } catch (err: any) { 
+      console.error("RE-ACTIVATE FAILED:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+    } finally { setSaving(false); }
+  };
+
   const handleComplete = async (id: string) => {
     if (!supabase || !user) return;
-    const task = tasks.find(t => t.id === id);
+    const task = tasks.find(t => t.id === id) || findTaskById(tasks, id);
     if (!task) return;
+
+    const completedSubtasks = task.subtasks.filter(s => s.is_completed).length;
+    if (task.subtasks.length > 0 && completedSubtasks < task.subtasks.length) {
+      alert("⚠️ CRITICAL FAILURE: Internal dungeons are still active. Clear all sub-objectives to unlock Gate Conquest!");
+      return;
+    }
 
     try {
       setSaving(true);
@@ -268,7 +412,20 @@ export function DungeonGatePage() {
       }
       
       await fetchQuests();
-      setSelectedGate(null);
+      if (selectedGate?.id === id) {
+        setSelectedGate(null);
+      } else {
+        setSelectedGate(prev => {
+          if (!prev) return null;
+          const updateRecursive = (t: any, d = 0): any => {
+            if (d > 10) return t;
+            if (t.id === id) return { ...t, is_completed: true, is_active: false, completed_at };
+            if (t.subtasks) return { ...t, subtasks: t.subtasks.map((s: any) => updateRecursive(s, d + 1)) };
+            return t;
+          };
+          return updateRecursive(prev);
+        });
+      }
     } catch (err) {
       console.error("Error conquering gate:", err);
     } finally {
@@ -336,20 +493,31 @@ export function DungeonGatePage() {
               const color = getRankColor(gate.xp_tier || "Low");
               const rank = getRankLetter(gate.xp_tier || "Low");
               const isActive = gate.is_active;
+              const isPaused = gate.is_paused;
+              
+              const getDepth = (gate: any, maxDepth = 5): number => {
+                if (maxDepth <= 0 || !gate.subtasks || gate.subtasks.length === 0) return 0;
+                return 1 + Math.max(0, ...gate.subtasks.map((s: any) => getDepth(s, maxDepth - 1)));
+              };
+              const gateDepth = getDepth(gate);
+              const isDoubleDungeon = gateDepth >= 2;
+              const isRedGate = (gate.xp_tier === "Legendary" || gate.xp_tier === "Super") && gateDepth >= 1;
 
               return (
                 <div 
                   key={gate.id} 
-                  className={`gate-card ds-glass ds-aura ${isActive ? 'gate-active' : ''}`} 
+                  className={`gate-card ds-glass ds-aura ${isActive ? 'gate-active' : ''} ${isPaused ? 'gate-paused' : ''} ${isRedGate ? 'gate-red-gate' : ''} ${isDoubleDungeon ? 'gate-double-dungeon' : ''}`} 
                   style={{ '--gate-color': color } as any}
                   onClick={() => setSelectedGate(gate)}
                 >
-                  <div className="gate-rank-badge" style={{ background: color, border: `1px solid ${color}88` }}>{rank}-RANK</div>
+                  <div className="gate-rank-badge" style={{ background: isRedGate ? '#ff4444' : color, border: `1px solid ${isRedGate ? '#ff4444' : color}88` }}>
+                    {isRedGate ? 'RED' : gateDepth === 2 ? 'DOUBLE' : gateDepth === 3 ? 'TRIPLE' : gateDepth >= 4 ? 'GOD' : rank}-RANK
+                  </div>
                   {isActive && (
-                    <div className="gate-status-badge">
-                      <Activity size={10} />
-                      RAID IN PROGRESS
-                      {gate.started_at && <RaidTimer startedAt={gate.started_at} />}
+                    <div className={`gate-status-badge ${isPaused ? 'paused' : ''}`}>
+                      <Activity size={10} className={isPaused ? "" : "animate-pulse"} />
+                      {isPaused ? 'RAID PAUSED' : 'RAID IN PROGRESS'}
+                      {gate.started_at && !isPaused && <RaidTimer startedAt={gate.started_at} />}
                     </div>
                   )}
                   <div className="gate-energy-pulse" style={{ boxShadow: `0 0 50px ${color}33` }} />
@@ -359,6 +527,9 @@ export function DungeonGatePage() {
                       <span className="gate-category" style={{ color }}>{gate.category}</span>
                       <div className="gate-actions-row">
                         <span className="gate-id">ID: {gate.id.slice(0,6).toUpperCase()}</span>
+                        <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleOpenAdd(gate.id); }} title="Manifest Subtask">
+                          <Plus size={12} />
+                        </button>
                         <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleEdit(gate); }} title="Edit Gate">
                           <Edit3 size={12} />
                         </button>
@@ -404,28 +575,90 @@ export function DungeonGatePage() {
         title="Mission Briefing"
         onClose={() => setSelectedGate(null)}
         footer={
-          <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'flex-end' }}>
-            <Button variant="secondary" onClick={() => setSelectedGate(null)} style={{ opacity: 0.7 }}>Abort Briefing</Button>
-            {!selectedGate?.is_completed && (
-              <Button 
-                variant="primary" 
-                disabled={saving}
-                onClick={() => {
-                  if (selectedGate?.is_active) handleComplete(selectedGate.id);
-                  else if (selectedGate) handleStartRaid(selectedGate.id);
-                }}
-                style={{ 
-                  minWidth: 160,
-                  background: selectedGate?.is_active ? 'var(--destruction-red)' : getRankColor(selectedGate?.xp_tier || "Low"),
-                  color: selectedGate?.is_active ? '#fff' : '#fff',
-                  fontWeight: 900,
-                  boxShadow: selectedGate?.is_active 
-                    ? '0 0 25px rgba(239, 68, 68, 0.4)' 
-                    : `0 0 25px ${getRankColor(selectedGate?.xp_tier || "Low")}44`
-                }}
-              >
-                {saving ? 'PROCESSING...' : selectedGate?.is_active ? 'CONQUER GATE' : 'START RAID'}
-              </Button>
+          <div className="brief-actions-v3" style={{ display: 'flex', gap: 12, width: '100%' }}>
+            {selectedGate?.is_active ? (
+              <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                {(() => {
+                  const hasSubtasks = selectedGate.subtasks && selectedGate.subtasks.length > 0;
+                  const allDone = hasSubtasks && selectedGate.subtasks.every((s: any) => s.is_completed);
+                  const isLocked = hasSubtasks && !allDone;
+
+                  return (
+                    <Button 
+                      variant={isLocked ? "secondary" : "primary"} 
+                      disabled={saving || isLocked}
+                      className="brief-btn-v3 conquer" 
+                      onClick={() => handleComplete(selectedGate.id)}
+                      style={{ 
+                        flex: 2, 
+                        background: isLocked ? 'rgba(255,204,0,0.1)' : 'var(--destruction-red)',
+                        color: isLocked ? '#ffcc00' : '#fff',
+                        border: isLocked ? '1px solid #ffcc0044' : 'none',
+                        opacity: isLocked ? 0.7 : 1
+                      }}
+                    >
+                      {saving ? 'PROCESSING...' : isLocked ? 'BOSS SHIELD ACTIVE' : 'ELIMINATE BOSS'}
+                    </Button>
+                  );
+                })()}
+                {selectedGate.is_paused ? (
+                  <Button 
+                    variant="primary" 
+                    className="brief-btn-v3" 
+                    onClick={() => handleResumeRaid(selectedGate.id)}
+                    style={{ flex: 1 }}
+                  >
+                    RESUME RAID
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="secondary" 
+                    className="brief-btn-v3" 
+                    onClick={() => handlePauseRaid(selectedGate.id)}
+                    style={{ flex: 1 }}
+                  >
+                    PAUSE RAID
+                  </Button>
+                )}
+                <Button 
+                  variant="secondary" 
+                  className="brief-btn-v3" 
+                  onClick={() => handleResetRaid(selectedGate.id)}
+                  style={{ flex: 0.5, minWidth: 50 }}
+                  title="Restart Timer"
+                >
+                  RESTART
+                </Button>
+              </div>
+            ) : !selectedGate?.is_completed ? (
+              <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                <Button variant="secondary" onClick={() => setSelectedGate(null)} style={{ flex: 1, opacity: 0.7 }}>
+                  ABORT BRIEFING
+                </Button>
+                <Button 
+                  variant="primary" 
+                  disabled={saving}
+                  onClick={() => handleStartRaid(selectedGate!.id)}
+                  style={{ 
+                    flex: 2,
+                    background: getRankColor(selectedGate?.xp_tier || "Low"),
+                    fontWeight: 900,
+                    boxShadow: `0 0 25px ${getRankColor(selectedGate?.xp_tier || "Low")}44`,
+                    color: '#fff'
+                  }}
+                >
+                  {saving ? 'INITIALIZING...' : 'INITIALIZE RAID'}
+                </Button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                <Button variant="secondary" onClick={() => setSelectedGate(null)} style={{ flex: 1, opacity: 0.7 }}>
+                  CLOSE BRIEFING
+                </Button>
+                <Button variant="secondary" onClick={() => handleReactivate(selectedGate!.id)} style={{ flex: 1, gap: 8 }}>
+                  <RefreshCw size={14} /> RE-MANIFEST GATE
+                </Button>
+              </div>
             )}
           </div>
         }
@@ -455,6 +688,69 @@ export function DungeonGatePage() {
               <div className="box-label">MISSION OBJECTIVE</div>
               <p>{selectedGate.description || "No specific instructions provided. Hunter intuition and tactical execution required for survival."}</p>
             </div>
+
+            {(() => {
+              const hasSubtasks = selectedGate.subtasks && selectedGate.subtasks.length > 0;
+              const allDone = hasSubtasks && selectedGate.subtasks.every((s: any) => s.is_completed);
+              if (hasSubtasks && !allDone) {
+                return (
+                  <div className="boss-warning-v3 ds-glass animate-pulse">
+                    <Skull size={20} />
+                    <div>
+                      <strong>BOSS MONSTER DETECTED</strong>
+                      <p>Shield is active. Eradicate all nested objectives to expose the dungeon core.</p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {selectedGate.subtasks && selectedGate.subtasks.length > 0 && (
+              <div className="brief-subtasks-v3 ds-glass">
+                <div className="box-label">NESTED OBJECTIVES (HIDDEN DUNGEONS)</div>
+                <div className="subtask-list-v3">
+                  {selectedGate.subtasks?.map((sub: any) => (
+                    <div key={sub.id} className="subtask-item-v3">
+                      <div className={`subtask-status-v3 ${sub.is_completed ? 'completed' : ''}`} />
+                      <div className="subtask-info-v3">
+                        <span className="subtask-title-v3">{sub.title}</span>
+                        {sub.subtasks && sub.subtasks.length > 0 && (
+                          <span className="subtask-double-badge">DOUBLE DUNGEON DETECTED</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="subtask-xp-v3">+{sub.points} XP</span>
+                        {!sub.is_completed && (
+                          <Button 
+                            variant="success" 
+                            size="sm" 
+                            onClick={() => handleComplete(sub.id)}
+                            style={{ padding: '4px 12px', fontSize: '0.65rem', fontWeight: 900 }}
+                          >
+                            ERADICATE
+                          </Button>
+                        )}
+                        {sub.is_completed && (
+                          <div className="flex items-center gap-2">
+                            <span style={{ color: '#34d399', fontSize: '0.65rem', fontWeight: 900 }}>CLEARED</span>
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              onClick={() => handleReactivate(sub.id)}
+                              style={{ padding: '2px 8px', fontSize: '0.55rem', fontWeight: 700, opacity: 0.6 }}
+                              title="Undo Eradication"
+                            >
+                              <RotateCcw size={10} /> UNDO
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="brief-grid-v3">
               <div className="brief-stat-card">
@@ -492,7 +788,13 @@ export function DungeonGatePage() {
       {/* Creation Modal */}
       <Modal
         isOpen={showModal}
-        title={editingId ? "Reconfigure Dungeon Gate" : "Initialize New Dungeon Gate"}
+        title={
+          editingId 
+            ? "Reconfigure Dungeon Gate" 
+            : formData.parentId 
+              ? `Manifest Sub-Objective for: ${findTaskById(tasks, formData.parentId)?.title || "Gate"}`
+              : "Initialize New Dungeon Gate"
+        }
         onClose={() => { setShowModal(false); setEditingId(null); setFormData(EMPTY_FORM); }}
         footer={
           <>
@@ -640,6 +942,92 @@ export function DungeonGatePage() {
            outline: none;
         }
 
+        /* Double Dungeon & Red Gate Effects */
+        .gate-double-dungeon {
+          border-left: 3px solid var(--accent-primary) !important;
+        }
+        
+        .gate-red-gate {
+          border-color: #ff4444 !important;
+          animation: red-glitch-gate 4s infinite;
+        }
+        
+        .gate-red-gate::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(255,68,68,0.1) 0%, transparent 50%);
+          z-index: 1;
+          pointer-events: none;
+        }
+
+        @keyframes red-glitch-gate {
+          0%, 100% { box-shadow: 0 0 20px rgba(255,68,68,0.1); }
+          50% { box-shadow: 0 0 40px rgba(255,68,68,0.3); }
+        }
+
+        .brief-subtasks-v3 {
+          padding: 20px;
+          background: rgba(168,168,255,0.03);
+          border-radius: var(--r-lg);
+          border: 1px solid rgba(168,168,255,0.08);
+        }
+        
+        .subtask-list-v3 {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 8px;
+        }
+        
+        .subtask-item-v3 {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px;
+          background: rgba(255,255,255,0.02);
+          border-radius: 8px;
+        }
+        
+        .subtask-status-v3 {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        .subtask-status-v3.completed {
+          background: var(--accent-primary);
+          box-shadow: 0 0 8px var(--accent-primary);
+        }
+        
+        .subtask-info-v3 {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        
+        .subtask-title-v3 {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--t2);
+        }
+        
+        .subtask-double-badge {
+          font-size: 0.55rem;
+          font-weight: 900;
+          color: var(--accent-primary);
+          letter-spacing: 1px;
+        }
+        
+        .subtask-xp-v3 {
+          font-size: 0.75rem;
+          font-weight: 800;
+          color: var(--t3);
+          opacity: 0.8;
+        }
+
         .gate-filter-btn {
           background: transparent; border: none; color: var(--t3);
           font-size: 0.65rem; font-weight: 800; letter-spacing: 1px;
@@ -676,6 +1064,15 @@ export function DungeonGatePage() {
         .stat-meta-v3 { display: flex; flex-direction: column; }
         .stat-label-v3 { font-size: 0.55rem; font-weight: 900; opacity: 0.3; letter-spacing: 1px; margin-bottom: 2px; }
         .stat-val-v3 { font-size: 0.85rem; color: #fff; font-weight: 800; }
+        
+        .boss-warning-v3 {
+          margin: 16px 0; padding: 16px; border-left: 4px solid var(--destruction-red);
+          display: flex; gap: 16px; align-items: center; color: var(--destruction-red);
+          background: rgba(239, 68, 68, 0.08); border-radius: var(--r-md);
+          border: 1px solid rgba(239, 68, 68, 0.15);
+        }
+        .boss-warning-v3 strong { display: block; font-size: 0.85rem; letter-spacing: 1.5px; font-weight: 900; }
+        .boss-warning-v3 p { font-size: 0.75rem; opacity: 0.8; margin: 4px 0 0 0; line-height: 1.3; }
         
         @keyframes pulse {
           0% { opacity: 0.6; transform: scale(1); }

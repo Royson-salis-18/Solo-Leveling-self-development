@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { 
-  Shield, Brain, Zap, Star, Scroll, Skull, 
+  Brain, Zap, Scroll, Skull, 
   Swords, Target, Clock, AlertTriangle, Book,
-  CheckCircle, ChevronRight, Activity, Flame
+  ChevronRight, Activity, Flame, ShieldAlert
 } from "lucide-react";
 
 /* ─── The Commandments ─── */
@@ -127,6 +127,22 @@ const COMMANDMENTS: Commandment[] = [
         <p>Each item has a rank (E to S). The more you complete, the more likely the System is to grant you a Gift.</p>
       </>
     )
+  },
+  {
+    num: "VIII",
+    title: "Survive the Anomalies",
+    subtitle: "Double Dungeons & Red Gates",
+    icon: <ShieldAlert size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>The System is not always predictable. Occasionally, spatial distortions create <strong style={{ color: "var(--accent-primary)" }}>Double Dungeons</strong>—hidden objectives nested within a primary mission.</p>
+        <p>Even more dangerous are <strong style={{ color: "#ff4444" }}>Red Gates</strong>. These are high-stakes legendary distortions that lock until the objective is cleared. Rewards are immense, but failure is catastrophic.</p>
+        <div className="lore-callout danger" style={{ borderLeftColor: '#ff4444', background: 'rgba(255,68,68,0.05)' }}>
+          <Skull size={20} color="#ff4444" />
+          <span style={{ color: '#ffbaba' }}>If you encounter a Red Gate, prepare for total war. There is no escape.</span>
+        </div>
+      </>
+    )
   }
 ];
 
@@ -242,11 +258,16 @@ export function GuidePage() {
         }
 
         .ancient-script {
-          font-size: 2.5rem;
-          color: rgba(255,255,255,0.15);
-          letter-spacing: 15px;
-          margin-bottom: 10px;
+          font-size: 3rem;
+          color: var(--accent-primary);
+          letter-spacing: 18px;
+          margin-bottom: 12px;
           font-family: serif;
+          opacity: 0.4;
+          text-shadow: 0 0 15px var(--accent-primary), 0 0 30px var(--accent-primary);
+          animation: aura-pulse 4s infinite alternate ease-in-out;
+          user-select: none;
+          filter: blur(0.5px);
         }
 
         .temple-title {
@@ -527,6 +548,12 @@ export function GuidePage() {
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes aura-pulse {
+          0% { opacity: 0.2; transform: scale(0.98); filter: blur(1px) brightness(0.8); }
+          50% { opacity: 0.5; transform: scale(1); filter: blur(0px) brightness(1.2); text-shadow: 0 0 20px var(--accent-primary), 0 0 40px var(--accent-primary); }
+          100% { opacity: 0.2; transform: scale(1.02); filter: blur(1px) brightness(0.8); }
         }
 
         /* Scrollbar Styling */

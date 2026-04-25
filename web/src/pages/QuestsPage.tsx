@@ -34,6 +34,40 @@ export function QuestsPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formData,     setFormData]     = useState(EMPTY_FORM);
 
+  /* ─── utils ─── */
+  const buildTaskTree = (flatTasks: any[]) => {
+    const taskMap: Record<string, any> = {};
+    // First pass: create map
+    flatTasks.forEach(t => {
+      taskMap[t.id] = { ...t, subtasks: [] };
+    });
+    
+    const tree: any[] = [];
+    // Second pass: build tree
+    flatTasks.forEach(t => {
+      const task = taskMap[t.id];
+      if (t.parent_id && taskMap[t.parent_id] && t.parent_id !== t.id) {
+        // Prevent obvious cycles (id === parent_id)
+        taskMap[t.parent_id].subtasks.push(task);
+      } else {
+        tree.push(task);
+      }
+    });
+    return tree;
+  };
+
+  const findTaskById = (list: DBTask[], id: string, maxDepth = 10): DBTask | undefined => {
+    if (maxDepth <= 0) return undefined;
+    for (const t of list) {
+      if (t.id === id) return t;
+      if (t.subtasks && t.subtasks.length > 0) {
+        const found = findTaskById(t.subtasks, id, maxDepth - 1);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+
   /* ─── fetch ─── */
   const fetchQuests = async () => {
     if (!supabase || !user?.id) return;
@@ -51,11 +85,6 @@ export function QuestsPage() {
       supabase.from("clan_members").select("clan_id, role").eq("user_id", user.id),
     ]);
 
-    // Build recursive unlimited-depth tree
-    const buildTree = (flat: DBTask[], parentId: string | null): DBTask[] =>
-      flat
-        .filter(t => t.parent_id === parentId)
-        .map(t => ({ ...t, subtasks: buildTree(flat, t.id) }));
     // Check for overdue tasks to automatically mark pending
     const today = new Date().toISOString().split("T")[0];
     const flat: DBTask[] = (qRes ?? []).map(t => ({ ...t, subtasks: [] }));
@@ -69,11 +98,14 @@ export function QuestsPage() {
       return fetchQuests();
     }
 
-    setTasks(buildTree(flat, null));
+    if (qRes) {
+      const tree = buildTaskTree(qRes);
+      setTasks(tree);
+    }
 
     // assigned-to-me tasks (flat, no subtask nesting needed)
-    setAssignedTasks((aRes ?? []).map(t => ({ ...t, subtasks: [] })));
-    setInventory(iRes ?? []);
+    setAssignedTasks(aRes ? buildTaskTree(aRes) : []);
+    setInventory(iRes || []);
 
     // if user is a clan leader in ANY clan, load clan members for assignment dropdown
     const memberships = membership || [];
@@ -160,10 +192,9 @@ export function QuestsPage() {
 
   const handleSave = async () => {
     if (!supabase || !user || !formData.title.trim()) return;
-    const targetUser = formData.assignTo || user.id;
 
     const payload: any = {
-      user_id:     targetUser === user.id ? user.id : user.id, // creator is always self
+      user_id:     user.id, // creator is always current user
       title:       formData.title,
       category:    formData.category,
       points:      getXpByTier(formData.xp_tier),
@@ -189,16 +220,6 @@ export function QuestsPage() {
     setFormData(EMPTY_FORM);
   };
 
-  // Recursively search the full task tree (unlimited depth)
-  const findTaskById = (nodes: DBTask[], id: string): DBTask | undefined => {
-    for (const node of nodes) {
-      if (node.id === id) return node;
-      const found = findTaskById(node.subtasks, id);
-      if (found) return found;
-    }
-    return undefined;
-  };
-
   const handleComplete = async (id: string, isDone: boolean) => {
     if (!supabase || !user) return;
     const completed_at = !isDone ? new Date().toISOString() : null;
@@ -206,7 +227,7 @@ export function QuestsPage() {
 
     if (!isDone) {
       // Search full tree recursively so nested subtasks are found at any depth
-      const task = findTaskById(tasks, id) ?? assignedTasks.find(t => t.id === id);
+      const task = findTaskById(tasks, id) || findTaskById(assignedTasks, id);
       if (task) {
         const basePts = task.points;
         // Apply XP_BOOST if available (2x multiplier)
@@ -278,7 +299,7 @@ export function QuestsPage() {
   /** User explicitly marks a pending task as FAILED → deduct XP penalty */
   const handleFail = async (id: string) => {
     if (!supabase || !user) return;
-    const task = findTaskById(tasks, id);
+    const task = findTaskById(tasks, id) || findTaskById(assignedTasks, id);
     if (!task) return;
     const penalty = task.points || 10;
 
@@ -304,9 +325,60 @@ export function QuestsPage() {
       await supabase.from("user_points").update({ daily_points: Math.max(0, log.daily_points - penalty) }).eq("user_id", user.id).eq("date", today);
     }
 
-    const progression = await syncProgression(supabase, user.id);
-    showProgressionToast(progression);
+    await syncProgression(supabase, user.id);
     fetchQuests();
+  };
+
+  const handlePause = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from("tasks").update({ is_paused: true, paused_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+      await fetchQuests();
+    } catch (err) { console.error("Error pausing quest:", err); }
+  };
+
+  const handleResume = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from("tasks").update({ is_paused: false, paused_at: null }).eq("id", id);
+      if (error) throw error;
+      await fetchQuests();
+    } catch (err) { console.error("Error resuming quest:", err); }
+  };
+
+  const handleReset = async (id: string) => {
+    if (!supabase || !confirm("⚠️ RESTART RAID? Quest will return to an INACTIVE state.")) return;
+    const { error } = await supabase.from("tasks").update({ 
+      is_active: false, 
+      started_at: null, 
+      is_paused: false, 
+      paused_at: null 
+    }).eq("id", id);
+    if (error) throw error;
+    await fetchQuests();
+  };
+
+  const handleStart = async (id: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from("tasks").update({ is_active: true, started_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw error;
+    await fetchQuests();
+  };
+
+  const handleReactivate = async (id: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from("tasks").update({ 
+      is_completed: false, 
+      is_failed: false, 
+      is_active: false,
+      completed_at: null,
+      started_at: null,
+      is_paused: false,
+      paused_at: null
+    }).eq("id", id);
+    if (error) throw error;
+    await fetchQuests();
   };
 
   /** Manually mark an active task as pending (deferred) */
@@ -425,6 +497,11 @@ export function QuestsPage() {
               onDelete={handleDelete}
               onEdit={handleOpenEdit}
               onAddSubtask={handleOpenAdd}
+              onPause={handlePause}
+              onResume={handleResume}
+              onReset={handleReset}
+              onStart={handleStart}
+              onReactivate={handleReactivate}
             />
           ))}
         </article>
@@ -440,7 +517,13 @@ export function QuestsPage() {
       {/* Add / Edit Modal */}
       <Modal
         isOpen={showModal}
-        title={editQuest ? "Edit Quest" : formData.parentId ? "Add Subtask" : "New Quest"}
+        title={
+          editQuest 
+            ? "Edit Quest" 
+            : formData.parentId 
+              ? `New Objective for: ${findTaskById(tasks, formData.parentId)?.title || "Quest"}` 
+              : "New Quest"
+        }
         onClose={() => { setShowModal(false); setEditQuest(null); setFormData(EMPTY_FORM); }}
         footer={
           <>
