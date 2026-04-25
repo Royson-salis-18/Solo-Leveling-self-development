@@ -271,16 +271,14 @@ export function QuestItem({
             {!isCompleted && !isPending && onSkip && (
               <Button variant="secondary" size="sm" onClick={() => onSkip(quest.id)} title="Skip"><Zap size={12} /></Button>
             )}
-            {!isCompleted && !isPending && onAddSubtask && (
+            {onAddSubtask && (
               <Button 
                 variant="secondary" 
                 size="sm" 
                 onClick={() => onAddSubtask(quest.id)} 
                 title="Manifest Subtask (Hidden Dungeon)"
-                style={{ gap: 6 }}
               >
                 <Plus size={12} />
-                <span style={{ fontSize: '0.65rem', fontWeight: 800 }}>SUBTASK</span>
               </Button>
             )}
             {!isCompleted && !isPending && onEdit && (

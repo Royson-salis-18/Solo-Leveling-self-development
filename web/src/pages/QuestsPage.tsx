@@ -476,7 +476,8 @@ export function QuestsPage() {
           <article className="panel panel-no-pad">
             {assignedTasks.filter(t => !t.is_completed).map(q => (
               <QuestItem key={q.id} quest={q} readOnly
-                onComplete={(id) => handleComplete(id, q.is_completed)} />
+                onComplete={(id) => handleComplete(id, q.is_completed)}
+                onAddSubtask={handleOpenAdd} />
             ))}
           </article>
         ) : (

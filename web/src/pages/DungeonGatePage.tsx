@@ -3,7 +3,7 @@ import { Modal }          from "../components/Modal";
 import { Button }         from "../components/Button";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
-import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw } from "lucide-react";
+import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
@@ -153,6 +153,9 @@ export function DungeonGatePage() {
         xp_tier: formData.xp_tier,
         is_recurring: formData.is_recurring,
         parent_id: formData.parentId,
+        gate_type: formData.parentId 
+          ? (findTaskById(tasks, formData.parentId)?.parent_id ? "Double Dungeon Objective" : "Hidden Dungeon")
+          : "Gate",
       };
 
       if (editingId) {
@@ -527,18 +530,28 @@ export function DungeonGatePage() {
                       <span className="gate-category" style={{ color }}>{gate.category}</span>
                       <div className="gate-actions-row">
                         <span className="gate-id">ID: {gate.id.slice(0,6).toUpperCase()}</span>
-                        <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleOpenAdd(gate.id); }} title="Manifest Subtask">
-                          <Plus size={12} />
-                        </button>
-                        <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleEdit(gate); }} title="Edit Gate">
-                          <Edit3 size={12} />
-                        </button>
-                        <button className="gate-mini-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(gate.id); }} title="Dismantle Gate">
-                          <Trash2 size={12} />
-                        </button>
+                        <div className="gate-mini-btn-group">
+                          <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleOpenAdd(gate.id); }} title="Manifest Subtask">
+                            <Plus size={12} />
+                          </button>
+                          <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleEdit(gate); }} title="Edit Gate">
+                            <Edit3 size={12} />
+                          </button>
+                          <button className="gate-mini-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(gate.id); }} title="Dismantle Gate">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <h3 className="gate-title-text">{gate.title}</h3>
+                    <div className="gate-title-row">
+                      <h3 className="gate-title-text">{gate.title}</h3>
+                      {gate.subtasks && gate.subtasks.length > 0 && (
+                        <div className="gate-subtask-counter">
+                          <Layers size={10} />
+                          <span>{gate.subtasks.filter(s => s.is_completed).length}/{gate.subtasks.length}</span>
+                        </div>
+                      )}
+                    </div>
                     <p className="gate-desc">{gate.description || "No mission brief provided by the System."}</p>
                     
                     <div className="gate-footer">
@@ -706,9 +719,14 @@ export function DungeonGatePage() {
               return null;
             })()}
 
-            {selectedGate.subtasks && selectedGate.subtasks.length > 0 && (
-              <div className="brief-subtasks-v3 ds-glass">
-                <div className="box-label">NESTED OBJECTIVES (HIDDEN DUNGEONS)</div>
+            <div className="brief-subtasks-v3 ds-glass">
+              <div className="box-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>NESTED OBJECTIVES (HIDDEN DUNGEONS)</span>
+                <Button variant="secondary" size="sm" onClick={() => handleOpenAdd(selectedGate.id)} style={{ padding: '2px 8px', fontSize: '0.6rem' }}>
+                  <Plus size={10} /> MANIFEST
+                </Button>
+              </div>
+              {selectedGate.subtasks && selectedGate.subtasks.length > 0 ? (
                 <div className="subtask-list-v3">
                   {selectedGate.subtasks?.map((sub: any) => (
                     <div key={sub.id} className="subtask-item-v3">
@@ -722,14 +740,25 @@ export function DungeonGatePage() {
                       <div className="flex items-center gap-4">
                         <span className="subtask-xp-v3">+{sub.points} XP</span>
                         {!sub.is_completed && (
-                          <Button 
-                            variant="success" 
-                            size="sm" 
-                            onClick={() => handleComplete(sub.id)}
-                            style={{ padding: '4px 12px', fontSize: '0.65rem', fontWeight: 900 }}
-                          >
-                            ERADICATE
-                          </Button>
+                          <div className="flex gap-4">
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              onClick={() => handleOpenAdd(sub.id)}
+                              style={{ padding: '4px 8px' }}
+                              title="Manifest Nested Objective"
+                            >
+                              <Plus size={12} />
+                            </Button>
+                            <Button 
+                              variant="success" 
+                              size="sm" 
+                              onClick={() => handleComplete(sub.id)}
+                              style={{ padding: '4px 12px', fontSize: '0.65rem', fontWeight: 900 }}
+                            >
+                              ERADICATE
+                            </Button>
+                          </div>
                         )}
                         {sub.is_completed && (
                           <div className="flex items-center gap-2">
@@ -749,8 +778,12 @@ export function DungeonGatePage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', fontSize: '0.7rem', opacity: 0.5 }}>
+                  No sub-objectives detected for this gate.
+                </div>
+              )}
+            </div>
 
             <div className="brief-grid-v3">
               <div className="brief-stat-card">
@@ -911,23 +944,33 @@ export function DungeonGatePage() {
         .gate-header-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
         .gate-category { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
         .gate-id { font-size: 0.55rem; color: var(--t4); font-family: monospace; opacity: 0.5; }
-        .gate-title-text { font-size: 1.3rem; font-weight: 900; color: var(--t1); margin-bottom: 8px; line-height: 1.2; }
+        
+        .gate-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .gate-title-text { font-size: 1.3rem; font-weight: 900; color: var(--t1); margin: 0; line-height: 1.2; flex: 1; }
+        .gate-subtask-counter {
+          display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 900;
+          color: var(--accent-primary); background: rgba(168,168,255,0.1);
+          padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(168,168,255,0.2);
+          white-space: nowrap; margin-left: 10px;
+        }
+        
         .gate-desc { font-size: 0.8rem; color: var(--t3); line-height: 1.5; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         
         .gate-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .gate-meta-info { display: flex; flex-direction: column; gap: 4px; }
         .gate-reward { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 800; color: var(--t2); }
-        .gate-time-info { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; color: var(--t3); opacity: 0.7; }
-        .gate-action-hint { font-size: 0.65rem; font-weight: 900; letter-spacing: 1.5px; display: flex; align-items: center; gap: 4px; }
-
+        .stat-val-v3 { font-size: 0.85rem; color: #fff; font-weight: 800; }
+        .stat-label-v3 { font-size: 0.55rem; font-weight: 900; opacity: 0.3; letter-spacing: 1px; margin-bottom: 2px; }
+        
         .gate-actions-row { display: flex; align-items: center; gap: 10px; }
+        .gate-mini-btn-group { display: flex; gap: 6px; align-items: center; }
         .gate-mini-btn {
-          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-          color: var(--t3); padding: 4px; border-radius: 6px; cursor: pointer;
-          transition: 0.2s; display: flex; align-items: center; justify-content: center;
+          background: rgba(168,168,255,0.08); border: 1px solid rgba(168,168,255,0.15);
+          color: var(--accent-primary); padding: 5px; border-radius: 6px; cursor: pointer;
+          transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center;
         }
-        .gate-mini-btn:hover { background: rgba(255,255,255,0.15); color: var(--accent-primary); border-color: var(--accent-primary); }
-        .gate-mini-btn.delete:hover { background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: #ef4444; }
+        .gate-mini-btn:hover { background: var(--accent-primary); color: #000; transform: scale(1.1); box-shadow: 0 0 15px var(--accent-glow); }
+        .gate-mini-btn.delete:hover { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
 
         .gate-filters-container {
           margin-bottom: 32px; padding: 12px; border-radius: var(--r-lg);
