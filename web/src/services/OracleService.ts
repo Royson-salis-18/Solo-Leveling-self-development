@@ -8,7 +8,7 @@
 
 export const OracleService = {
   consult: async (query: string, context: any, mode: 'short' | 'long' = 'short') => {
-    const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCXhMB59vMHW6wPUxMRm_I9U36xkfPNZAU").trim();
+    const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCsPK5Sh8PXlJ_B3UHeLBFPi02NtMhpIfs").trim();
     const MODEL = "gemini-flash-latest"; 
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
 
