@@ -1,4 +1,4 @@
-import { Home, ScrollText, Gift, User, LogOut, Brain, Swords, Users, Target, BookOpen, Flame, Backpack, Trophy } from "lucide-react";
+import { Home, ScrollText, Gift, User, LogOut, Brain, Swords, Users, Target, BookOpen, Flame, Backpack, Trophy, Bell } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
@@ -20,7 +20,8 @@ import { useNotifications } from "../lib/notificationContext";
 
 export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onToggle: () => void }) {
   const { signOut, profile, user } = useAuth();
-  useNotifications(); // keep context subscription alive
+  const { notifications } = useNotifications();
+  const unreadCount = notifications.filter(n => !n.is_read).length;
   const navigate = useNavigate();
 
   const displayName = profile?.name ?? user?.email?.split("@")[0] ?? "Hunter";
@@ -49,13 +50,27 @@ export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onTog
         >
           <div className="sb-brand-icon">
             <Brain size={isCollapsed ? 20 : 24} strokeWidth={1.5} />
+            {isCollapsed && unreadCount > 0 && (
+              <div className="sb-badge-dot" />
+            )}
           </div>
         </button>
         
         {!isCollapsed && (
-          <div className="sb-brand-meta" onClick={onToggle} style={{ cursor: 'pointer' }}>
-            <div className="sb-brand-title">SOLO LEVELING</div>
-            <div className="sb-brand-sub">Shadow System v2.1</div>
+          <div className="sb-brand-row">
+            <div className="sb-brand-meta" onClick={onToggle} style={{ cursor: 'pointer' }}>
+              <div className="sb-brand-title">SOLO LEVELING</div>
+              <div className="sb-brand-sub">Shadow System v2.1</div>
+            </div>
+            
+            <button 
+              className="sb-noti-btn" 
+              title="Notifications"
+              onClick={() => navigate("/notifications")}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && <span className="sb-noti-count">{unreadCount}</span>}
+            </button>
           </div>
         )}
       </div>
