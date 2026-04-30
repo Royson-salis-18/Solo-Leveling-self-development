@@ -5,7 +5,7 @@ import { QuestItem }      from "../components/QuestItem";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
 import { Calendar }       from "../components/Calendar";
-import { Plus, Download, CalendarDays, Users, Skull } from "lucide-react";
+import { Plus, Download, CalendarDays, Users, Skull, RotateCcw } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
@@ -243,11 +243,6 @@ export function QuestsPage() {
       parent_id:   formData.parentId,
       assigned_to: formData.assignTo || null,
       is_recurring: formData.recurrence_type !== "none",
-      recurrence_type: formData.recurrence_type !== "none" ? formData.recurrence_type : null,
-      recurrence_interval: formData.recurrence_type === "interval" ? formData.recurrence_interval : (formData.recurrence_type === "daily" ? 1 : null),
-      recurrence_days: formData.recurrence_type === "weekly" ? JSON.stringify(formData.recurrence_days) : null,
-      recurrence_day_of_month: formData.recurrence_type === "monthly" ? formData.recurrence_day_of_month : null,
-      recurrence_custom_label: formData.recurrence_type === "custom" ? formData.recurrence_custom_label : null,
     };
 
     if (editQuest) {

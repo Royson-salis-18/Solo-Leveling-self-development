@@ -10,20 +10,10 @@ import { useAuth } from "../lib/authContext";
 import { Sparkles, Skull, Activity } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 
+import { SystemAPI } from "../services/SystemAPI";
+import type { DashboardData } from "../services/SystemAPI";
 import { AuraCard } from "../components/AuraCard";
 
-/* ─── types ─────────────────────────────────────────────────────── */
-type DashboardData = {
-  activeCount: number;
-  pendingCount: number;
-  completedCount: number;
-  failedCount: number;
-  totalXp: number;
-  level: number;
-  weeklyHistory: Array<{ date: string; daily_points: number }>;
-  monthlyHistory: Array<{ date: string; daily_points: number }>;
-  categoryDistribution: Array<{ category: string; points: number }>;
-};
 
 type TaskRow = {
   id: string;
@@ -79,7 +69,7 @@ export function DashboardPage() {
   const [shadows, setShadows] = useState<any[]>([]);
   const [showReawakening, setShowReawakening] = useState(false);
   
-  const [data, setData] = useState<DashboardData & { player_rank?: string, player_title?: string }>({
+  const [data, setData] = useState<DashboardData>({
     activeCount: 0,
     pendingCount: 0,
     completedCount: 0,
@@ -89,48 +79,25 @@ export function DashboardPage() {
     monthlyHistory: [],
     categoryDistribution: [],
     player_rank: "E",
-    player_title: "Newcomer"
+    player_title: "Newcomer",
+    activeTasks: [],
+    completedTasks: [],
+    clanMembers: [],
+    shadows: [],
   });
+
 
   useEffect(() => {
     if (!supabase || !user?.id) return;
     const userId = user.id;
     (async () => {
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const [
-          { count: ac }, 
-          { count: cc },
-          { count: fc },
-          { count: pc },
-          uRes, 
-          pRes,
-          mRes,
-          tRes,
-          activeTasksRes,
-          completedTasksRes,
-          clanMembRes,
-          shadowsRes,
-        ] = await Promise.all([
-          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",false).eq("is_pending",false).eq("is_failed",false),
-          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",true).eq("is_failed",false).gte("completed_at", today + "T00:00:00"),
-          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_failed",true).gte("completed_at", today + "T00:00:00"),
-          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_pending",true).eq("is_completed",false),
-          supabase.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat").eq("user_id",userId).maybeSingle(),
-          supabase.from("user_points").select("date,daily_points").eq("user_id",userId).order("date",{ascending:true}).limit(7),
-          supabase.from("user_points").select("date,daily_points").eq("user_id",userId).order("date",{ascending:true}).limit(30),
-          supabase.from("tasks").select("category,points").eq("user_id",userId),
-          supabase.from("tasks").select("id, title, is_completed, is_pending, is_failed, is_active, started_at, priority, xp_tier, category").eq("user_id",userId).eq("is_completed",false).eq("is_pending",false).order("created_at",{ascending:false}).limit(10),
-          supabase.from("tasks").select("id, title, points, completed_at").eq("user_id",userId).eq("is_completed",true).order("completed_at",{ascending:false}).limit(5),
-          supabase.from("clan_members").select("clan_id, clans(name, id), role").eq("user_id",userId),
-          supabase.from("shadows").select("*").eq("user_id", userId),
-        ]);
-
-        let currentStatus = uRes.data?.status || 'ACTIVE';
-        const lastHeartbeat = uRes.data?.last_heartbeat;
+        const dashboardData = await SystemAPI.fetchDashboardData(userId);
+        
+        // Status / Heartbeat sweep
+        let currentStatus = dashboardData.status || 'ACTIVE';
+        const lastHeartbeat = dashboardData.last_heartbeat;
         const now = new Date();
-
-        // System Sweep: If ACTIVE but heartbeat is older than 14 days
         const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
         const heartbeatDate = lastHeartbeat ? new Date(lastHeartbeat) : null;
 
@@ -139,90 +106,60 @@ export function DashboardPage() {
             currentStatus = 'DECEASED';
             await supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", userId);
           } else {
-            // Update heartbeat to keep account active
             await supabase.from("user_profiles").update({ last_heartbeat: now.toISOString() }).eq("user_id", userId);
           }
         }
 
-        if (currentStatus === 'DECEASED') {
-          setShowReawakening(true);
-        }
+        if (currentStatus === 'DECEASED') setShowReawakening(true);
 
-        // --- Task System Sweep: Mark Overdue as Failed ---
-        const todayStr = new Date().toISOString().split("T")[0];
+        // Task system sweep: recurring reset + overdue → pending
+        const todayStr = now.toISOString().split("T")[0];
         const { data: allUserTasks } = await supabase.from("tasks").select("*").eq("user_id", userId);
         if (allUserTasks) {
-          // 1. Catch-up Sweep for completed/failed recurring tasks
           const expiredRecur = allUserTasks.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < todayStr);
           if (expiredRecur.length > 0) {
             const { findNextValidDeadline } = await import("../lib/taskUtils");
             for (const task of expiredRecur) {
               const nextDeadline = findNextValidDeadline(task);
-              await supabase.from("tasks").update({
-                is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline
-              }).eq("id", task.id);
+              await supabase.from("tasks").update({ is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
             }
           }
 
-          // 2. Mark overdue active tasks as PENDING
           const overdue = allUserTasks.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < todayStr);
           if (overdue.length > 0) {
-            const overdueIds = overdue.map(t => t.id);
-            await supabase.from("tasks").update({ 
-              is_pending: true, is_completed: false, is_active: false
-            }).in("id", overdueIds);
-            
-            // No penalty for automatic migration to pending
+            await supabase.from("tasks").update({ is_pending: true, is_completed: false, is_active: false }).in("id", overdue.map(t => t.id));
           }
         }
 
-        // Build affiliations
-        const affils: AffiliationRow[] = [];
-        if (clanMembRes.data?.length) {
-          (clanMembRes.data as any[]).forEach((m:any) => {
-            if (m.clans) affils.push({ id: m.clans.id, name: m.clans.name, role: m.role, type: "clan" });
-          });
-        }
-        
-        // Guild affiliation from user_profiles
-        if (uRes.data?.guild_id && uRes.data.guilds) {
-          affils.push({ 
-            id: (uRes.data.guilds as any).id, 
-            name: (uRes.data.guilds as any).name, 
-            role: uRes.data.guild_title || "Member", 
-            type: "guild" 
+        // Build affiliations from SystemAPI data
+        const affils: AffiliationRow[] = dashboardData.clanMembers.map((cm: any) => ({
+          id: cm.clan_id,
+          name: cm.clans?.name || "Unknown Clan",
+          role: cm.role,
+          type: "clan" as const,
+        }));
+        if (dashboardData.guild) {
+          affils.push({
+            id: dashboardData.guild.id,
+            name: dashboardData.guild.name,
+            role: dashboardData.guild_title || "Member",
+            type: "guild",
           });
         }
 
+        // Commit all state
+        setData(dashboardData);
+        setTasks(dashboardData.activeTasks as TaskRow[]);
+        setRecentActivity(dashboardData.completedTasks as RecentActivityRow[]);
         setAffiliations(affils);
-        setShadows(shadowsRes.data ?? []);
-
-        const catMap = new Map<string,number>();
-        (tRes.data??[]).forEach((t:any) => catMap.set(t.category??"General",(catMap.get(t.category??"General")??0)+Number(t.points??0)));
-        const catDist = [...catMap.entries()].map(([category,points])=>({category,points}));
-
-        setData({
-          activeCount: ac ?? 0, 
-          pendingCount: pc ?? 0,
-          completedCount: cc ?? 0,
-          failedCount: fc ?? 0,
-          totalXp: Number(uRes.data?.total_points ?? 0),
-          level: Number(uRes.data?.level ?? 1),
-          player_rank: uRes.data?.player_rank ?? "E",
-          player_title: uRes.data?.player_title ?? "Newcomer",
-          weeklyHistory: (pRes.data??[]).map((d:any)=>({ date:String(d.date).slice(5), daily_points:Number(d.daily_points??0) })),
-          monthlyHistory: (mRes.data??[]).map((d:any)=>({ date:String(d.date).slice(5), daily_points:Number(d.daily_points??0) })),
-          categoryDistribution: catDist,
-        });
-
-        if (activeTasksRes.data) setTasks(activeTasksRes.data as TaskRow[]);
-        if (completedTasksRes.data) setRecentActivity(completedTasksRes.data as RecentActivityRow[]);
+        setShadows(dashboardData.shadows);
 
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       }
     })();
   }, [user]);
+
 
   const completionRate = useMemo(()=>{
     const total = data.activeCount + data.completedCount;

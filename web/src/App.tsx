@@ -18,6 +18,7 @@ import { RegisterPage }      from "./pages/RegisterPage";
 import { GuidePage }         from "./pages/GuidePage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { CollectionPage }    from "./pages/CollectionPage";
+import { OracleArchitect }    from "./components/OracleArchitect";
 import "./app.css";
 
 function AppContent() {
@@ -54,6 +55,7 @@ function AppContent() {
                   <Route path="*"            element={<Navigate to="/" replace />} />
                 </Routes>
               </main>
+              <OracleArchitect />
             </div>
           </ProtectedRoute>
         }

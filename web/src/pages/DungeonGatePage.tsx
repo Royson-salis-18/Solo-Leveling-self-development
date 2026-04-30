@@ -6,9 +6,10 @@ import { NLPImportModal } from "../components/NLPImportModal";
 import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers, XCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
-import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
+
 import { RaidTimer } from "../components/RaidTimer";
-import { calculateNextDeadline, findNextValidDeadline } from "../lib/taskUtils";
+
+import { SystemAPI } from "../services/SystemAPI";
 
 const WEEKDAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
@@ -16,12 +17,12 @@ const EMPTY_FORM = {
   title: "", category: "General", description: "",
   deadline: "", start_time: "", end_time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,
-  // Recurrence
+  // Recurrence (UI only for now, DB migration pending)
   recurrence_type: "none" as "none" | "daily" | "interval" | "weekly" | "monthly" | "custom",
-  recurrence_interval: 1,      // every N days/weeks/months
-  recurrence_days: [] as number[], // 0-6 for weekly (0=Sun)
-  recurrence_day_of_month: 1,  // 1-31 for monthly
-  recurrence_custom_label: "", // free-form label for custom
+  recurrence_interval: 1,      
+  recurrence_days: [] as number[], 
+  recurrence_day_of_month: 1,  
+  recurrence_custom_label: "", 
 };
 
 
@@ -77,37 +78,17 @@ export function DungeonGatePage() {
     if (!supabase || !user?.id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-      if (error) throw error;
-      if (data) {
-        // --- Catch-up Sweep for Recurring Gates ---
-        const today = new Date().toISOString().split("T")[0];
-        const expiredRecurring = data.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < today);
-        if (expiredRecurring.length > 0) {
-          for (const task of expiredRecurring) {
-            const nextDeadline = findNextValidDeadline(task);
-            await supabase.from("tasks").update({
-              is_completed: false,
-              is_failed: false,
-              is_pending: false,
-              completed_at: null,
-              deadline: nextDeadline
-            }).eq("id", task.id);
-          }
-          return fetchQuests();
-        }
-
-        const tree = buildTaskTree(data);
-        setTasks(tree);
-      }
+      const data = await SystemAPI.fetchGates(user.id);
+      const needsRefetch = await SystemAPI.sweepRecurringGates(user.id, data);
+      if (needsRefetch) return fetchQuests();
+      const tree = buildTaskTree(data);
+      setTasks(tree);
     } catch (err) {
       console.error("Fetch Error:", err);
     } finally {
-      const { data: profile } = await supabase.from("user_profiles").select("status, total_points").eq("user_id", user.id).single();
-      if (profile) {
-        setUserStatus(profile.status || "ACTIVE");
-        setTotalXp(profile.total_points || 0);
-      }
+      const profile = await SystemAPI.fetchUserStatus(user!.id);
+      setUserStatus(profile.status || "ACTIVE");
+      setTotalXp(profile.total_points || 0);
       setLoading(false);
     }
   };
@@ -168,7 +149,7 @@ export function DungeonGatePage() {
   };
 
   const handleSave = async () => {
-    if (!supabase || !user || !formData.title.trim()) return;
+    if (!user || !formData.title.trim()) return;
     setSaving(true);
     try {
       const isRecurring = formData.recurrence_type !== "none";
@@ -185,26 +166,10 @@ export function DungeonGatePage() {
         priority: formData.priority,
         xp_tier: formData.xp_tier,
         is_recurring: isRecurring,
-        recurrence_type: isRecurring ? formData.recurrence_type : null,
-        recurrence_interval: isRecurring && formData.recurrence_interval > 1 ? formData.recurrence_interval : null,
-        recurrence_days: isRecurring && formData.recurrence_days.length > 0 ? JSON.stringify(formData.recurrence_days) : null,
-        recurrence_day_of_month: isRecurring && formData.recurrence_type === "monthly" ? formData.recurrence_day_of_month : null,
-        recurrence_custom_label: isRecurring && formData.recurrence_type === "custom" ? formData.recurrence_custom_label : null,
         parent_id: formData.parentId,
-        gate_type: formData.parentId 
-          ? (findTaskById(tasks, formData.parentId)?.parent_id ? "Double Dungeon Objective" : "Hidden Dungeon")
-          : "Gate",
       };
 
-      if (editingId) {
-        const { error } = await supabase.from("tasks").update(payload).eq("id", editingId);
-        if (error) throw error;
-      } else {
-        payload.is_active = false;
-        payload.is_completed = false;
-        const { error } = await supabase.from("tasks").insert(payload);
-        if (error) throw error;
-      }
+      await SystemAPI.saveGate(payload, editingId);
       
       await fetchQuests();
       setShowModal(false);
@@ -248,10 +213,9 @@ export function DungeonGatePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!supabase || !confirm("Are you sure you want to dismantle this gate?")) return;
+    if (!confirm("Are you sure you want to dismantle this gate?")) return;
     try {
-      const { error } = await supabase.from("tasks").delete().eq("id", id);
-      if (error) throw error;
+      await SystemAPI.deleteGate(id);
       await fetchQuests();
     } catch (err) {
       console.error("Error dismantling gate:", err);
@@ -259,125 +223,64 @@ export function DungeonGatePage() {
   };
 
   const handleStartRaid = async (id: string) => {
-    if (!supabase || !user) return;
+    if (!user) return;
     try {
       setSaving(true);
-      console.log("--- RAID START INITIATED ---");
-      console.log("Target ID:", id);
-      const started_at = new Date().toISOString();
-      
-      // Attempt 1: Full update with timeline support
-      console.log("Attempting full update (is_active + started_at)...");
-      const { error: fullError } = await supabase.from("tasks").update({ 
-        is_active: true,
-        started_at
-      }).eq("id", id);
-      
-      if (fullError) {
-        console.warn("Full update failed, attempting fallback (is_active only)...", fullError);
-        
-        // Attempt 2: Fallback to basic active status if started_at is missing from schema
-        const { error: fallbackError } = await supabase.from("tasks").update({ 
-          is_active: true
-        }).eq("id", id);
-        
-        if (fallbackError) {
-          console.error("Critical: All update attempts failed.", fallbackError);
-          alert(`CRITICAL ERROR: ${fallbackError.message}\n\nThe 'tasks' table appears to be missing the 'is_active' column. Please run the migration SQL provided in the system console.`);
-          throw fallbackError;
-        }
-        
-        console.log("Raid started successfully (Fallback Mode: No timeline)");
-        alert("Raid started successfully, but the Timeline feature requires a database migration. Please contact the System Administrator.");
-      } else {
-        console.log("Raid started successfully (Full Mode)");
-      }
-      
+      const started_at = await SystemAPI.startRaid(id);
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_active: true, started_at } : null);
     } catch (err: any) {
-      console.error("Evaluation Error:", err);
+      console.error("Raid Start Error:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handlePauseRaid = async (id: string) => {
-    if (!supabase) return;
     try {
-      console.log("--- ATTEMPTING RAID PAUSE ---", id);
       setSaving(true);
-      const paused_at = new Date().toISOString();
-      const { error } = await supabase.from("tasks").update({ is_paused: true, paused_at }).eq("id", id);
-      if (error) throw error;
-      
+      const paused_at = await SystemAPI.pauseRaid(id);
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_paused: true, paused_at } : null);
-      console.log("PAUSE SUCCESS");
-    } catch (err: any) { 
-      console.error("PAUSE CRITICAL FAILURE:", err); 
-      alert(`⚠️ SYSTEM ERROR: ${err.message || 'Check database columns'}`);
+    } catch (err: any) {
+      console.error("PAUSE FAILURE:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
     } finally { setSaving(false); }
   };
 
   const handleResumeRaid = async (id: string) => {
-    if (!supabase) return;
     try {
-      console.log("--- ATTEMPTING RAID RESUME ---", id);
       setSaving(true);
-      const { error } = await supabase.from("tasks").update({ is_paused: false, paused_at: null }).eq("id", id);
-      if (error) throw error;
-      
+      await SystemAPI.resumeRaid(id);
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_paused: false, paused_at: null } : null);
-      console.log("RESUME SUCCESS");
-    } catch (err: any) { 
-      console.error("RESUME CRITICAL FAILURE:", err); 
-      alert(`⚠️ SYSTEM ERROR: ${err.message || 'Check database columns'}`);
+    } catch (err: any) {
+      console.error("RESUME FAILURE:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
     } finally { setSaving(false); }
   };
 
   const handleResetRaid = async (id: string) => {
-    if (!supabase || !confirm("⚠️ RESTART RAID? Progress will be lost and the gate will return to an INACTIVE state.")) return;
+    if (!confirm("⚠️ RESTART RAID? Progress will be lost.")) return;
     try {
-      console.log("--- ATTEMPTING RAID RESET ---", id);
       setSaving(true);
-      const { error } = await supabase.from("tasks").update({ 
-        is_active: false, 
-        started_at: null, 
-        is_paused: false, 
-        paused_at: null 
-      }).eq("id", id);
-      if (error) throw error;
-      
+      await SystemAPI.resetRaid(id);
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_active: false, started_at: null, is_paused: false, paused_at: null } : null);
-      console.log("RESET SUCCESS");
-      alert("RAID RESET COMPLETE. Gate is now inactive.");
-    } catch (err: any) { 
-      console.error("RESET CRITICAL FAILURE:", err);
+    } catch (err: any) {
+      console.error("RESET FAILURE:", err);
       alert(`⚠️ SYSTEM ERROR: ${err.message}`);
     } finally { setSaving(false); }
   };
 
   const handleReactivate = async (id: string) => {
-    if (!supabase) return;
     try {
       setSaving(true);
-      const { error } = await supabase.from("tasks").update({ 
-        is_completed: false, 
-        is_failed: false, 
-        is_active: false,
-        completed_at: null,
-        started_at: null,
-        is_paused: false,
-        paused_at: null
-      }).eq("id", id);
-      if (error) throw error;
+      await SystemAPI.reactivateGate(id);
       await fetchQuests();
       if (selectedGate?.id === id) {
         setSelectedGate(null);
-        alert("GATE RE-MANIFESTED. Mission has returned to pending sector.");
       } else {
         setSelectedGate(prev => {
           if (!prev) return null;
@@ -390,14 +293,14 @@ export function DungeonGatePage() {
           return resetRecursive(prev);
         });
       }
-    } catch (err: any) { 
+    } catch (err: any) {
       console.error("RE-ACTIVATE FAILED:", err);
       alert(`⚠️ SYSTEM ERROR: ${err.message}`);
     } finally { setSaving(false); }
   };
 
   const handleFail = async (id: string) => {
-    if (!supabase || !user) return;
+    if (!user) return;
     const task = findTaskById(tasks, id) || tasks.find(t => t.id === id);
     if (!task) return;
     const penalty = task.points || 10;
@@ -409,59 +312,12 @@ export function DungeonGatePage() {
 
     try {
       setSaving(true);
-      const completed_at = new Date().toISOString();
-
-      const { error } = await supabase.from("tasks").update({
-        is_failed: true,
-        is_completed: true,
-        is_active: false,
-        is_pending: false,
-        is_paused: false,
-        completed_at,
-      }).eq("id", id);
-      if (error) throw error;
-
-      // Log punishment record
-      await supabase.from("punishments").insert({
-        user_id: user.id,
-        name: `Failed Gate: ${task.title}`,
-        xp_penalty: penalty,
-        triggered: 1,
-      });
-
-      // Deduct XP from total
-      const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-      const newPoints = Math.max(0, (prof?.total_points ?? 0) - penalty);
-      await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
-
-      // Deduct from daily log
-      const today = new Date().toISOString().split("T")[0];
-      const { data: log } = await supabase.from("user_points").select("daily_points").eq("user_id", user.id).eq("date", today).maybeSingle();
-      if (log) {
-        await supabase.from("user_points").update({ daily_points: Math.max(0, log.daily_points - penalty) }).eq("user_id", user.id).eq("date", today);
-      }
-
-      // Re-sync progression (rank/level may drop)
-      const progression = await syncProgression(supabase, user.id);
-      
-      // GENERATE MANDATORY PUNISHMENT QUEST
-      const punishment = getRandomPunishment();
-      await supabase.from("tasks").insert({
-        user_id: user.id,
-        title: `🚨 PENALTY: ${punishment.title}`,
-        description: punishment.desc,
-        points: punishment.points,
-        category: 'PUNISHMENT',
-        priority: 'URGENT',
-        is_active: true,
-        deadline: new Date().toISOString().split('T')[0],
-        xp_tier: 'High'
-      });
+      const { penalty: p, progression } = await SystemAPI.failGate(user.id, task);
 
       if (progression) {
         const msgs: string[] = [
-          `💀 GATE FAILED — MISSION ABANDONED\n-${penalty} XP DEDUCTED`,
-          `🚨 SYSTEM ALERT: Penalty Quest Manifested! You must complete the purification task to restore system integrity.`
+          `💀 GATE FAILED — MISSION ABANDONED\n-${p} XP DEDUCTED`,
+          `🚨 SYSTEM ALERT: Penalty Quest Manifested!`
         ];
         if (progression.level < progression.prevLevel) msgs.push(`⬇️ LEVEL DOWN: ${progression.prevLevel} → ${progression.level}`);
         if (progression.rank !== progression.prevRank) msgs.push(`⬇️ RANK DROPPED: ${progression.prevRank} → ${progression.rank}`);
@@ -469,20 +325,6 @@ export function DungeonGatePage() {
       }
 
       await fetchQuests();
-
-      // --- Recurring Logic: Even if failed, reset for next occurrence ---
-      if (task.is_recurring) {
-        const nextDeadline = findNextValidDeadline(task);
-        await supabase.from("tasks").update({ 
-          is_completed: false, 
-          is_failed: false,
-          is_pending: false,
-          completed_at: null,
-          deadline: nextDeadline
-        }).eq("id", task.id);
-        await fetchQuests();
-      }
-
       setSelectedGate(null);
     } catch (err: any) {
       console.error("FAIL GATE ERROR:", err);
@@ -493,11 +335,11 @@ export function DungeonGatePage() {
   };
 
   const handleComplete = async (id: string) => {
-    if (!supabase || !user) return;
+    if (!user) return;
     const task = tasks.find(t => t.id === id) || findTaskById(tasks, id);
     if (!task) return;
 
-    const completedSubtasks = task.subtasks.filter(s => s.is_completed).length;
+    const completedSubtasks = task.subtasks.filter((s: any) => s.is_completed).length;
     if (task.subtasks.length > 0 && completedSubtasks < task.subtasks.length) {
       alert("⚠️ CRITICAL FAILURE: Internal dungeons are still active. Clear all sub-objectives to unlock Gate Conquest!");
       return;
@@ -505,85 +347,13 @@ export function DungeonGatePage() {
 
     try {
       setSaving(true);
-      const completed_at = new Date().toISOString();
-      const { error: updateErr } = await supabase.from("tasks").update({ 
-        is_completed: true, 
-        is_failed: false, 
-        is_active: false, 
-        completed_at 
-      }).eq("id", id);
-      
-      if (updateErr) throw updateErr;
+      const result = await SystemAPI.completeGate(user.id, task, totalXp, userStatus);
 
-      // Normalize XP for learning/heavy tasks
-      const normalizedPts = calculateEffectiveXp(task.points, task.category, totalXp);
-      const pts = await applyXpBoost(supabase, user.id, normalizedPts);
-      
-      const { data: prof } = await supabase.from("user_profiles").select("total_points, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense").eq("user_id", user.id).single();
-      
-      // --- Stat Progression ---
-      const statColumn = CATEGORY_STAT_MAP[task.category];
-      const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
-      if (statColumn && prof) {
-        updatePayload[statColumn] = (prof as any)[statColumn] + 1; // +1 to the mapped stat
+      if (result.extractedShadow) {
+        alert(`✨ ARISE! You have extracted a [${result.extractedShadow.rarity}] grade shadow: ${result.extractedShadow.name}!`);
       }
-      await supabase.from("user_profiles").update(updatePayload).eq("user_id", user.id);
-      
-      const progression = await syncProgression(supabase, user.id);
-      showProgressionToast(progression);
 
-      // --- NEW: Randomized Shadow Extraction (Arise!) ---
-      // LACK OF MANA (Penalty Mode) prevents Shadow Extraction
-      if (userStatus === 'PENALTY') {
-        console.log("Shadow Extraction blocked: Mana Debt detected.");
-      } else {
-        const { SHADOW_CATALOG } = await import("../lib/catalog");
-        const tier = task.xp_tier || "Low";
-        const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
-        const roll = Math.random();
-
-        if (roll <= (chances[tier] || 0.02)) {
-          const pool = SHADOW_CATALOG.filter(s => {
-            if (tier === "Legendary") return s.rarity === "Legendary" || s.rarity === "Mythic";
-            if (tier === "Super") return s.rarity === "Epic";
-            if (tier === "High") return s.rarity === "Rare";
-            return s.rarity === "Common";
-          });
-          
-          if (pool.length > 0) {
-            const shadow = pool[Math.floor(Math.random() * pool.length)];
-            const { error } = await supabase.from("shadows").insert({
-              user_id: user.id,
-              name: shadow.name,
-              rarity: shadow.rarity,
-              bonus_type: "xp_boost",
-              bonus_value: (shadow as any).bonus || (shadow.rarity === "Legendary" ? 0.1 : 0.05)
-            });
-
-            if (!error) {
-              alert(`✨ ARISE! You have extracted a [${shadow.rarity}] grade shadow: ${shadow.name}! Check your army on the Dashboard.`);
-            }
-          }
-        } else if (tier === "Super" || tier === "Legendary") {
-          alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
-        }
-      }
-      
       await fetchQuests();
-
-      // --- Recurring Logic (Clever Alternative: Update Existing Row) ---
-      if (task.is_recurring) {
-        const nextDeadline = calculateNextDeadline(task);
-
-        await supabase.from("tasks").update({ 
-          is_completed: false, 
-          is_active: false,
-          completed_at: null,
-          deadline: nextDeadline
-        }).eq("id", id);
-        
-        await fetchQuests(); // Re-fetch to show the reset gate
-      }
 
       if (selectedGate?.id === id) {
         setSelectedGate(null);
@@ -592,7 +362,7 @@ export function DungeonGatePage() {
           if (!prev) return null;
           const updateRecursive = (t: any, d = 0): any => {
             if (d > 10) return t;
-            if (t.id === id) return { ...t, is_completed: true, is_active: false, completed_at };
+            if (t.id === id) return { ...t, is_completed: true, is_active: false, completed_at: result.completed_at };
             if (t.subtasks) return { ...t, subtasks: t.subtasks.map((s: any) => updateRecursive(s, d + 1)) };
             return t;
           };

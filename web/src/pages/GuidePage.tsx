@@ -2,8 +2,9 @@ import { useState } from "react";
 import { 
   Brain, Zap, Scroll, Skull, 
   Swords, Target, Clock, AlertTriangle, Book,
-  ChevronRight, Activity, Flame, ShieldAlert
+  ChevronRight, Activity, Flame, ShieldAlert, Cpu
 } from "lucide-react";
+import { ArchitectChamber } from "../components/ArchitectChamber";
 
 /* ─── The Commandments ─── */
 type Commandment = {
@@ -148,9 +149,27 @@ const COMMANDMENTS: Commandment[] = [
 
 export function GuidePage() {
   const [activeTab, setActiveTab] = useState(0);
+  const [isArchitectOpen, setIsArchitectOpen] = useState(false);
 
   return (
     <section className="cartenon-guide">
+      {/* Full Screen Architect Overlay */}
+      {isArchitectOpen && (
+        <ArchitectChamber onClose={() => setIsArchitectOpen(false)} />
+      )}
+
+      {/* Floating Architect Trigger */}
+      <div className="kinetic-container">
+        <button 
+          className="floating-architect-btn ds-glass"
+          onClick={() => setIsArchitectOpen(true)}
+        >
+          <Cpu size={20} />
+          <span>CONSULT ARCHITECT</span>
+          <div className="btn-glow" />
+        </button>
+      </div>
+
       {/* Immersive Background */}
       <div className="temple-bg" />
       <div className="temple-overlay" />
@@ -432,6 +451,15 @@ export function GuidePage() {
           flex: 1;
         }
 
+        .content-body.architect-mode {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          height: 100%;
+          padding: 0;
+        }
+
         .content-body p { margin-bottom: 16px; }
 
         .lore-callout {
@@ -565,6 +593,77 @@ export function GuidePage() {
         .content-inner::-webkit-scrollbar-thumb {
           background: rgba(255,255,255,0.1);
           border-radius: 3px;
+        }
+
+        /* Floating Architect Button with Kinetic Motion */
+        .kinetic-container {
+          position: fixed;
+          left: 0;
+          top: 0;
+          z-index: 999;
+          animation: floatAround 25s infinite ease-in-out;
+          will-change: transform;
+          pointer-events: none; /* Let clicks pass through to button */
+        }
+
+        .kinetic-container:hover {
+          animation-play-state: paused;
+        }
+
+        .floating-architect-btn {
+          pointer-events: auto; /* Enable clicks on button */
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px 24px;
+          background: rgba(88, 80, 236, 0.1);
+          border: 1px solid rgba(88, 80, 236, 0.3);
+          border-radius: 16px;
+          color: #fff;
+          font-weight: 900;
+          font-size: 0.7rem;
+          letter-spacing: 2px;
+          cursor: pointer;
+          backdrop-filter: blur(20px);
+          box-shadow: 0 0 20px rgba(88, 80, 236, 0.1);
+          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s, background 0.3s;
+        }
+
+        .floating-architect-btn:hover {
+          background: rgba(88, 80, 236, 0.3);
+          border-color: #5850ec;
+          box-shadow: 0 0 40px rgba(88, 80, 236, 0.5);
+          transform: scale(1.1);
+        }
+
+        @keyframes floatAround {
+          0% { transform: translate(10vw, 10vh); }
+          25% { transform: translate(60vw, 20vh); }
+          50% { transform: translate(50vw, 70vh); }
+          75% { transform: translate(20vw, 60vh); }
+          100% { transform: translate(10vw, 10vh); }
+        }
+
+        .floating-architect-btn span {
+          opacity: 0.8;
+          transition: 0.3s;
+        }
+
+        .floating-architect-btn:hover span {
+          opacity: 1;
+        }
+
+        .btn-glow {
+          position: absolute;
+          inset: 0;
+          border-radius: 16px;
+          box-shadow: inset 0 0 15px rgba(88, 80, 236, 0.2);
+          pointer-events: none;
+        }
+
+        @keyframes overlayFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
       `}</style>
     </section>
