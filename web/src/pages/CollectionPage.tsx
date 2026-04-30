@@ -86,7 +86,7 @@ export function CollectionPage() {
   });
 
   return (
-    <section className="page" style={{ position: 'relative', overflow: 'hidden' }}>
+    <section className="page collection-page" style={{ position: 'relative' }}>
       {/* ambient bg blobs */}
       <div className="bg-blob" style={{ width: '600px', height: '600px', background: 'rgba(168, 168, 255, 0.12)', top: '-100px', left: '-150px', position: 'absolute', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none', zIndex: 0 }}></div>
       <div className="bg-blob" style={{ width: '500px', height: '500px', background: 'rgba(111, 60, 255, 0.1)', top: '250px', right: '-120px', position: 'absolute', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none', zIndex: 0 }}></div>
@@ -319,7 +319,7 @@ export function CollectionPage() {
         
         /* ── MONARCH FIRE ── */
         .monarch-hero-section {
-          margin-bottom: 60px; border-radius: var(--r-2xl); padding: 60px;
+          margin-bottom: 60px; border-radius: var(--r-2xl); padding: 40px;
           border: 1px solid rgba(168, 168, 255, 0.2);
           background: radial-gradient(circle at center, rgba(168, 168, 255, 0.1), rgba(0,0,0,0.9));
           position: relative; overflow: hidden;
@@ -334,7 +334,7 @@ export function CollectionPage() {
         }
         @keyframes portalSwirl { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
 
-        .hero-content { display: flex; align-items: center; justify-content: space-between; gap: 60px; position: relative; z-index: 2; }
+        .hero-content { display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; z-index: 2; flex-wrap: wrap; }
         .hero-meta { flex: 1; }
         .hero-tag-wrap { 
           display: flex; align-items: center; gap: 10px; color: var(--accent-primary); margin-bottom: 20px;

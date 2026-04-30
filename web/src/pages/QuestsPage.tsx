@@ -5,17 +5,23 @@ import { QuestItem }      from "../components/QuestItem";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
 import { Calendar }       from "../components/Calendar";
-import { Plus, Download, CalendarDays, Users } from "lucide-react";
+import { Plus, Download, CalendarDays, Users, Skull } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
-import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
+import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
 import { SHADOW_CATALOG } from "../lib/catalog";
+import { calculateNextDeadline, findNextValidDeadline } from "../lib/taskUtils";
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
   deadline: "", start_time: "", end_time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,   // user_id to assign to (empty = self)
   is_recurring: false,
+  recurrence_type: "none" as "none" | "daily" | "interval" | "weekly" | "monthly" | "custom",
+  recurrence_interval: 1,
+  recurrence_days: [] as number[],
+  recurrence_day_of_month: 1,
+  recurrence_custom_label: "",
 };
 
 export function QuestsPage() {
@@ -33,6 +39,8 @@ export function QuestsPage() {
   const [editQuest,    setEditQuest]    = useState<DBTask | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formData,     setFormData]     = useState(EMPTY_FORM);
+  const [userStatus,   setUserStatus]   = useState<string>("ACTIVE");
+  const [totalXp,      setTotalXp]      = useState<number>(0);
 
   /* ─── utils ─── */
   const buildTaskTree = (flatTasks: any[]) => {
@@ -85,22 +93,45 @@ export function QuestsPage() {
       supabase.from("clan_members").select("clan_id, role").eq("user_id", user.id),
     ]);
 
-    // Check for overdue tasks to automatically mark pending
+    // Check for overdue tasks to automatically mark as FAILED
     const today = new Date().toISOString().split("T")[0];
     const flat: DBTask[] = (qRes ?? []).map(t => ({ ...t, subtasks: [] }));
+
+    // Catch-up Sweep: Reset completed/failed recurring tasks whose deadline is in the past
+    const expiredRecurring = flat.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < today);
+    if (expiredRecurring.length > 0) {
+      for (const task of expiredRecurring) {
+        const nextDeadline = findNextValidDeadline(task);
+        await supabase.from("tasks").update({
+          is_completed: false,
+          is_failed: false,
+          is_pending: false,
+          completed_at: null,
+          deadline: nextDeadline
+        }).eq("id", task.id);
+      }
+      return fetchQuests();
+    }
+
     const overdueTasks = flat.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < today);
 
     if (overdueTasks.length > 0) {
       const overdueIds = overdueTasks.map(t => t.id);
-      // Only mark pending — no XP penalty yet. Penalty fires on explicit "Fail" click.
-      await supabase.from("tasks").update({ is_pending: true }).in("id", overdueIds);
-      // Re-fetch to reflect new pending state
+      await supabase.from("tasks").update({ 
+        is_pending: true, is_completed: false
+      }).in("id", overdueIds);
       return fetchQuests();
     }
 
     if (qRes) {
       const tree = buildTaskTree(qRes);
       setTasks(tree);
+    }
+    
+    const { data: profile } = await supabase.from("user_profiles").select("status, total_points").eq("user_id", user.id).single();
+    if (profile) {
+      setUserStatus(profile.status || "ACTIVE");
+      setTotalXp(profile.total_points || 0);
     }
 
     // assigned-to-me tasks (flat, no subtask nesting needed)
@@ -175,6 +206,11 @@ export function QuestsPage() {
       parentId: task.parent_id,
       assignTo: task.assigned_to ?? "",
       is_recurring: task.is_recurring ?? false,
+      recurrence_type: (task as any).recurrence_type || (task.is_recurring ? "daily" : "none"),
+      recurrence_interval: (task as any).recurrence_interval || 1,
+      recurrence_days: (task as any).recurrence_days ? JSON.parse((task as any).recurrence_days) : [],
+      recurrence_day_of_month: (task as any).recurrence_day_of_month || 1,
+      recurrence_custom_label: (task as any).recurrence_custom_label || "",
     });
     setShowModal(true);
   };
@@ -206,7 +242,12 @@ export function QuestsPage() {
       xp_tier:     formData.xp_tier,
       parent_id:   formData.parentId,
       assigned_to: formData.assignTo || null,
-      is_recurring: formData.is_recurring,
+      is_recurring: formData.recurrence_type !== "none",
+      recurrence_type: formData.recurrence_type !== "none" ? formData.recurrence_type : null,
+      recurrence_interval: formData.recurrence_type === "interval" ? formData.recurrence_interval : (formData.recurrence_type === "daily" ? 1 : null),
+      recurrence_days: formData.recurrence_type === "weekly" ? JSON.stringify(formData.recurrence_days) : null,
+      recurrence_day_of_month: formData.recurrence_type === "monthly" ? formData.recurrence_day_of_month : null,
+      recurrence_custom_label: formData.recurrence_type === "custom" ? formData.recurrence_custom_label : null,
     };
 
     if (editQuest) {
@@ -230,12 +271,22 @@ export function QuestsPage() {
       const task = findTaskById(tasks, id) || findTaskById(assignedTasks, id);
       if (task) {
         const basePts = task.points;
+        // Normalize XP for learning tasks and apply category weights
+        const normalizedPts = calculateEffectiveXp(basePts, task.category, totalXp);
+        
         // Apply XP_BOOST if available (2x multiplier)
-        const pts = await applyXpBoost(supabase, user.id, basePts);
+        const pts = await applyXpBoost(supabase, user.id, normalizedPts);
 
         // Credit XP to the completing user (me)
-        const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-        await supabase.from("user_profiles").update({ total_points: (prof?.total_points ?? 0) + pts }).eq("user_id", user.id);
+        const { data: prof } = await supabase.from("user_profiles").select("total_points, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense").eq("user_id", user.id).single();
+        
+        // --- Stat Progression ---
+        const statColumn = CATEGORY_STAT_MAP[task.category];
+        const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
+        if (statColumn && prof) {
+          updatePayload[statColumn] = (prof as any)[statColumn] + 1; // +1 to the mapped stat
+        }
+        await supabase.from("user_profiles").update(updatePayload).eq("user_id", user.id);
 
         const today = new Date().toISOString().split("T")[0];
         const { data: log } = await supabase.from("user_points").select("daily_points").eq("user_id", user.id).eq("date", today).maybeSingle();
@@ -280,15 +331,15 @@ export function QuestsPage() {
           alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
         }
 
-        // --- NEW: Recurring Logic ---
+        // --- Recurring Logic (Clever Alternative: Update Existing Row) ---
         if (task.is_recurring) {
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          const nextDeadline = tomorrow.toISOString().split("T")[0];
+          const nextDeadline = calculateNextDeadline(task);
+
           await supabase.from("tasks").update({ 
             is_completed: false, 
+            is_active: false,
             completed_at: null,
-            deadline: nextDeadline 
+            deadline: nextDeadline
           }).eq("id", id);
         }
       }
@@ -296,16 +347,28 @@ export function QuestsPage() {
     fetchQuests();
   };
 
-  /** User explicitly marks a pending task as FAILED → deduct XP penalty */
+  /** User explicitly marks a task as FAILED → deduct XP penalty */
   const handleFail = async (id: string) => {
     if (!supabase || !user) return;
     const task = findTaskById(tasks, id) || findTaskById(assignedTasks, id);
     if (!task) return;
     const penalty = task.points || 10;
 
-    await supabase.from("tasks").update({ is_failed: true, is_pending: false, is_completed: true }).eq("id", id);
+    const confirmed = window.confirm(
+      `☠️ MISSION FAILURE CONFIRMED\n\n"${task.title}"\n\nPenalty: -${penalty} XP will be deducted from your total.\n\nProceed?`
+    );
+    if (!confirmed) return;
 
-    // Log punishment
+    // Mark task as failed
+    await supabase.from("tasks").update({
+      is_failed: true,
+      is_pending: false,
+      is_completed: true,
+      is_active: false,
+      completed_at: new Date().toISOString(),
+    }).eq("id", id);
+
+    // Log punishment record
     await supabase.from("punishments").insert({
       user_id: user.id,
       name: `Failed Quest: ${task.title}`,
@@ -313,19 +376,58 @@ export function QuestsPage() {
       triggered: 1,
     });
 
-    // Deduct XP
+    // Deduct XP from total
     const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
     const newPoints = Math.max(0, (prof?.total_points ?? 0) - penalty);
     await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
 
-    // Deduct from daily log too
+    // Deduct from daily log
     const today = new Date().toISOString().split("T")[0];
     const { data: log } = await supabase.from("user_points").select("daily_points").eq("user_id", user.id).eq("date", today).maybeSingle();
     if (log) {
       await supabase.from("user_points").update({ daily_points: Math.max(0, log.daily_points - penalty) }).eq("user_id", user.id).eq("date", today);
     }
 
-    await syncProgression(supabase, user.id);
+    // Re-sync rank/level/title (may drop on heavy XP loss)
+    const progression = await syncProgression(supabase, user.id);
+    
+    // GENERATE MANDATORY PUNISHMENT QUEST
+    const punishment = getRandomPunishment();
+    await supabase.from("tasks").insert({
+      user_id: user.id,
+      title: `🚨 PENALTY: ${punishment.title}`,
+      description: punishment.desc,
+      points: punishment.points,
+      category: 'PUNISHMENT',
+      priority: 'URGENT',
+      is_active: true, // Auto-start the penalty
+      deadline: new Date().toISOString().split('T')[0], // Must be done today
+      xp_tier: 'High'
+    });
+
+    if (progression) {
+      // Show penalty toast
+      const msgs: string[] = [
+        `💀 MISSION FAILED — ${penalty} XP DEDUCTED`,
+        `🚨 SYSTEM ALERT: Penalty Quest Manifested! Check your active missions. Failure to comply will result in further mana decay.`
+      ];
+      if (progression.level < progression.prevLevel) msgs.push(`⬇️ LEVEL DOWN: ${progression.prevLevel} → ${progression.level}`);
+      if (progression.rank !== progression.prevRank) msgs.push(`⬇️ RANK DROPPED: ${progression.prevRank} → ${progression.rank}`);
+      setTimeout(() => alert(msgs.join("\n")), 100);
+    }
+
+    // --- Recurring Logic: Even if failed, reset for next occurrence ---
+    if (task.is_recurring) {
+      const nextDeadline = calculateNextDeadline(task);
+      await supabase.from("tasks").update({ 
+        is_completed: false, 
+        is_failed: false,
+        is_pending: false,
+        completed_at: null,
+        deadline: nextDeadline
+      }).eq("id", task.id);
+    }
+
     fetchQuests();
   };
 
@@ -437,6 +539,29 @@ export function QuestsPage() {
           </Button>
         </div>
       </div>
+      
+      {userStatus === 'PENALTY' && (
+        <div className="panel" style={{ 
+          background: 'rgba(239, 68, 68, 0.15)', 
+          border: '1px solid rgba(239, 68, 68, 0.3)', 
+          marginBottom: 20, 
+          padding: '12px 20px',
+          borderRadius: 'var(--r-md)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          color: '#ff4444'
+        }}>
+          <Skull size={20} className="animate-pulse" />
+          <div>
+            <strong style={{ display: 'block', fontSize: '0.85rem', letterSpacing: '1px' }}>SYSTEM PENALTY ACTIVE</strong>
+            <p style={{ fontSize: '0.75rem', opacity: 0.8, margin: '2px 0 0 0' }}>
+              Your Mana (XP) is negative. High-tier rewards are locked until debt is repaid. 
+              Earn {Math.abs(totalXp)} XP to stabilize your soul.
+            </p>
+          </div>
+        </div>
+      )}
 
       {showCal && (
         <div style={{ marginBottom: 24 }}>
@@ -568,35 +693,118 @@ export function QuestsPage() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Expiration Date (Deadline)</label>
-          <input type="date" className="form-input" value={formData.deadline}
-            onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+          <label className="form-label">
+            Deadline {editQuest && <span style={{ color: '#ff4444', fontSize: '0.6rem' }}>(IMMUTABLE)</span>}
+          </label>
+          <input 
+            type="date" 
+            className="form-input" 
+            value={formData.deadline} 
+            disabled={!!editQuest}
+            style={editQuest ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+            onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} 
+          />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div className="form-group">
+        <div className="form-group" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
             <label className="form-label">Start Time</label>
             <input type="time" className="form-input" value={formData.start_time}
               onChange={e => setFormData({ ...formData, start_time: e.target.value })} />
           </div>
-          <div className="form-group">
+          <div>
             <label className="form-label">End Time</label>
             <input type="time" className="form-input" value={formData.end_time}
               onChange={e => setFormData({ ...formData, end_time: e.target.value })} />
           </div>
         </div>
 
-        <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-          <input 
-            type="checkbox" 
-            id="recurring" 
-            checked={formData.is_recurring} 
-            onChange={e => setFormData({ ...formData, is_recurring: e.target.checked })}
-            style={{ width: 16, height: 16, accentColor: "#a8a8ff" }}
-          />
-          <label htmlFor="recurring" className="form-label" style={{ margin: 0, cursor: "pointer" }}>
-            Daily Routine (Auto-reset every day)
-          </label>
+        {/* ── RECURRENCE SYSTEM ── */}
+        <div className="form-group" style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: formData.is_recurring ? 12 : 0 }}>
+            <input 
+              type="checkbox" 
+              id="is_recurring" 
+              checked={formData.is_recurring} 
+              onChange={e => setFormData({ ...formData, is_recurring: e.target.checked, recurrence_type: e.target.checked ? 'daily' : 'none' })}
+              style={{ width: 16, height: 16, accentColor: 'var(--accent-primary)' }}
+            />
+            <label htmlFor="is_recurring" className="form-label" style={{ margin: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <RotateCcw size={14} /> Recurring Protocol (Quest will auto-reset)
+            </label>
+          </div>
+
+          {formData.is_recurring && (
+            <div style={{ paddingLeft: 26 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {(["daily","interval","weekly","monthly","custom"] as const).map(rt => (
+                  <button
+                    key={rt}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, recurrence_type: rt })}
+                    style={{
+                      padding: '6px 0',
+                      fontSize: '0.65rem',
+                      fontWeight: 900,
+                      letterSpacing: '1px',
+                      textTransform: 'uppercase',
+                      borderRadius: '8px',
+                      border: `1px solid ${formData.recurrence_type === rt ? 'rgba(168,168,255,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                      background: formData.recurrence_type === rt ? 'rgba(168,168,255,0.15)' : 'rgba(255,255,255,0.03)',
+                      color: formData.recurrence_type === rt ? 'var(--accent-primary)' : 'rgba(255,255,255,0.45)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {rt === 'daily' ? '📅 Daily' : rt === 'interval' ? '🔢 Every N' : rt === 'weekly' ? '📆 Weekly' : rt === 'monthly' ? '🗓 Monthly' : '⚙️ Custom'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sub-options for each type (Interval, Weekly, etc.) */}
+              {formData.recurrence_type === 'interval' && (
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--t2)' }}>Every</span>
+                  <input type="number" min={2} max={365} className="form-input" value={formData.recurrence_interval}
+                    onChange={e => setFormData({ ...formData, recurrence_interval: Math.max(2, parseInt(e.target.value) || 2) })} style={{ width: 70 }} />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--t2)' }}>days</span>
+                </div>
+              )}
+              {formData.recurrence_type === 'weekly' && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {["S","M","T","W","T","F","S"].map((day, idx) => {
+                      const active = formData.recurrence_days.includes(idx);
+                      return (
+                        <button key={idx} type="button" onClick={() => {
+                          const newDays = active ? formData.recurrence_days.filter(d => d !== idx) : [...formData.recurrence_days, idx].sort();
+                          setFormData({ ...formData, recurrence_days: newDays });
+                        }} style={{
+                          flex: 1, padding: '4px 0', fontSize: '0.6rem', fontWeight: 900, borderRadius: '6px',
+                          border: `1px solid ${active ? 'rgba(168,168,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
+                          background: active ? 'rgba(168,168,255,0.18)' : 'rgba(255,255,255,0.03)',
+                          color: active ? 'var(--accent-primary)' : 'rgba(255,255,255,0.35)',
+                        }}>{day}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {formData.recurrence_type === 'monthly' && (
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--t2)' }}>Day of month</span>
+                  <input type="number" min={1} max={31} className="form-input" value={formData.recurrence_day_of_month}
+                    onChange={e => setFormData({ ...formData, recurrence_day_of_month: Math.min(31, Math.max(1, parseInt(e.target.value) || 1)) })} style={{ width: 70 }} />
+                </div>
+              )}
+              {formData.recurrence_type === 'custom' && (
+                <div style={{ marginTop: 10 }}>
+                  <input className="form-input" placeholder="e.g. Every Mon & Wed" value={formData.recurrence_custom_label}
+                    onChange={e => setFormData({ ...formData, recurrence_custom_label: e.target.value })} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Leader-only: assign to clan member */}

@@ -1,4 +1,4 @@
-import { Home, ScrollText, Gift, User, LogOut, Brain, Swords, Users, Target, BookOpen, Bell, Flame, Backpack, Trophy } from "lucide-react";
+import { Home, ScrollText, Gift, User, LogOut, Brain, Swords, Users, Target, BookOpen, Flame, Backpack, Trophy } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
@@ -18,13 +18,12 @@ const links = [
 
 import { useNotifications } from "../lib/notificationContext";
 
-export function Sidebar() {
+export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onToggle: () => void }) {
   const { signOut, profile, user } = useAuth();
-  const { unreadCount } = useNotifications();
+  useNotifications(); // keep context subscription alive
   const navigate = useNavigate();
 
   const displayName = profile?.name ?? user?.email?.split("@")[0] ?? "Hunter";
-  const initial     = displayName.charAt(0).toUpperCase();
   const xp          = (profile as any)?.total_points ?? 0;
   const playerClass = (profile as any)?.player_class ?? "None";
   const playerRank  = (profile as any)?.player_rank  ?? "E";
@@ -42,24 +41,23 @@ export function Sidebar() {
 
       {/* ── Brand ── */}
       <div className="sb-brand">
-        <div className="sb-brand-icon">
-          <Brain size={20} strokeWidth={1.5} />
-        </div>
-        <div className="sb-brand-meta">
-          <div className="sb-brand-title">SOLO LEVELING</div>
-          <div className="sb-brand-sub">Second Brain 5.0</div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={() => navigate("/notifications")}
-          className={`sb-icon-btn${unreadCount > 0 ? " sb-icon-btn--unread" : ""}`}
-          aria-label="Notifications"
+        <button 
+          onClick={onToggle} 
+          className="sb-brand-btn" 
+          aria-label="Toggle Sidebar"
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
-          <Bell size={20} />
-          {unreadCount > 0 && (
-            <span className="sb-unread-dot" />
-          )}
+          <div className="sb-brand-icon">
+            <Brain size={isCollapsed ? 20 : 24} strokeWidth={1.5} />
+          </div>
         </button>
+        
+        {!isCollapsed && (
+          <div className="sb-brand-meta" onClick={onToggle} style={{ cursor: 'pointer' }}>
+            <div className="sb-brand-title">SOLO LEVELING</div>
+            <div className="sb-brand-sub">Shadow System v2.1</div>
+          </div>
+        )}
       </div>
 
       {/* ── Nav ── */}
@@ -71,49 +69,53 @@ export function Sidebar() {
             to={link.to}
             end={link.to === "/"}
             className={({ isActive }) => `sb-item${isActive ? " sb-item--active" : ""}${link.to === "/arena" ? " sb-item--arena" : ""}`}
+            title={isCollapsed ? link.label : undefined}
           >
-            <link.icon size={16} strokeWidth={1.8} />
-            <span>{link.label}</span>
+            <link.icon size={isCollapsed ? 16 : 18} strokeWidth={1.8} />
+            {!isCollapsed && <span>{link.label}</span>}
           </NavLink>
         ))}
       </nav>
 
-      {/* ── Spacer ── */}
-      <div style={{ flex: 1 }} />
+
 
       {/* ── User info ── */}
-      <div style={{ padding: "0 4px 4px" }}>
+      <div style={{ padding: "0 4px 4px", marginTop: 'auto' }}>
         <div className="sb-user-panel">
           <div className="sb-user-top">
             {/* Avatar */}
             <div className="sb-avatar-box">
-              {initial}
+               <User size={isCollapsed ? 14 : 16} />
             </div>
-            <div className="sb-user-meta">
-              <div className="sb-user-title">
-                {displayName}
+            {!isCollapsed && (
+              <div className="sb-user-meta">
+                <div className="sb-user-title">
+                  {displayName}
+                </div>
+                <div className="sb-user-tags">
+                  <span className="sb-tag sb-tag--class">{playerClass}</span>
+                  <span className="sb-tag">{playerRank}-Rank</span>
+                  {(profile as any)?.streak_count > 0 && (
+                    <span className="sb-tag sb-tag--streak">
+                      <Flame size={10} /> {(profile as any).streak_count}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="sb-user-tags">
-                <span className="sb-tag sb-tag--class">{playerClass}</span>
-                <span className="sb-tag">{playerRank}-Rank</span>
-                {(profile as any)?.streak_count > 0 && (
-                  <span className="sb-tag sb-tag--streak">
-                    <Flame size={10} /> {(profile as any).streak_count}
-                  </span>
-                )}
-              </div>
-            </div>
+            )}
           </div>
 
           {/* XP bar */}
-          <div className="sb-xp">
-            <div className="sb-xp-track" aria-hidden="true">
-              <div className="sb-xp-fill" style={{ width: `${xpPct}%` }} />
+          {!isCollapsed && (
+            <div className="sb-xp">
+              <div className="sb-xp-track" aria-hidden="true">
+                <div className="sb-xp-fill" style={{ width: `${xpPct}%` }} />
+              </div>
+              <div className="sb-xp-text">
+                {xp.toLocaleString()} / {xpToNext.toLocaleString()} XP · Lv.{level}
+              </div>
             </div>
-            <div className="sb-xp-text">
-              {xp.toLocaleString()} / {xpToNext.toLocaleString()} XP · Lv.{level}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Logout */}
@@ -121,9 +123,10 @@ export function Sidebar() {
           className="sb-logout"
           onClick={handleLogout}
           style={{ width: "100%" }}
+          title={isCollapsed ? "Sign Out" : undefined}
         >
-          <LogOut size={14} strokeWidth={1.8} />
-          <span>Sign Out</span>
+          <LogOut size={isCollapsed ? 14 : 16} strokeWidth={1.8} />
+          {!isCollapsed && <span>Sign Out</span>}
         </button>
       </div>
     </aside>

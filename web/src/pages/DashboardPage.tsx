@@ -17,6 +17,7 @@ type DashboardData = {
   activeCount: number;
   pendingCount: number;
   completedCount: number;
+  failedCount: number;
   totalXp: number;
   level: number;
   weeklyHistory: Array<{ date: string; daily_points: number }>;
@@ -76,11 +77,13 @@ export function DashboardPage() {
   const [recentActivity, setRecentActivity] = useState<RecentActivityRow[]>([]);
   const [affiliations, setAffiliations] = useState<AffiliationRow[]>([]);
   const [shadows, setShadows] = useState<any[]>([]);
+  const [showReawakening, setShowReawakening] = useState(false);
   
   const [data, setData] = useState<DashboardData & { player_rank?: string, player_title?: string }>({
     activeCount: 0,
     pendingCount: 0,
     completedCount: 0,
+    failedCount: 0,
     totalXp: 0, level: 1,
     weeklyHistory: [],
     monthlyHistory: [],
@@ -94,9 +97,11 @@ export function DashboardPage() {
     const userId = user.id;
     (async () => {
       try {
+        const today = new Date().toISOString().split("T")[0];
         const [
           { count: ac }, 
           { count: cc },
+          { count: fc },
           { count: pc },
           uRes, 
           pRes,
@@ -108,9 +113,10 @@ export function DashboardPage() {
           shadowsRes,
         ] = await Promise.all([
           supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",false).eq("is_pending",false).eq("is_failed",false),
-          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",true),
+          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_completed",true).eq("is_failed",false).gte("completed_at", today + "T00:00:00"),
+          supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_failed",true).gte("completed_at", today + "T00:00:00"),
           supabase.from("tasks").select("*",{count:"exact",head:true}).eq("user_id",userId).eq("is_pending",true).eq("is_completed",false),
-          supabase.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title").eq("user_id",userId).maybeSingle(),
+          supabase.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat").eq("user_id",userId).maybeSingle(),
           supabase.from("user_points").select("date,daily_points").eq("user_id",userId).order("date",{ascending:true}).limit(7),
           supabase.from("user_points").select("date,daily_points").eq("user_id",userId).order("date",{ascending:true}).limit(30),
           supabase.from("tasks").select("category,points").eq("user_id",userId),
@@ -119,6 +125,56 @@ export function DashboardPage() {
           supabase.from("clan_members").select("clan_id, clans(name, id), role").eq("user_id",userId),
           supabase.from("shadows").select("*").eq("user_id", userId),
         ]);
+
+        let currentStatus = uRes.data?.status || 'ACTIVE';
+        const lastHeartbeat = uRes.data?.last_heartbeat;
+        const now = new Date();
+
+        // System Sweep: If ACTIVE but heartbeat is older than 14 days
+        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+        const heartbeatDate = lastHeartbeat ? new Date(lastHeartbeat) : null;
+
+        if (currentStatus === 'ACTIVE') {
+          if (heartbeatDate && heartbeatDate < fourteenDaysAgo) {
+            currentStatus = 'DECEASED';
+            await supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", userId);
+          } else {
+            // Update heartbeat to keep account active
+            await supabase.from("user_profiles").update({ last_heartbeat: now.toISOString() }).eq("user_id", userId);
+          }
+        }
+
+        if (currentStatus === 'DECEASED') {
+          setShowReawakening(true);
+        }
+
+        // --- Task System Sweep: Mark Overdue as Failed ---
+        const todayStr = new Date().toISOString().split("T")[0];
+        const { data: allUserTasks } = await supabase.from("tasks").select("*").eq("user_id", userId);
+        if (allUserTasks) {
+          // 1. Catch-up Sweep for completed/failed recurring tasks
+          const expiredRecur = allUserTasks.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < todayStr);
+          if (expiredRecur.length > 0) {
+            const { findNextValidDeadline } = await import("../lib/taskUtils");
+            for (const task of expiredRecur) {
+              const nextDeadline = findNextValidDeadline(task);
+              await supabase.from("tasks").update({
+                is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline
+              }).eq("id", task.id);
+            }
+          }
+
+          // 2. Mark overdue active tasks as PENDING
+          const overdue = allUserTasks.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < todayStr);
+          if (overdue.length > 0) {
+            const overdueIds = overdue.map(t => t.id);
+            await supabase.from("tasks").update({ 
+              is_pending: true, is_completed: false, is_active: false
+            }).in("id", overdueIds);
+            
+            // No penalty for automatic migration to pending
+          }
+        }
 
         // Build affiliations
         const affils: AffiliationRow[] = [];
@@ -149,6 +205,7 @@ export function DashboardPage() {
           activeCount: ac ?? 0, 
           pendingCount: pc ?? 0,
           completedCount: cc ?? 0,
+          failedCount: fc ?? 0,
           totalXp: Number(uRes.data?.total_points ?? 0),
           level: Number(uRes.data?.level ?? 1),
           player_rank: uRes.data?.player_rank ?? "E",
@@ -181,8 +238,34 @@ export function DashboardPage() {
     await supabase.from("tasks").update({ is_completed: !isCompleted, completed_at: !isCompleted ? new Date().toISOString() : null }).eq("id", taskId);
   };
 
+  const handleArise = async () => {
+    if (!supabase || !user) return;
+    setShowReawakening(false);
+    await supabase.from("user_profiles").update({ 
+      status: 'ACTIVE', 
+      last_heartbeat: new Date().toISOString(),
+      reawakened_at: new Date().toISOString()
+    }).eq("user_id", user.id);
+  };
+
   return (
-    <div className="content-inner">
+    <section className="page dashboard-page">
+      <div className="tactical-overlay" />
+      {/* ── REAWAKENING OVERLAY ── */}
+      {showReawakening && (
+        <div className="reawakening-overlay">
+          <div className="reawakening-content">
+            <div className="reawakening-glitch">SYSTEM FAILURE: HUNTER DECEASED</div>
+            <div className="reawakening-msg">
+              <div className="reawakening-skull" style={{ color: 'var(--destruction-red)' }}><Skull size={80} /></div>
+              <h2 style={{ color: 'var(--destruction-red)' }}>DECEASED ACCOUNT</h2>
+              <p>Your hunter record has been moved to the archives due to prolonged inactivity.</p>
+              <p className="reawakening-hint">Attempting to synchronize with the Shadow Monarch...</p>
+            </div>
+            <button className="reawakening-btn" onClick={handleArise} style={{ borderColor: 'var(--destruction-red)', color: 'var(--destruction-red)' }}>ARISE</button>
+          </div>
+        </div>
+      )}
 
       {/* ── TOP LEVEL BAR ── */}
       <div className="dashboard-section-header" style={{ marginBottom: 40 }}>
@@ -272,6 +355,18 @@ export function DashboardPage() {
           <Activity size={32} className="q-card-icon" />
         </div>
 
+        <div className="db-quantum-card ds-glass q-aura-red">
+          <div className="q-card-glow" />
+          <div className="q-card-content">
+            <span className="q-card-lbl">Failed Today</span>
+            <span className="q-card-val">{data.failedCount}</span>
+            <div className="q-card-footer">
+              <span className="q-card-trend" style={{ color: '#ff4444' }}>MANA DECAY</span>
+            </div>
+          </div>
+          <Skull size={32} className="q-card-icon" />
+        </div>
+
         <div className="db-quantum-card ds-glass q-aura-purple">
           <div className="q-card-glow" />
           <div className="q-card-content">
@@ -325,6 +420,10 @@ export function DashboardPage() {
         .q-aura-green { border: 1px solid rgba(34,136,85,0.15); }
         .q-aura-green .q-card-glow { background: radial-gradient(circle, rgba(34,136,85,0.08) 0%, transparent 70%); }
         .q-aura-green .q-card-footer { color: #228855; }
+
+        .q-aura-red { border: 1px solid rgba(239,68,68,0.15); }
+        .q-aura-red .q-card-glow { background: radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%); }
+        .q-aura-red .q-card-footer { color: #ff4444; }
       `}</style>
 
       {/* ── PROGRESS / CHARTS ── */}
@@ -742,7 +841,41 @@ export function DashboardPage() {
         .dip-name { font-size: 0.9rem; font-weight: 800; color: var(--t1); }
         .dip-type { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--t4); margin-top: 2px; }
         .dip-role { font-size: 0.55rem; padding: 3px 8px; border-radius: 6px; background: rgba(168,168,255,0.1); color: var(--accent-primary); border: 1px solid rgba(168,168,255,0.2); }
+        
+        /* ══ REAWAKENING ══ */
+        .reawakening-overlay {
+          position: fixed; inset: 0; z-index: 10000;
+          background: #000; display: flex; align-items: center; justify-content: center;
+          animation: reawakenFade 1s ease;
+        }
+        @keyframes reawakenFade { from { opacity: 0; } to { opacity: 1; } }
+        
+        .reawakening-content { text-align: center; max-width: 400px; padding: 40px; }
+        .reawakening-glitch {
+          font-size: 0.8rem; font-weight: 950; letter-spacing: 8px; color: var(--accent-primary);
+          margin-bottom: 40px; animation: glitchText 0.2s infinite;
+        }
+        @keyframes glitchText { 
+          0% { transform: translate(0); }
+          20% { transform: translate(-2px, 1px); }
+          40% { transform: translate(2px, -1px); }
+          60% { transform: translate(-2px, -1px); }
+          80% { transform: translate(2px, 1px); }
+          100% { transform: translate(0); }
+        }
+        
+        .reawakening-skull { margin-bottom: 24px; color: var(--accent-primary); filter: drop-shadow(0 0 20px var(--accent-glow)); }
+        .reawakening-content h2 { font-size: 1.8rem; font-weight: 950; margin-bottom: 12px; letter-spacing: 2px; }
+        .reawakening-content p { color: var(--t3); font-size: 0.9rem; margin-bottom: 8px; line-height: 1.5; }
+        .reawakening-hint { font-size: 0.7rem !important; opacity: 0.5; font-style: italic; margin-top: 20px !important; }
+        
+        .reawakening-btn {
+          margin-top: 40px; background: none; border: 1px solid var(--accent-primary);
+          color: var(--accent-primary); padding: 12px 40px; border-radius: 4px;
+          font-weight: 900; cursor: pointer; letter-spacing: 4px; transition: 0.3s;
+        }
+        .reawakening-btn:hover { background: var(--accent-primary); color: #000; box-shadow: 0 0 30px var(--accent-glow); }
       `}</style>
-    </div>
+    </section>
   );
 }

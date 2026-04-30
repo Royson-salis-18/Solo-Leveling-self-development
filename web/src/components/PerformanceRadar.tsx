@@ -22,7 +22,7 @@ export function PerformanceRadar({ data, title, height = 320 }: Props) {
         </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
-        <RadarChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }} outerRadius="80%">
+        <RadarChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 30 }} outerRadius="65%">
           <defs>
             <linearGradient id="purpleRadarFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity={0.6} />

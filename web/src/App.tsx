@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider }      from "./lib/authContext";
 import { NotificationProvider } from "./lib/notificationContext";
@@ -20,6 +21,8 @@ import { CollectionPage }    from "./pages/CollectionPage";
 import "./app.css";
 
 function AppContent() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
     <Routes>
       {/* Auth */}
@@ -31,9 +34,9 @@ function AppContent() {
         path="/*"
         element={
           <ProtectedRoute>
-            <div className="layout">
+            <div className={`layout ${isCollapsed ? 'sb-collapsed' : ''}`}>
               <div className="system-bg-overlay"></div>
-              <Sidebar />
+              <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
               <main className="content">
                 <Routes>
                   <Route path="/"            element={<DashboardPage />} />

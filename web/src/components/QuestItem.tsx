@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "./Button";
-import { CheckCircle, Trash2, Edit3, Plus, Zap, AlertTriangle, Clock, Activity, Layers, ShieldAlert, Circle, Lock, RotateCcw, RefreshCw } from "lucide-react";
+import { CheckCircle, Trash2, Edit3, Plus, Zap, AlertTriangle, Clock, Activity, Layers, ShieldAlert, Circle, Lock, RotateCcw, RefreshCw, Skull } from "lucide-react";
 import { RaidTimer } from "./RaidTimer";
 
 export interface DBTask {
@@ -147,6 +147,11 @@ export function QuestItem({
                 <AlertTriangle size={9} /> PENDING
               </span>
             )}
+            {quest.is_failed && (
+              <span className="quest-status-tag tag-failed">
+                <Skull size={9} /> MISSION FAILED
+              </span>
+            )}
             {dungeonGrade && (
               <span className={`quest-status-tag ${isRedGate ? 'tag-red' : 'tag-double'}`}>
                 {isRedGate ? <ShieldAlert size={9} /> : <Layers size={9} />} {dungeonGrade.toUpperCase()}
@@ -197,6 +202,12 @@ export function QuestItem({
                 {quest.description}
               </span>
             )}
+            {quest.is_recurring && (
+              <span className="tag" style={{ color: 'var(--accent-primary)', borderColor: 'rgba(168,168,255,0.3)', background: 'rgba(168,168,255,0.05)', gap: 4, display: 'inline-flex', alignItems: 'center' }}>
+                <RotateCcw size={10} />
+                {(quest as any).recurrence_type?.toUpperCase() || "RECURRING"}
+              </span>
+            )}
           </div>
         </div>
 
@@ -211,7 +222,7 @@ export function QuestItem({
         {/* Actions */}
         {!readOnly && (
           <div className="flex-shrink-0 flex gap-4 action-buttons" style={{ opacity: isCompleted ? 0.4 : 1 }}>
-            {/* Pause / Restart (Only for active gates) */}
+            {/* Pause / Restart (Only for active raids) */}
             {quest.is_active && !isCompleted && (
               <>
                 {quest.is_paused ? (
@@ -237,12 +248,12 @@ export function QuestItem({
               </Button>
             )}
 
+            {/* RESOLVE for pending tasks */}
             {isPending && onComplete && (
               <Button variant="success" size="sm" onClick={() => onComplete(quest.id, false)} title="Resolve">Resolve</Button>
             )}
-            {isPending && onFail && (
-              <Button variant="danger" size="sm" onClick={() => onFail(quest.id)} title="Fail">Fail</Button>
-            )}
+
+            {/* CONQUER for active non-pending tasks */}
             {onComplete && !isCompleted && !isPending && (
               <Button 
                 variant={isLocked ? "secondary" : "success"} 
@@ -265,8 +276,31 @@ export function QuestItem({
                 ) : "CONQUER"}
               </Button>
             )}
+
+            {/* FAIL button — shown for pending AND active non-completed tasks */}
+            {onFail && !isCompleted && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => onFail(quest.id)}
+                title={`Fail mission — deducts ${quest.points} XP`}
+                className="btn-fail-quest"
+                style={{
+                  gap: 4,
+                  background: 'rgba(239,68,68,0.12)',
+                  border: '1px solid rgba(239,68,68,0.35)',
+                  color: '#ff4444',
+                  fontWeight: 900,
+                  letterSpacing: '0.5px',
+                }}
+              >
+                <Skull size={11} />
+                <span style={{ fontSize: '0.6rem' }}>FAIL</span>
+              </Button>
+            )}
+
             {onPending && !isCompleted && !isPending && (
-              <Button variant="secondary" size="sm" onClick={() => onPending(quest.id)} title="Pending"><Clock size={12} /></Button>
+              <Button variant="secondary" size="sm" onClick={() => onPending(quest.id)} title="Defer to Pending"><Clock size={12} /></Button>
             )}
             {!isCompleted && !isPending && onSkip && (
               <Button variant="secondary" size="sm" onClick={() => onSkip(quest.id)} title="Skip"><Zap size={12} /></Button>
@@ -339,6 +373,14 @@ export function QuestItem({
         .tag-red { background: rgba(255,68,68,0.2); color: #ff4444; border: 1px solid #ff4444; box-shadow: 0 0 10px rgba(255,68,68,0.3); }
         .tag-locked { background: rgba(255,204,0,0.15); color: #ffcc00; border: 1px solid #ffcc00; }
         .tag-boss-unlocked { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid #34d399; box-shadow: 0 0 15px rgba(52,211,153,0.3); }
+        .tag-failed {
+          background: rgba(239,68,68,0.2); color: #ff4444; border: 1px solid rgba(239,68,68,0.5);
+          box-shadow: 0 0 12px rgba(239,68,68,0.35); animation: failed-pulse 2s infinite;
+        }
+        @keyframes failed-pulse {
+          0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.3); }
+          50% { box-shadow: 0 0 18px rgba(239,68,68,0.6); }
+        }
         
         .subtask-progress {
           font-size: 0.65rem; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 4px; transition: 0.3s;
@@ -362,6 +404,13 @@ export function QuestItem({
         }
 
         .locked-objective { border-left: 3px solid #ffcc00 !important; }
+
+        .btn-fail-quest:hover {
+          background: rgba(239,68,68,0.25) !important;
+          border-color: #ff4444 !important;
+          box-shadow: 0 0 16px rgba(239,68,68,0.4) !important;
+          transform: scale(1.05);
+        }
 
         @keyframes red-glitch {
           0%, 100% { box-shadow: 0 0 5px rgba(255,68,68,0.1); }

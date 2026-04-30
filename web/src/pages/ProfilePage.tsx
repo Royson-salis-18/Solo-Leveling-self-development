@@ -26,15 +26,17 @@ type Profile = {
   weapon_of_choice?: string;
   gear_style?: string;
   created_at?: string;
-  strength: number;
-  agility: number;
-  intelligence: number;
-  vitality: number;
+  stat_strength: number;
+  stat_agility: number;
+  stat_intelligence: number;
+  stat_vitality: number;
+  stat_sense: number;
   guild_aura_card?: string;
   guild_title?: string;
   guild_logo?: string;
   player_job?: string;
   monarch_allegiance?: string;
+  status?: string;
 };
 
 
@@ -59,10 +61,17 @@ export function ProfilePage() {
   const [editData, setEditData] = useState({
     name: "", bio: "", player_class: "Warrior", player_title: "Rookie",
     age: 0, weapon_of_choice: "Starter Blade", gear_style: "Modern",
-    strength: 10, agility: 10, intelligence: 10, vitality: 10,
+    strength: 10, agility: 10, intelligence: 10, vitality: 10, sense: 10,
     guild_aura_card: "shadow", guild_title: "", guild_logo: "",
     player_job: "Berserker", monarch_allegiance: "None"
   });
+  const [hunterStats, setHunterStats] = useState([
+    { category: "Strength", value: 10, fullMark: 100 },
+    { category: "Agility", value: 10, fullMark: 100 },
+    { category: "Sense", value: 10, fullMark: 100 },
+    { category: "Intelligence", value: 10, fullMark: 100 },
+    { category: "Vitality", value: 10, fullMark: 100 },
+  ]);
   const [areaStats, setAreaStats] = useState([
     { category: "Work", value: 0, fullMark: 100 },
     { category: "Fitness", value: 0, fullMark: 100 },
@@ -73,17 +82,30 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [flipped, setFlipped] = useState(false);
+  const [globalRank, setGlobalRank] = useState<number | string>("...");
 
   const fetchProfile = async () => {
     if (!supabase || !user) return;
     setLoading(true);
-    const [profRes, taskRes] = await Promise.all([
-      supabase.from("user_profiles").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("tasks").select("category").eq("assigned_to", user.id).eq("is_completed", true)
-    ]);
-
+    const profRes = await supabase.from("user_profiles").select("*").eq("user_id", user.id).maybeSingle();
+    
     if (profRes.data) {
       const prof = profRes.data;
+      const [taskRes, rankRes] = await Promise.all([
+        supabase.from("tasks").select("category").eq("assigned_to", user.id).eq("is_completed", true),
+        supabase.from("user_profiles").select("user_id", { count: "exact", head: true }).gt("total_points", prof.total_points || 0)
+      ]);
+      
+      // Local System Sweep: Check if this profile should be DECEASED (7 Days Inactivity)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const heartbeat = prof.last_heartbeat ? new Date(prof.last_heartbeat) : null;
+      
+      if (prof.status === 'ACTIVE' && (!heartbeat || heartbeat < sevenDaysAgo)) {
+        prof.status = 'DECEASED';
+        // Background update
+        supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", user.id).then();
+      }
+
       setProfile(prof);
       setEditData({
         name: prof.name, bio: prof.bio,
@@ -91,16 +113,25 @@ export function ProfilePage() {
         age: prof.age || 18,
         weapon_of_choice: prof.weapon_of_choice || "Starter Blade",
         gear_style: prof.gear_style || "Modern",
-        strength: prof.strength || 10,
-        agility: prof.agility || 10,
-        intelligence: prof.intelligence || 10,
-        vitality: prof.vitality || 10,
+        strength: prof.stat_strength || 10,
+        agility: prof.stat_agility || 10,
+        intelligence: prof.stat_intelligence || 10,
+        vitality: prof.stat_vitality || 10,
+        sense: prof.stat_sense || 10,
         guild_aura_card: prof.guild_aura_card || "shadow",
         guild_title: prof.guild_title || "",
         guild_logo: prof.guild_logo || "",
         player_job: prof.player_job || (PLAYER_JOBS[prof.player_class]?.[0] || ""),
         monarch_allegiance: prof.monarch_allegiance || "None"
       });
+
+      setHunterStats([
+        { category: "Strength", value: prof.stat_strength || 10, fullMark: 100 },
+        { category: "Agility", value: prof.stat_agility || 10, fullMark: 100 },
+        { category: "Sense", value: prof.stat_sense || 10, fullMark: 100 },
+        { category: "Intelligence", value: prof.stat_intelligence || 10, fullMark: 100 },
+        { category: "Vitality", value: prof.stat_vitality || 10, fullMark: 100 },
+      ]);
 
       const tasks = taskRes.data || [];
       const counts: Record<string, number> = { Work: 0, Fitness: 0, Learning: 0, Mind: 0, Social: 0 };
@@ -125,6 +156,9 @@ export function ProfilePage() {
         { category: "Mind", value: Math.min(100, Math.floor((counts.Mind * 5 + 10) * weights.Mind)), fullMark: 100 },
         { category: "Social", value: Math.min(100, Math.floor((counts.Social * 5 + 10) * weights.Social)), fullMark: 100 },
       ]);
+
+      // Calculate Real Global Rank using count of users with more points
+      setGlobalRank((rankRes.count ?? 0) + 1);
     }
     setLoading(false);
   };
@@ -147,6 +181,27 @@ export function ProfilePage() {
     setSaving(false);
   };
 
+  const handleRevive = async () => {
+    if (!supabase || !user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("user_profiles").update({ 
+        status: 'ACTIVE', 
+        last_heartbeat: new Date().toISOString(),
+        last_active_date: new Date().toISOString().split('T')[0]
+      }).eq("user_id", user.id);
+      
+      if (error) throw error;
+      
+      await fetchProfile();
+      alert("✨ SYSTEM: YOUR SHADOW HAS RE-AWAKENED. WELCOME BACK, MONARCH.");
+    } catch (err) {
+      console.error("Revival Error:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!supabase || !user || !editData.name.trim()) return;
     setSaving(true);
@@ -165,10 +220,11 @@ export function ProfilePage() {
         age: editData.age,
         weapon_of_choice: editData.weapon_of_choice,
         gear_style: editData.gear_style,
-        strength: editData.strength,
-        agility: editData.agility,
-        intelligence: editData.intelligence,
-        vitality: editData.vitality,
+        stat_strength: editData.strength,
+        stat_agility: editData.agility,
+        stat_intelligence: editData.intelligence,
+        stat_vitality: editData.vitality,
+        stat_sense: (editData as any).sense || 10,
         guild_aura_card: editData.guild_aura_card,
         guild_title: editData.guild_title,
         guild_logo: editData.guild_logo,
@@ -178,7 +234,10 @@ export function ProfilePage() {
       .eq("user_id", user.id)
       .select()
       .single();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data);
+      await fetchProfile();
+    }
     setSaving(false);
     setShowEdit(false);
   };
@@ -205,19 +264,12 @@ export function ProfilePage() {
   const initial = profile.name.charAt(0).toUpperCase();
   const nextRank = nextRankInfo(profile.player_rank);
 
-  const roleClass =
-    profile.player_class?.toLowerCase().includes("assassin") ? "role-assassin" :
-      profile.player_class?.toLowerCase().includes("mage") ? "role-mage" :
-        profile.player_class?.toLowerCase().includes("tank") ? "role-tank" :
-          profile.player_class?.toLowerCase().includes("archer") ? "role-archer" :
-            profile.player_class?.toLowerCase().includes("warrior") ? "role-warrior" :
-              "role-default";
-
   const stats = [
-    { label: "Strength", icon: Swords, value: profile.strength, color: "#ff6b6b" },
-    { label: "Agility", icon: Zap, value: profile.agility, color: "var(--frost-blue)" },
-    { label: "Intelligence", icon: Brain, value: profile.intelligence, color: "var(--monarch-purple)" },
-    { label: "Vitality", icon: Activity, value: profile.vitality, color: "#34d399" },
+    { label: "Strength", icon: Swords, value: profile.stat_strength, color: "#ff6b6b" },
+    { label: "Agility", icon: Zap, value: profile.stat_agility, color: "var(--frost-blue)" },
+    { label: "Intelligence", icon: Brain, value: profile.stat_intelligence, color: "var(--monarch-purple)" },
+    { label: "Vitality", icon: Activity, value: profile.stat_vitality, color: "#34d399" },
+    { label: "Sense", icon: Crosshair, value: profile.stat_sense, color: "#ffd700" },
   ];
 
   const WEAPONS = ITEM_CATALOG.filter(i => i.item_type === "WEAPON").map(i => ({
@@ -236,17 +288,38 @@ export function ProfilePage() {
   );
 
   return (
-    <section className={`page profile-page ${roleClass}`}>
+    <section className="page profile-page">
 
       {/* ── PAGE HEADER ── */}
       <div className="pf-page-header">
         <div>
           <h2 className="page-title" style={{ margin: 0 }}>Hunter Identity</h2>
-          <p className="pf-subtitle">Official System Record • Status: Active</p>
+          <p className="pf-subtitle">
+            Official System Record • Status: <span style={{ color: profile.status === 'DECEASED' ? 'var(--destruction-red)' : 'var(--accent-primary)', fontWeight: 900 }}>{profile.status || 'ACTIVE'}</span>
+          </p>
         </div>
-        <Button variant="secondary" onClick={() => setShowEdit(true)} style={{ height: 44, borderRadius: 12 }}>
-          <Edit3 size={16} /> Re-Evaluate
-        </Button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {profile.status === 'DECEASED' && (
+            <Button 
+              variant="primary" 
+              onClick={handleRevive} 
+              disabled={saving}
+              className="animate-pulse"
+              style={{ 
+                background: 'linear-gradient(135deg, var(--monarch-purple), #ff00ff)', 
+                borderColor: '#ff00ff',
+                boxShadow: '0 0 20px rgba(255, 0, 255, 0.4)',
+                fontWeight: 900,
+                letterSpacing: '2px'
+              }}
+            >
+              <Zap size={16} /> ARISE
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => setShowEdit(true)} style={{ height: 44, borderRadius: 12 }}>
+            <Edit3 size={16} /> Re-Evaluate
+          </Button>
+        </div>
       </div>
 
       {/* ── TIER 1: LICENSE + ARMAMENT ── */}
@@ -322,10 +395,11 @@ export function ProfilePage() {
                     Sync Serial: SRN-{profile.user_id.slice(0, 10).toUpperCase()}
                   </p>
                   <div className="pf-back-stats">
-                    <div className="pf-bs"><span>STR</span>{profile.strength}</div>
-                    <div className="pf-bs"><span>AGI</span>{profile.agility}</div>
-                    <div className="pf-bs"><span>INT</span>{profile.intelligence}</div>
-                    <div className="pf-bs"><span>VIT</span>{profile.vitality}</div>
+                    <div className="pf-bs"><span>STR</span>{profile.stat_strength}</div>
+                    <div className="pf-bs"><span>AGI</span>{profile.stat_agility}</div>
+                    <div className="pf-bs"><span>INT</span>{profile.stat_intelligence}</div>
+                    <div className="pf-bs"><span>VIT</span>{profile.stat_vitality}</div>
+                    <div className="pf-bs"><span>SNS</span>{profile.stat_sense}</div>
                   </div>
                   <div className="pf-qr-row">
                     <QrCode size={44} strokeWidth={1.2} color="#fff" style={{ opacity: 0.35 }} />
@@ -389,10 +463,13 @@ export function ProfilePage() {
         </div>
 
         {/* RESONANCE RADAR + SYNC */}
-        <div className="panel ds-glass pf-panel pf-panel-center">
+        <div className="panel ds-glass pf-panel pf-panel-center" style={{ minWidth: 400 }}>
           <h3 className="pf-panel-title" style={{ alignSelf: "flex-start" }}>Resonance Matrix</h3>
-          <PerformanceRadar data={areaStats} height={240} />
-          <div className="pf-sync-row">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, width: '100%' }}>
+            <PerformanceRadar data={areaStats} height={200} title="MISSION RESONANCE" />
+            <PerformanceRadar data={hunterStats} height={200} title="HUNTER POTENTIAL" />
+          </div>
+          <div className="pf-sync-row" style={{ marginTop: 24 }}>
             <div className="pf-lvl-circle">
               <div className="orbit-energy orbit-1" />
               <span className="pf-lvl-val">{profile.level}</span>
@@ -423,7 +500,9 @@ export function ProfilePage() {
           <div className="pf-records">
             <div className="pf-record-item">
               <span>GLOBAL RANK</span>
-              <strong style={{ color: "var(--accent-primary)", fontSize: "1.15rem" }}>#1,242</strong>
+              <strong style={{ color: "var(--accent-primary)", fontSize: "1.15rem" }}>
+                #{typeof globalRank === 'number' ? globalRank.toLocaleString() : globalRank}
+              </strong>
             </div>
             <div className="pf-record-item">
               <span>MANA TOTAL</span>
@@ -571,6 +650,10 @@ export function ProfilePage() {
             <input type="number" className="form-input" value={editData.vitality} onChange={e => setEditData({ ...editData, vitality: parseInt(e.target.value) || 0 })} />
           </div>
         </div>
+        <div className="form-group">
+          <label className="form-label">Sense (Perception)</label>
+          <input type="number" className="form-input" value={(editData as any).sense} onChange={e => setEditData({ ...editData, sense: parseInt(e.target.value) || 0 } as any)} />
+        </div>
         <div className="form-group mt-16">
           <label className="form-label">Personal Directive (Bio)</label>
           <textarea className="form-textarea" rows={3} value={editData.bio} onChange={e => setEditData({ ...editData, bio: e.target.value })} />
@@ -597,13 +680,10 @@ export function ProfilePage() {
         /* ── TIER 1: LICENSE + ARMAMENT ── */
         .pf-tier1 {
           display: grid;
-          grid-template-columns: minmax(480px, 1fr) 1fr;
-          gap: 40px;
+          grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+          gap: 32px;
           margin-bottom: 48px;
           align-items: start;
-          max-width: 1200px;
-          margin-left: auto;
-          margin-right: auto;
         }
 
         /* LICENSE COL */
@@ -615,8 +695,9 @@ export function ProfilePage() {
         }
         .pf-flip-container {
           perspective: 2000px;
-          width: 540px;
-          height: 340px; /* Credit card aspect ratio ~1.58 */
+          width: 580px;
+          max-width: 100%;
+          height: 360px;
           cursor: pointer;
         }
         .pf-flipper {
@@ -822,7 +903,7 @@ export function ProfilePage() {
         /* ── TIER 2 ── */
         .pf-tier2 {
           display: grid;
-          grid-template-columns: 1fr 1.4fr 1fr;
+          grid-template-columns: 320px 1fr 320px;
           gap: 28px;
           margin-bottom: 56px;
           align-items: start;

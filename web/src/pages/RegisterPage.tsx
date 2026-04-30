@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
-import { Brain, Shield, Zap, Sword, Heart, Star, Target, Eye, Cpu, Crown } from "lucide-react";
+import { Brain, Shield, Zap, Sword, Heart, Star, Target, Eye, Cpu } from "lucide-react";
 
 const CLASSES: { name: string; icon: React.ReactNode; desc: string }[] = [
   { name: "Assassin",       icon: <Sword  size={14} />, desc: "Shadow strikes" },
@@ -12,8 +12,8 @@ const CLASSES: { name: string; icon: React.ReactNode; desc: string }[] = [
   { name: "Ranger",         icon: <Target size={14} />, desc: "Long-range"      },
   { name: "Tamer",          icon: <Star   size={14} />, desc: "Beast command"   },
   { name: "Necromancer",    icon: <Eye    size={14} />, desc: "Death arts"      },
-  { name: "Engineer",       icon: <Cpu    size={14} />, desc: "Techcraft"       },
-  { name: "Shadow Monarch", icon: <Crown  size={14} />, desc: "Apex dominance"  },
+  { name: "Craftsman",      icon: <Cpu    size={14} />, desc: "Divine forging"    },
+  { name: "Scout",          icon: <Target size={14} />, desc: "Tactical intel"    },
 ];
 
 export function RegisterPage() {

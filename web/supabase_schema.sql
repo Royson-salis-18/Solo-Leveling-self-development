@@ -58,12 +58,19 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     player_class   TEXT DEFAULT 'Warrior',
     player_rank    TEXT DEFAULT 'E',
     player_title   TEXT DEFAULT 'Newcomer',
+    status         TEXT DEFAULT 'ACTIVE',
+    last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     guild_id       UUID REFERENCES guilds(id) ON DELETE SET NULL,
     clan_id        UUID REFERENCES clans(id) ON DELETE SET NULL,
     is_boosted     BOOLEAN DEFAULT FALSE,
     age            INTEGER DEFAULT 18,
     weapon_of_choice TEXT DEFAULT 'Starter Blade',
     gear_style     TEXT DEFAULT 'Hybrid',
+    stat_strength  INTEGER DEFAULT 10,
+    stat_agility   INTEGER DEFAULT 10,
+    stat_intelligence INTEGER DEFAULT 10,
+    stat_vitality  INTEGER DEFAULT 10,
+    stat_sense     INTEGER DEFAULT 10,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -76,6 +83,30 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS is_boosted       BOOLEAN DEFA
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS age              INTEGER DEFAULT 18;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS weapon_of_choice TEXT DEFAULT 'Starter Blade';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS gear_style       TEXT DEFAULT 'Hybrid';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_strength    INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_agility     INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_intelligence INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_vitality    INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_sense       INTEGER DEFAULT 10;
+
+-- ==========================================
+-- SYSTEM REAPER (Inactivity Monitor)
+-- Flags hunters as DECEASED after 7 days of inactivity.
+-- ==========================================
+
+CREATE OR REPLACE FUNCTION handle_deceased_hunters()
+RETURNS void AS $$
+BEGIN
+    UPDATE user_profiles
+    SET status = 'DECEASED'
+    WHERE status = 'ACTIVE'
+      AND last_heartbeat < (now() - interval '7 days');
+END;
+$$ LANGUAGE plpgsql;
+
+-- To automate this in Supabase:
+-- 1. Enable pg_cron: 'CREATE EXTENSION IF NOT EXISTS pg_cron;'
+-- 2. Schedule: "SELECT cron.schedule('0 0 * * *', 'SELECT handle_deceased_hunters()');"
 
 -- ==========================================
 -- TASKS / QUESTS
@@ -521,4 +552,8 @@ CREATE POLICY "Users can manage own skills" ON skills FOR ALL USING (auth.uid() 
 -- ==========================================
 ALTER TABLE guilds ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE guilds ADD COLUMN IF NOT EXISTS aura_theme TEXT;
+
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS reawakened_at TIMESTAMP WITH TIME ZONE;
 

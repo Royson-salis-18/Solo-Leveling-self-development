@@ -123,7 +123,7 @@ export const ITEM_CATALOG: InventoryItem[] = [
 ];
 
 export const PLAYER_CLASSES = [
-  "Warrior", "Mage", "Assassin", "Tank", "Healer", "Archer", "Shadow Monarch"
+  "Warrior", "Mage", "Assassin", "Tank", "Healer", "Archer", "Necromancer", "Tamer", "Craftsman", "Scout"
 ] as const;
 
 export const PLAYER_JOBS: Record<string, string[]> = {
@@ -133,7 +133,9 @@ export const PLAYER_JOBS: Record<string, string[]> = {
   "Tank": ["Guardian", "Immortal", "Colossus"],
   "Healer": ["Saint", "High Priest", "Druid"],
   "Archer": ["Sniper", "Wind Walker", "Ranger"],
-  "Shadow Monarch": ["Monarch of Shadows", "King of the Dead", "Arise"]
+  "Necromancer": ["Lich", "Death Knight", "Shadow Sovereign"],
+  "Craftsman": ["Artisan", "Blacksmith", "Soul Forger"],
+  "Scout": ["Pathfinder", "Navigator", "Void Tracker"]
 };
 
 export const MONARCHS = [

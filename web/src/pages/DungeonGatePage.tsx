@@ -3,17 +3,25 @@ import { Modal }          from "../components/Modal";
 import { Button }         from "../components/Button";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
-import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers } from "lucide-react";
+import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers, XCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
-import { syncProgression, showProgressionToast, applyXpBoost } from "../lib/levelEngine";
+import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
 import { RaidTimer } from "../components/RaidTimer";
+import { calculateNextDeadline, findNextValidDeadline } from "../lib/taskUtils";
+
+const WEEKDAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
   deadline: "", start_time: "", end_time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,
-  is_recurring: false,
+  // Recurrence
+  recurrence_type: "none" as "none" | "daily" | "interval" | "weekly" | "monthly" | "custom",
+  recurrence_interval: 1,      // every N days/weeks/months
+  recurrence_days: [] as number[], // 0-6 for weekly (0=Sun)
+  recurrence_day_of_month: 1,  // 1-31 for monthly
+  recurrence_custom_label: "", // free-form label for custom
 };
 
 
@@ -27,6 +35,8 @@ export function DungeonGatePage() {
    const [formData,     setFormData]     = useState(EMPTY_FORM);
   const [editingId,    setEditingId]    = useState<string | null>(null);
   const [saving,       setSaving]       = useState(false);
+  const [userStatus,   setUserStatus]   = useState<string>("ACTIVE");
+  const [totalXp,      setTotalXp]      = useState<number>(0);
 
   // Filters & Details
   const [catFilter,    setCatFilter]    = useState("All");
@@ -70,12 +80,34 @@ export function DungeonGatePage() {
       const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
       if (error) throw error;
       if (data) {
+        // --- Catch-up Sweep for Recurring Gates ---
+        const today = new Date().toISOString().split("T")[0];
+        const expiredRecurring = data.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < today);
+        if (expiredRecurring.length > 0) {
+          for (const task of expiredRecurring) {
+            const nextDeadline = findNextValidDeadline(task);
+            await supabase.from("tasks").update({
+              is_completed: false,
+              is_failed: false,
+              is_pending: false,
+              completed_at: null,
+              deadline: nextDeadline
+            }).eq("id", task.id);
+          }
+          return fetchQuests();
+        }
+
         const tree = buildTaskTree(data);
         setTasks(tree);
       }
     } catch (err) {
       console.error("Fetch Error:", err);
     } finally {
+      const { data: profile } = await supabase.from("user_profiles").select("status, total_points").eq("user_id", user.id).single();
+      if (profile) {
+        setUserStatus(profile.status || "ACTIVE");
+        setTotalXp(profile.total_points || 0);
+      }
       setLoading(false);
     }
   };
@@ -139,6 +171,7 @@ export function DungeonGatePage() {
     if (!supabase || !user || !formData.title.trim()) return;
     setSaving(true);
     try {
+      const isRecurring = formData.recurrence_type !== "none";
       const payload: any = {
         user_id: user.id,
         assigned_to: user.id,
@@ -151,7 +184,12 @@ export function DungeonGatePage() {
         end_time: formData.end_time || null,
         priority: formData.priority,
         xp_tier: formData.xp_tier,
-        is_recurring: formData.is_recurring,
+        is_recurring: isRecurring,
+        recurrence_type: isRecurring ? formData.recurrence_type : null,
+        recurrence_interval: isRecurring && formData.recurrence_interval > 1 ? formData.recurrence_interval : null,
+        recurrence_days: isRecurring && formData.recurrence_days.length > 0 ? JSON.stringify(formData.recurrence_days) : null,
+        recurrence_day_of_month: isRecurring && formData.recurrence_type === "monthly" ? formData.recurrence_day_of_month : null,
+        recurrence_custom_label: isRecurring && formData.recurrence_type === "custom" ? formData.recurrence_custom_label : null,
         parent_id: formData.parentId,
         gate_type: formData.parentId 
           ? (findTaskById(tasks, formData.parentId)?.parent_id ? "Double Dungeon Objective" : "Hidden Dungeon")
@@ -185,8 +223,10 @@ export function DungeonGatePage() {
     setShowModal(true);
   };
 
-  const handleEdit = (gate: DBTask) => {
+  const handleEdit = (gate: any) => {
     setEditingId(gate.id);
+    let rdays: number[] = [];
+    try { rdays = gate.recurrence_days ? JSON.parse(gate.recurrence_days) : []; } catch { rdays = []; }
     setFormData({
       title: gate.title,
       category: gate.category,
@@ -198,7 +238,11 @@ export function DungeonGatePage() {
       xp_tier: gate.xp_tier || "Low",
       parentId: gate.parent_id,
       assignTo: gate.assigned_to || "",
-      is_recurring: gate.is_recurring || false,
+      recurrence_type: gate.recurrence_type || (gate.is_recurring ? "daily" : "none"),
+      recurrence_interval: gate.recurrence_interval || 1,
+      recurrence_days: rdays,
+      recurrence_day_of_month: gate.recurrence_day_of_month || 1,
+      recurrence_custom_label: gate.recurrence_custom_label || "",
     });
     setShowModal(true);
   };
@@ -352,6 +396,102 @@ export function DungeonGatePage() {
     } finally { setSaving(false); }
   };
 
+  const handleFail = async (id: string) => {
+    if (!supabase || !user) return;
+    const task = findTaskById(tasks, id) || tasks.find(t => t.id === id);
+    if (!task) return;
+    const penalty = task.points || 10;
+
+    const confirmed = window.confirm(
+      `☠️ GATE BREACH — MISSION FAILURE\n\n"${task.title}"\n\nAbandon this gate? You will lose ${penalty} XP as a penalty.\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      const completed_at = new Date().toISOString();
+
+      const { error } = await supabase.from("tasks").update({
+        is_failed: true,
+        is_completed: true,
+        is_active: false,
+        is_pending: false,
+        is_paused: false,
+        completed_at,
+      }).eq("id", id);
+      if (error) throw error;
+
+      // Log punishment record
+      await supabase.from("punishments").insert({
+        user_id: user.id,
+        name: `Failed Gate: ${task.title}`,
+        xp_penalty: penalty,
+        triggered: 1,
+      });
+
+      // Deduct XP from total
+      const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
+      const newPoints = Math.max(0, (prof?.total_points ?? 0) - penalty);
+      await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
+
+      // Deduct from daily log
+      const today = new Date().toISOString().split("T")[0];
+      const { data: log } = await supabase.from("user_points").select("daily_points").eq("user_id", user.id).eq("date", today).maybeSingle();
+      if (log) {
+        await supabase.from("user_points").update({ daily_points: Math.max(0, log.daily_points - penalty) }).eq("user_id", user.id).eq("date", today);
+      }
+
+      // Re-sync progression (rank/level may drop)
+      const progression = await syncProgression(supabase, user.id);
+      
+      // GENERATE MANDATORY PUNISHMENT QUEST
+      const punishment = getRandomPunishment();
+      await supabase.from("tasks").insert({
+        user_id: user.id,
+        title: `🚨 PENALTY: ${punishment.title}`,
+        description: punishment.desc,
+        points: punishment.points,
+        category: 'PUNISHMENT',
+        priority: 'URGENT',
+        is_active: true,
+        deadline: new Date().toISOString().split('T')[0],
+        xp_tier: 'High'
+      });
+
+      if (progression) {
+        const msgs: string[] = [
+          `💀 GATE FAILED — MISSION ABANDONED\n-${penalty} XP DEDUCTED`,
+          `🚨 SYSTEM ALERT: Penalty Quest Manifested! You must complete the purification task to restore system integrity.`
+        ];
+        if (progression.level < progression.prevLevel) msgs.push(`⬇️ LEVEL DOWN: ${progression.prevLevel} → ${progression.level}`);
+        if (progression.rank !== progression.prevRank) msgs.push(`⬇️ RANK DROPPED: ${progression.prevRank} → ${progression.rank}`);
+        setTimeout(() => alert(msgs.join("\n")), 100);
+      }
+
+      await fetchQuests();
+
+      // --- Recurring Logic: Even if failed, reset for next occurrence ---
+      if (task.is_recurring) {
+        const nextDeadline = findNextValidDeadline(task);
+        await supabase.from("tasks").update({ 
+          is_completed: false, 
+          is_failed: false,
+          is_pending: false,
+          completed_at: null,
+          deadline: nextDeadline
+        }).eq("id", task.id);
+        await fetchQuests();
+      }
+
+      setSelectedGate(null);
+    } catch (err: any) {
+      console.error("FAIL GATE ERROR:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleComplete = async (id: string) => {
     if (!supabase || !user) return;
     const task = tasks.find(t => t.id === id) || findTaskById(tasks, id);
@@ -375,46 +515,76 @@ export function DungeonGatePage() {
       
       if (updateErr) throw updateErr;
 
-      const pts = await applyXpBoost(supabase, user.id, task.points);
-      const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-      await supabase.from("user_profiles").update({ total_points: (prof?.total_points ?? 0) + pts }).eq("user_id", user.id);
+      // Normalize XP for learning/heavy tasks
+      const normalizedPts = calculateEffectiveXp(task.points, task.category, totalXp);
+      const pts = await applyXpBoost(supabase, user.id, normalizedPts);
+      
+      const { data: prof } = await supabase.from("user_profiles").select("total_points, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense").eq("user_id", user.id).single();
+      
+      // --- Stat Progression ---
+      const statColumn = CATEGORY_STAT_MAP[task.category];
+      const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
+      if (statColumn && prof) {
+        updatePayload[statColumn] = (prof as any)[statColumn] + 1; // +1 to the mapped stat
+      }
+      await supabase.from("user_profiles").update(updatePayload).eq("user_id", user.id);
       
       const progression = await syncProgression(supabase, user.id);
       showProgressionToast(progression);
 
       // --- NEW: Randomized Shadow Extraction (Arise!) ---
-      const { SHADOW_CATALOG } = await import("../lib/catalog");
-      const tier = task.xp_tier || "Low";
-      const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
-      const roll = Math.random();
+      // LACK OF MANA (Penalty Mode) prevents Shadow Extraction
+      if (userStatus === 'PENALTY') {
+        console.log("Shadow Extraction blocked: Mana Debt detected.");
+      } else {
+        const { SHADOW_CATALOG } = await import("../lib/catalog");
+        const tier = task.xp_tier || "Low";
+        const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
+        const roll = Math.random();
 
-      if (roll <= (chances[tier] || 0.02)) {
-        const pool = SHADOW_CATALOG.filter(s => {
-          if (tier === "Legendary") return s.rarity === "Legendary" || s.rarity === "Mythic";
-          if (tier === "Super") return s.rarity === "Epic";
-          if (tier === "High") return s.rarity === "Rare";
-          return s.rarity === "Common";
-        });
-        
-        if (pool.length > 0) {
-          const shadow = pool[Math.floor(Math.random() * pool.length)];
-          const { error } = await supabase.from("shadows").insert({
-            user_id: user.id,
-            name: shadow.name,
-            rarity: shadow.rarity,
-            bonus_type: "xp_boost",
-            bonus_value: (shadow as any).bonus || (shadow.rarity === "Legendary" ? 0.1 : 0.05)
+        if (roll <= (chances[tier] || 0.02)) {
+          const pool = SHADOW_CATALOG.filter(s => {
+            if (tier === "Legendary") return s.rarity === "Legendary" || s.rarity === "Mythic";
+            if (tier === "Super") return s.rarity === "Epic";
+            if (tier === "High") return s.rarity === "Rare";
+            return s.rarity === "Common";
           });
+          
+          if (pool.length > 0) {
+            const shadow = pool[Math.floor(Math.random() * pool.length)];
+            const { error } = await supabase.from("shadows").insert({
+              user_id: user.id,
+              name: shadow.name,
+              rarity: shadow.rarity,
+              bonus_type: "xp_boost",
+              bonus_value: (shadow as any).bonus || (shadow.rarity === "Legendary" ? 0.1 : 0.05)
+            });
 
-          if (!error) {
-            alert(`✨ ARISE! You have extracted a [${shadow.rarity}] grade shadow: ${shadow.name}! Check your army on the Dashboard.`);
+            if (!error) {
+              alert(`✨ ARISE! You have extracted a [${shadow.rarity}] grade shadow: ${shadow.name}! Check your army on the Dashboard.`);
+            }
           }
+        } else if (tier === "Super" || tier === "Legendary") {
+          alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
         }
-      } else if (tier === "Super" || tier === "Legendary") {
-        alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
       }
       
       await fetchQuests();
+
+      // --- Recurring Logic (Clever Alternative: Update Existing Row) ---
+      if (task.is_recurring) {
+        const nextDeadline = calculateNextDeadline(task);
+
+        await supabase.from("tasks").update({ 
+          is_completed: false, 
+          is_active: false,
+          completed_at: null,
+          deadline: nextDeadline
+        }).eq("id", id);
+        
+        await fetchQuests(); // Re-fetch to show the reset gate
+      }
+
       if (selectedGate?.id === id) {
         setSelectedGate(null);
       } else {
@@ -451,6 +621,20 @@ export function DungeonGatePage() {
            <Button variant="primary" onClick={() => { setEditingId(null); setFormData(EMPTY_FORM); setShowModal(true); }}><Plus size={14} /> Found New Gate</Button>
         </div>
       </div>
+
+      {userStatus === 'PENALTY' && (
+        <div className="gate-filters-container ds-glass" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.05)', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', color: '#ff4444' }}>
+            <Skull size={24} className="animate-pulse" />
+            <div>
+              <strong style={{ display: 'block', fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Penalty Protocol Active</strong>
+              <p style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: 4 }}>
+                Mana debt detected: {totalXp} XP. Shadow extraction is disabled. Complete missions to stabilize your presence.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="gate-filters-container ds-glass">
          <div className="gate-tab-row">
@@ -509,14 +693,23 @@ export function DungeonGatePage() {
               return (
                 <div 
                   key={gate.id} 
-                  className={`gate-card ds-glass ds-aura ${isActive ? 'gate-active' : ''} ${isPaused ? 'gate-paused' : ''} ${isRedGate ? 'gate-red-gate' : ''} ${isDoubleDungeon ? 'gate-double-dungeon' : ''}`} 
-                  style={{ '--gate-color': color } as any}
+                  className={`gate-card ds-glass ds-aura ${gate.is_failed ? 'gate-failed' : ''} ${isActive && !gate.is_failed ? 'gate-active' : ''} ${isPaused ? 'gate-paused' : ''} ${isRedGate && !gate.is_failed ? 'gate-red-gate' : ''} ${isDoubleDungeon ? 'gate-double-dungeon' : ''}`} 
+                  style={{ '--gate-color': gate.is_failed ? '#ff4444' : color } as any}
                   onClick={() => setSelectedGate(gate)}
                 >
-                  <div className="gate-rank-badge" style={{ background: isRedGate ? '#ff4444' : color, border: `1px solid ${isRedGate ? '#ff4444' : color}88` }}>
-                    {isRedGate ? 'RED' : gateDepth === 2 ? 'DOUBLE' : gateDepth === 3 ? 'TRIPLE' : gateDepth >= 4 ? 'GOD' : rank}-RANK
+                  <div className="gate-rank-badge" style={{
+                    background: gate.is_failed ? 'rgba(239,68,68,0.15)' : isRedGate ? '#ff4444' : color,
+                    border: `1px solid ${gate.is_failed ? 'rgba(239,68,68,0.6)' : isRedGate ? '#ff4444' : color}88`,
+                    color: gate.is_failed ? '#ff4444' : '#000'
+                  }}>
+                    {gate.is_failed ? '☠' : isRedGate ? 'RED' : gateDepth === 2 ? 'DOUBLE' : gateDepth === 3 ? 'TRIPLE' : gateDepth >= 4 ? 'GOD' : rank}-{gate.is_failed ? 'FAILED' : 'RANK'}
                   </div>
-                  {isActive && (
+                  {gate.is_failed && (
+                    <div className="gate-status-badge gate-status-failed">
+                      <Skull size={10} /> MISSION FAILED
+                    </div>
+                  )}
+                  {isActive && !gate.is_failed && (
                     <div className={`gate-status-badge ${isPaused ? 'paused' : ''}`}>
                       <Activity size={10} className={isPaused ? "" : "animate-pulse"} />
                       {isPaused ? 'RAID PAUSED' : 'RAID IN PROGRESS'}
@@ -557,8 +750,10 @@ export function DungeonGatePage() {
                     <div className="gate-footer">
                        <div className="gate-meta-info">
                           <div className="gate-reward">
-                             <Zap size={14} style={{ color }} />
-                             <span>+{gate.points} XP</span>
+                             <Zap size={14} style={{ color: gate.is_failed ? '#ff4444' : color }} />
+                             <span style={{ color: gate.is_failed ? '#ff4444' : undefined }}>
+                               {gate.is_failed ? `-${gate.points}` : `+${gate.points}`} XP
+                             </span>
                           </div>
                           {(gate.deadline || gate.start_time) && (
                             <div className="gate-time-info">
@@ -567,6 +762,18 @@ export function DungeonGatePage() {
                                  {gate.deadline ? new Date(gate.deadline).toLocaleDateString() : ""}
                                  {gate.start_time ? ` @ ${gate.start_time}` : ""}
                                </span>
+                            </div>
+                          )}
+                          {gate.is_recurring && (
+                            <div className="gate-time-info gate-recur-badge">
+                              <RotateCcw size={10} />
+                              <span>
+                                {(gate as any).recurrence_type === 'interval' ? `Every ${(gate as any).recurrence_interval}d`
+                                  : (gate as any).recurrence_type === 'weekly'   ? 'Weekly'
+                                  : (gate as any).recurrence_type === 'monthly'  ? 'Monthly'
+                                  : (gate as any).recurrence_type === 'custom'   ? 'Custom'
+                                  : 'Daily'}
+                              </span>
                             </div>
                           )}
                        </div>
@@ -642,6 +849,25 @@ export function DungeonGatePage() {
                 >
                   RESTART
                 </Button>
+                {/* ABANDON button for active raids */}
+                <Button
+                  variant="danger"
+                  className="brief-btn-v3 btn-abandon"
+                  disabled={saving}
+                  onClick={() => handleFail(selectedGate.id)}
+                  title={`Abandon — deducts ${selectedGate.points} XP`}
+                  style={{
+                    flex: 0.9,
+                    background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.4)',
+                    color: '#ff4444',
+                    fontWeight: 900,
+                    gap: 6,
+                    fontSize: '0.65rem',
+                  }}
+                >
+                  <XCircle size={13} /> ABANDON
+                </Button>
               </div>
             ) : !selectedGate?.is_completed ? (
               <div style={{ display: 'flex', gap: 12, width: '100%' }}>
@@ -662,6 +888,25 @@ export function DungeonGatePage() {
                 >
                   {saving ? 'INITIALIZING...' : 'INITIALIZE RAID'}
                 </Button>
+                {/* FAILED button for unstarted gates */}
+                <Button
+                  variant="danger"
+                  className="brief-btn-v3 btn-abandon"
+                  disabled={saving}
+                  onClick={() => handleFail(selectedGate!.id)}
+                  title={`Mark as failed — deducts ${selectedGate?.points} XP`}
+                  style={{
+                    flex: 0.9,
+                    background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.4)',
+                    color: '#ff4444',
+                    fontWeight: 900,
+                    gap: 6,
+                    fontSize: '0.65rem',
+                  }}
+                >
+                  <Skull size={13} /> FAILED
+                </Button>
               </div>
             ) : (
               <div style={{ display: 'flex', gap: 12, width: '100%' }}>
@@ -680,11 +925,14 @@ export function DungeonGatePage() {
           <div className="gate-details-v3">
             <div className="brief-header-v3">
                <div className="brief-rank-v3" style={{ 
-                 borderColor: getRankColor(selectedGate.xp_tier || "Low"),
-                 boxShadow: `0 0 30px ${getRankColor(selectedGate.xp_tier || "Low")}44`
+                 borderColor: selectedGate.is_failed ? '#ff4444' : getRankColor(selectedGate.xp_tier || "Low"),
+                 boxShadow: selectedGate.is_failed
+                   ? '0 0 30px rgba(239,68,68,0.4)'
+                   : `0 0 30px ${getRankColor(selectedGate.xp_tier || "Low")}44`,
+                 background: selectedGate.is_failed ? 'rgba(239,68,68,0.08)' : undefined,
                }}>
-                 {getRankLetter(selectedGate.xp_tier || "Low")}
-                 <span>RANK</span>
+                 {selectedGate.is_failed ? <Skull size={28} color="#ff4444" /> : getRankLetter(selectedGate.xp_tier || "Low")}
+                 <span>{selectedGate.is_failed ? 'FAILED' : 'RANK'}</span>
                </div>
                <div className="brief-meta-v3">
                  <div className="brief-path">{selectedGate.category} // SYSTEM MISSION</div>
@@ -813,6 +1061,28 @@ export function DungeonGatePage() {
                   </strong>
                 </div>
               </div>
+              {(selectedGate as any).is_recurring && (
+                <div className="brief-stat-card">
+                  <div className="stat-icon-v3" style={{ color: "var(--accent-primary)" }}>
+                    <RotateCcw size={18} />
+                  </div>
+                  <div className="stat-meta-v3">
+                    <span className="stat-label-v3">REPEAT PROTOCOL</span>
+                    <strong className="stat-val-v3" style={{ fontSize: '0.8rem' }}>
+                      {(selectedGate as any).recurrence_type === 'daily'    ? 'Every Day'
+                      : (selectedGate as any).recurrence_type === 'interval' ? `Every ${(selectedGate as any).recurrence_interval} Days`
+                      : (selectedGate as any).recurrence_type === 'weekly'   ? (() => {
+                          let days: number[] = [];
+                          try { days = JSON.parse((selectedGate as any).recurrence_days || '[]'); } catch { days = []; }
+                          const WDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                          return days.map(d => WDAYS[d]).join(', ') || 'Weekly';
+                        })()
+                      : (selectedGate as any).recurrence_type === 'monthly'  ? `Day ${(selectedGate as any).recurrence_day_of_month} / Month`
+                      : (selectedGate as any).recurrence_custom_label || 'Custom'}
+                    </strong>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -863,9 +1133,17 @@ export function DungeonGatePage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group">
-            <label className="form-label">Expiration Date</label>
-            <input type="date" className="form-input" value={formData.deadline}
-              onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+            <label className="form-label">
+              Expiration Date {editingId && <span style={{ color: '#ff4444', fontSize: '0.6rem' }}>(IMMUTABLE)</span>}
+            </label>
+            <input 
+              type="date" 
+              className="form-input" 
+              value={formData.deadline}
+              disabled={!!editingId}
+              style={editingId ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+              onChange={e => setFormData({ ...formData, deadline: e.target.value })} 
+            />
           </div>
           <div className="form-group">
             <label className="form-label">Urgency</label>
@@ -888,17 +1166,119 @@ export function DungeonGatePage() {
           </div>
         </div>
 
-        <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, marginTop: 4 }}>
-          <input 
-            type="checkbox" 
-            id="recurring_gate" 
-            checked={formData.is_recurring} 
-            onChange={e => setFormData({ ...formData, is_recurring: e.target.checked })}
-            style={{ width: 16, height: 16, accentColor: "#a8a8ff" }}
-          />
-          <label htmlFor="recurring_gate" className="form-label" style={{ margin: 0, cursor: "pointer" }}>
-            Daily Routine (Auto-reset every day)
+        {/* ── RECURRENCE SYSTEM ── */}
+        <div className="form-group" style={{ marginTop: 8 }}>
+          <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RotateCcw size={12} /> Repeat Protocol
           </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
+            {(["none","daily","interval","weekly","monthly","custom"] as const).map(rt => (
+              <button
+                key={rt}
+                type="button"
+                onClick={() => setFormData({ ...formData, recurrence_type: rt })}
+                style={{
+                  padding: '6px 0',
+                  fontSize: '0.65rem',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  textTransform: 'uppercase',
+                  borderRadius: '8px',
+                  border: `1px solid ${formData.recurrence_type === rt ? 'rgba(168,168,255,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                  background: formData.recurrence_type === rt ? 'rgba(168,168,255,0.15)' : 'rgba(255,255,255,0.03)',
+                  color: formData.recurrence_type === rt ? 'var(--accent-primary)' : 'rgba(255,255,255,0.45)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {rt === 'none' ? 'None' : rt === 'daily' ? '📅 Daily' : rt === 'interval' ? '🔢 Every N' : rt === 'weekly' ? '📆 Weekly' : rt === 'monthly' ? '🗓 Monthly' : '⚙️ Custom'}
+              </button>
+            ))}
+          </div>
+
+          {/* Every N Days */}
+          {formData.recurrence_type === 'interval' && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--t2)', whiteSpace: 'nowrap' }}>Every</span>
+              <input
+                type="number" min={2} max={365}
+                className="form-input"
+                value={formData.recurrence_interval}
+                onChange={e => setFormData({ ...formData, recurrence_interval: Math.max(2, parseInt(e.target.value) || 2) })}
+                style={{ width: 80 }}
+              />
+              <span style={{ fontSize: '0.72rem', color: 'var(--t2)' }}>days</span>
+            </div>
+          )}
+
+          {/* Weekly — day picker */}
+          {formData.recurrence_type === 'weekly' && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: '0.62rem', color: 'var(--t3)', marginBottom: 6, letterSpacing: '1px', textTransform: 'uppercase' }}>Select days</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {WEEKDAY_LABELS.map((day, idx) => {
+                  const active = formData.recurrence_days.includes(idx);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        const newDays = active
+                          ? formData.recurrence_days.filter(d => d !== idx)
+                          : [...formData.recurrence_days, idx].sort();
+                        setFormData({ ...formData, recurrence_days: newDays });
+                      }}
+                      style={{
+                        flex: 1, padding: '5px 0', fontSize: '0.6rem', fontWeight: 900,
+                        borderRadius: '8px',
+                        border: `1px solid ${active ? 'rgba(168,168,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
+                        background: active ? 'rgba(168,168,255,0.18)' : 'rgba(255,255,255,0.03)',
+                        color: active ? 'var(--accent-primary)' : 'rgba(255,255,255,0.35)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >{day}</button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Monthly — day of month */}
+          {formData.recurrence_type === 'monthly' && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--t2)', whiteSpace: 'nowrap' }}>Day of month</span>
+              <input
+                type="number" min={1} max={31}
+                className="form-input"
+                value={formData.recurrence_day_of_month}
+                onChange={e => setFormData({ ...formData, recurrence_day_of_month: Math.min(31, Math.max(1, parseInt(e.target.value) || 1)) })}
+                style={{ width: 80 }}
+              />
+            </div>
+          )}
+
+          {/* Custom — free label */}
+          {formData.recurrence_type === 'custom' && (
+            <div style={{ marginTop: 10 }}>
+              <input
+                className="form-input"
+                placeholder="e.g. Every Mon & Wed evening"
+                value={formData.recurrence_custom_label}
+                onChange={e => setFormData({ ...formData, recurrence_custom_label: e.target.value })}
+              />
+            </div>
+          )}
+
+          {formData.recurrence_type !== 'none' && (
+            <div style={{ marginTop: 8, fontSize: '0.62rem', color: 'rgba(168,168,255,0.6)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <RotateCcw size={10} />
+              {formData.recurrence_type === 'daily' && 'Gate auto-resets every day after completion.'}
+              {formData.recurrence_type === 'interval' && `Gate resets every ${formData.recurrence_interval} days after completion.`}
+              {formData.recurrence_type === 'weekly' && `Repeats on: ${formData.recurrence_days.map(d => WEEKDAY_LABELS[d]).join(', ') || 'no days selected'}`}
+              {formData.recurrence_type === 'monthly' && `Repeats on day ${formData.recurrence_day_of_month} of each month.`}
+              {formData.recurrence_type === 'custom' && (formData.recurrence_custom_label || 'Describe your custom schedule above.')}
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -959,6 +1339,8 @@ export function DungeonGatePage() {
         .gate-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .gate-meta-info { display: flex; flex-direction: column; gap: 4px; }
         .gate-reward { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 800; color: var(--t2); }
+        .gate-time-info { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: var(--t3); }
+        .gate-recur-badge { color: var(--accent-primary) !important; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
         .stat-val-v3 { font-size: 0.85rem; color: #fff; font-weight: 800; }
         .stat-label-v3 { font-size: 0.55rem; font-weight: 900; opacity: 0.3; letter-spacing: 1px; margin-bottom: 2px; }
         
@@ -1007,6 +1389,32 @@ export function DungeonGatePage() {
         @keyframes red-glitch-gate {
           0%, 100% { box-shadow: 0 0 20px rgba(255,68,68,0.1); }
           50% { box-shadow: 0 0 40px rgba(255,68,68,0.3); }
+        }
+
+        /* FAILED gate state */
+        .gate-failed {
+          border-color: rgba(239,68,68,0.5) !important;
+          animation: gate-failure-flicker 3s infinite;
+          opacity: 0.8;
+        }
+        .gate-failed::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 60%);
+          z-index: 1;
+          pointer-events: none;
+          border-radius: inherit;
+        }
+        @keyframes gate-failure-flicker {
+          0%, 100% { box-shadow: 0 0 10px rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3) !important; }
+          33%      { box-shadow: 0 0 25px rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.6) !important; }
+          66%      { box-shadow: 0 0 8px rgba(239,68,68,0.08); }
+        }
+        .gate-status-failed {
+          background: rgba(239,68,68,0.15) !important;
+          border: 1px solid rgba(239,68,68,0.4) !important;
+          box-shadow: 0 0 12px rgba(239,68,68,0.3) !important;
         }
 
         .brief-subtasks-v3 {

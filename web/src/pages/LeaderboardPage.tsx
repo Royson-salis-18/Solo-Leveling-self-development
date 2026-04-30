@@ -14,6 +14,7 @@ type LBUser = {
   user_id: string; name: string; level: number; total_points: number;
   player_class: string; player_rank: string; player_title: string;
   guild_id: string | null;
+  status?: string; last_heartbeat?: string;
   strength?: number; agility?: number; intelligence?: number; vitality?: number;
   guild_logo?: string; guild_title?: string; guild_aura_card?: string;
 };
@@ -144,7 +145,9 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
                 <span className="pp-id-sys">SYSTEM ID CARD</span>
               </div>
               <div className="pp-id-middle">
-                <div className="pp-id-avatar">{user.name.charAt(0).toUpperCase()}</div>
+                <div className={`pp-id-avatar ${user.status === 'DECEASED' ? 'pp-id-avatar--dead' : ''}`}>
+                  {user.status === 'DECEASED' ? <Skull size={32} /> : user.name.charAt(0).toUpperCase()}
+                </div>
                 <div className="pp-id-info">
                   <div className="pp-field-label">NAME</div>
                   <div className="pp-field-val">{user.name}</div>
@@ -152,6 +155,9 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
                   <div className="pp-field-val" style={{ color: "var(--accent-primary)", fontSize: "0.78rem" }}>
                     {user.player_class}
                   </div>
+                  {user.status === 'DECEASED' && (
+                    <div className="pp-deceased-badge">DECEASED</div>
+                  )}
                 </div>
               </div>
               <div className="pp-id-bottom">
@@ -282,7 +288,7 @@ export function LeaderboardPage() {
       try {
         const [hRes, gRes, cRes] = await Promise.all([
           supabase.from("user_profiles")
-            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, strength, agility, intelligence, vitality, guild_logo, guild_title, guild_aura_card")
+            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, strength, agility, intelligence, vitality, guild_logo, guild_title, guild_aura_card, status, last_heartbeat")
             .order("total_points", { ascending: false }).limit(100),
           supabase.from("guilds").select("id, name"),
           supabase.from("clans").select("id, name"),
@@ -290,6 +296,14 @@ export function LeaderboardPage() {
 
         if (hRes.error) console.error("Hunter Fetch Error:", hRes.error);
         setHunters(hRes.data ?? []);
+
+        // System Sweep: Flag hunters as DECEASED after 14 days of inactivity
+        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        await supabase
+          .from("user_profiles")
+          .update({ status: 'DECEASED' })
+          .lt("last_heartbeat", fourteenDaysAgo)
+          .eq("status", "ACTIVE");
 
         const { data: allProfs, error: pErr } = await supabase
           .from("user_profiles").select("user_id, total_points, guild_id");
@@ -423,9 +437,12 @@ export function LeaderboardPage() {
               )}
             </div>
             <div className="lb-sub">
-              {tab === "Hunters"
-                ? `${(u as LBUser).player_class} · LV.${(u as LBUser).level}`
-                : `${(u as GuildLB).member_count} members`}
+              {(u as any).status === 'DECEASED' ? (
+                <span style={{ color: 'var(--destruction-red)', fontWeight: 900 }}>[ DECEASED ]</span>
+              ) : (
+                `${(u as LBUser).player_class} · LV.${(u as LBUser).level}`
+              )}
+              {tab !== "Hunters" && `${(u as GuildLB).member_count} members`}
             </div>
           </div>
         </div>
@@ -770,6 +787,25 @@ export function LeaderboardPage() {
           flex: 1; overflow-y: auto;
           padding: 24px 26px;
           display: flex; flex-direction: column; gap: 0;
+        }
+        
+        .pp-id-avatar--dead {
+          color: var(--destruction-red) !important;
+          border-color: var(--destruction-red) !important;
+          background: rgba(239, 68, 68, 0.05) !important;
+          opacity: 0.6;
+        }
+        
+        .pp-deceased-badge {
+          margin-top: 6px;
+          background: var(--destruction-red);
+          color: #fff;
+          font-size: 0.5rem;
+          font-weight: 900;
+          padding: 2px 6px;
+          border-radius: 4px;
+          width: fit-content;
+          letter-spacing: 1px;
         }
       `}</style>
     </section>

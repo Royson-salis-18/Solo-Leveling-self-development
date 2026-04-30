@@ -243,7 +243,7 @@ export function GuidePage() {
           position: relative;
           z-index: 2;
           width: 100%;
-          max-width: 1000px;
+          max-width: 1440px;
           padding: 0 20px;
           margin: 0 auto;
           height: calc(100vh - 120px);
