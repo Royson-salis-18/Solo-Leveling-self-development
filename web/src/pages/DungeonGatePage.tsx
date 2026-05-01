@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 
 import { RaidTimer } from "../components/RaidTimer";
+import { Calendar }  from "../components/Calendar";
 
 import { SystemAPI } from "../services/SystemAPI";
 
@@ -30,11 +31,12 @@ export function DungeonGatePage() {
   const { user } = useAuth();
   const [tasks,        setTasks]        = useState<DBTask[]>([]);
   const [loading,      setLoading]      = useState(true);
-  const [activeTab,    setActiveTab]    = useState<"active" | "completed" | "pending">("active");
+  const [activeTab,    setActiveTab]    = useState<"active" | "completed" | "pending" | "calendar">("active");
   const [showModal,    setShowModal]    = useState(false);
   const [showNLP,      setShowNLP]      = useState(false);
    const [formData,     setFormData]     = useState(EMPTY_FORM);
   const [editingId,    setEditingId]    = useState<string | null>(null);
+  const [originalDeadline, setOriginalDeadline] = useState<string | null>(null);
   const [saving,       setSaving]       = useState(false);
   const [userStatus,   setUserStatus]   = useState<string>("ACTIVE");
   const [totalXp,      setTotalXp]      = useState<number>(0);
@@ -43,6 +45,7 @@ export function DungeonGatePage() {
   const [catFilter,    setCatFilter]    = useState("All");
   const [prioFilter,   setPrioFilter]   = useState("All");
   const [selectedGate, setSelectedGate] = useState<DBTask | null>(null);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
   const buildTaskTree = (flatTasks: any[]) => {
     const taskMap: Record<string, any> = {};
@@ -101,6 +104,11 @@ export function DungeonGatePage() {
       let matchTab = false;
       if (activeTab === "completed") matchTab = !!t.is_completed || !!t.is_failed;
       else if (activeTab === "pending") matchTab = !!t.is_pending && !t.is_completed;
+      else if (activeTab === "calendar") {
+        if (!selectedCalendarDate) return true; // Show all if no date selected? Or show nothing? Let's show gates for the selected date.
+        const taskDate = t.deadline?.split("T")[0];
+        return taskDate === selectedCalendarDate;
+      }
       else matchTab = !t.is_completed && !t.is_failed && !t.is_pending;
 
       if (!matchTab) return false;
@@ -113,7 +121,22 @@ export function DungeonGatePage() {
 
       return true;
     });
-  }, [tasks, activeTab, catFilter, prioFilter]);
+  }, [tasks, activeTab, catFilter, prioFilter, selectedCalendarDate]);
+
+  const taskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const extractDates = (taskList: DBTask[]) => {
+      taskList.forEach(t => {
+        if (t.deadline) {
+          const d = t.deadline.split("T")[0];
+          counts[d] = (counts[d] || 0) + 1;
+        }
+        if (t.subtasks) extractDates(t.subtasks);
+      });
+    };
+    extractDates(tasks);
+    return counts;
+  }, [tasks]);
 
   const getRankColor = (tier: string) => {
     switch (tier) {
@@ -169,6 +192,19 @@ export function DungeonGatePage() {
         parent_id: formData.parentId,
       };
 
+      if (editingId && originalDeadline && formData.deadline && formData.deadline > originalDeadline) {
+        SystemAPI.increaseDarkMana(user.id, 5); // Penalty for postponing
+        // Deduct XP for postponing
+        const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
+        const newXp = Math.max(0, (prof?.total_points || 0) - 5);
+        await supabase.from("user_profiles").update({ total_points: newXp }).eq("user_id", user.id);
+        
+        // Sync level/rank UI
+        const { syncProgression, showProgressionToast } = await import("../lib/levelEngine");
+        const progression = await syncProgression(supabase, user.id);
+        showProgressionToast(progression);
+      }
+
       await SystemAPI.saveGate(payload, editingId);
       
       await fetchQuests();
@@ -209,6 +245,7 @@ export function DungeonGatePage() {
       recurrence_day_of_month: gate.recurrence_day_of_month || 1,
       recurrence_custom_label: gate.recurrence_custom_label || "",
     });
+    setOriginalDeadline(gate.deadline || "");
     setShowModal(true);
   };
 
@@ -408,7 +445,7 @@ export function DungeonGatePage() {
 
       <div className="gate-filters-container ds-glass">
          <div className="gate-tab-row">
-            {(["active", "pending", "completed"] as const).map(tab => (
+            {(["active", "pending", "completed", "calendar"] as const).map(tab => (
               <button 
                 key={tab} 
                 className={`gate-filter-btn ${activeTab === tab ? 'active' : ''}`}
@@ -438,6 +475,144 @@ export function DungeonGatePage() {
 
       {loading ? (
         <div className="panel panel-empty text-muted">Synchronizing with System...</div>
+      ) : activeTab === "calendar" ? (
+        <div className="calendar-section animate-fade-in">
+          <div className="calendar-container ds-glass" style={{ marginBottom: 24, padding: 20 }}>
+            <div className="section-label" style={{ marginBottom: 16 }}>SYSTEM TEMPORAL ANALYSIS</div>
+            <Calendar 
+              selectedDate={selectedCalendarDate} 
+              onSelectDate={setSelectedCalendarDate} 
+              taskCounts={taskCounts}
+            />
+          </div>
+          
+          <div className="selected-date-header" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+             <CalendarDays size={18} style={{ color: 'var(--accent-primary)' }} />
+             <h3 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '1px' }}>
+               {selectedCalendarDate ? `GATES MANIFESTING ON ${new Date(selectedCalendarDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}` : 'SELECT A DATE TO SCAN SECTOR'}
+             </h3>
+          </div>
+
+          <div className="gate-grid">
+            {filteredTasks.length === 0 ? (
+              <div className="panel panel-empty" style={{ gridColumn: '1 / -1' }}>
+                <Skull size={48} style={{ opacity: 0.1, marginBottom: 16 }} />
+                <p className="text-muted">{selectedCalendarDate ? 'No gates detected for this temporal coordinate.' : 'Awaiting temporal selection...'}</p>
+              </div>
+            ) : (
+              filteredTasks.map(gate => {
+                const color = getRankColor(gate.xp_tier || "Low");
+                const rank = getRankLetter(gate.xp_tier || "Low");
+                const isActive = gate.is_active;
+                const isPaused = gate.is_paused;
+                
+                const getDepth = (gate: any, maxDepth = 5): number => {
+                  if (maxDepth <= 0 || !gate.subtasks || gate.subtasks.length === 0) return 0;
+                  return 1 + Math.max(0, ...gate.subtasks.map((s: any) => getDepth(s, maxDepth - 1)));
+                };
+                const gateDepth = getDepth(gate);
+                const isDoubleDungeon = gateDepth >= 2;
+                const isRedGate = (gate.xp_tier === "Legendary" || gate.xp_tier === "Super") && gateDepth >= 1;
+
+                return (
+                  <div 
+                    key={gate.id} 
+                    className={`gate-card ds-glass ds-aura ${gate.is_failed ? 'gate-failed' : ''} ${isActive && !gate.is_failed ? 'gate-active' : ''} ${isPaused ? 'gate-paused' : ''} ${isRedGate && !gate.is_failed ? 'gate-red-gate' : ''} ${isDoubleDungeon ? 'gate-double-dungeon' : ''}`} 
+                    style={{ '--gate-color': gate.is_failed ? '#ff4444' : color } as any}
+                    onClick={() => setSelectedGate(gate)}
+                  >
+                    <div className="gate-rank-badge" style={{
+                      background: gate.is_failed ? 'rgba(239,68,68,0.15)' : isRedGate ? '#ff4444' : color,
+                      border: `1px solid ${gate.is_failed ? 'rgba(239,68,68,0.6)' : isRedGate ? '#ff4444' : color}88`,
+                      color: gate.is_failed ? '#ff4444' : '#000'
+                    }}>
+                      {gate.is_failed ? '☠' : isRedGate ? 'RED' : gateDepth === 2 ? 'DOUBLE' : gateDepth === 3 ? 'TRIPLE' : gateDepth >= 4 ? 'GOD' : rank}-{gate.is_failed ? 'FAILED' : 'RANK'}
+                    </div>
+                    {gate.is_failed && (
+                      <div className="gate-status-badge gate-status-failed">
+                        <Skull size={10} /> MISSION FAILED
+                      </div>
+                    )}
+                    {isActive && !gate.is_failed && (
+                      <div className={`gate-status-badge ${isPaused ? 'paused' : ''}`}>
+                        <Activity size={10} className={isPaused ? "" : "animate-pulse"} />
+                        {isPaused ? 'RAID PAUSED' : 'RAID IN PROGRESS'}
+                        {gate.started_at && !isPaused && <RaidTimer startedAt={gate.started_at} />}
+                      </div>
+                    )}
+                    <div className="gate-energy-pulse" style={{ boxShadow: `0 0 50px ${color}33` }} />
+                    <div className="mana-wave" style={{ '--gate-color': color } as any} />
+                    
+                    <div className="gate-content">
+                      <div className="gate-header-row">
+                        <span className="gate-category" style={{ color }}>{gate.category}</span>
+                        <div className="gate-actions-row">
+                          <span className="gate-id">ID: {gate.id.slice(0,6).toUpperCase()}</span>
+                          <div className="gate-mini-btn-group">
+                            <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleOpenAdd(gate.id); }} title="Manifest Subtask">
+                              <Plus size={12} />
+                            </button>
+                            <button className="gate-mini-btn" onClick={(e) => { e.stopPropagation(); handleEdit(gate); }} title="Edit Gate">
+                              <Edit3 size={12} />
+                            </button>
+                            <button className="gate-mini-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(gate.id); }} title="Dismantle Gate">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="gate-title-row">
+                        <h3 className="gate-title-text">{gate.title}</h3>
+                        {gate.subtasks && gate.subtasks.length > 0 && (
+                          <div className="gate-subtask-counter">
+                            <Layers size={10} />
+                            <span>{gate.subtasks.filter(s => s.is_completed).length}/{gate.subtasks.length}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="gate-desc">{gate.description || "No mission brief provided by the System."}</p>
+                      
+                      <div className="gate-footer">
+                         <div className="gate-meta-info">
+                            <div className="gate-reward">
+                               <Zap size={14} style={{ color: gate.is_failed ? '#ff4444' : color }} />
+                               <span style={{ color: gate.is_failed ? '#ff4444' : undefined }}>
+                                 {gate.is_failed ? `-${gate.points}` : `+${gate.points}`} XP
+                               </span>
+                            </div>
+                            {(gate.deadline || gate.start_time) && (
+                              <div className="gate-time-info">
+                                 <Clock size={12} />
+                                 <span>
+                                   {gate.deadline ? new Date(gate.deadline).toLocaleDateString() : ""}
+                                   {gate.start_time ? ` @ ${gate.start_time}` : ""}
+                                 </span>
+                              </div>
+                            )}
+                            {gate.is_recurring && (
+                              <div className="gate-time-info gate-recur-badge">
+                                <RotateCcw size={10} />
+                                <span>
+                                  {(gate as any).recurrence_type === 'interval' ? `Every ${(gate as any).recurrence_interval}d`
+                                    : (gate as any).recurrence_type === 'weekly'   ? 'Weekly'
+                                    : (gate as any).recurrence_type === 'monthly'  ? 'Monthly'
+                                    : (gate as any).recurrence_type === 'custom'   ? 'Custom'
+                                    : 'Daily'}
+                                </span>
+                              </div>
+                            )}
+                         </div>
+                         <div className="gate-action-hint" style={{ color }}>
+                            SCAN BRIEF <ChevronRight size={14} />
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       ) : (
         <div className="gate-grid">
           {filteredTasks.length === 0 ? (
@@ -1063,54 +1238,86 @@ export function DungeonGatePage() {
       <style>{`
         .gate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px; }
         .gate-card {
-          position: relative; border-radius: var(--r-xl); overflow: hidden; height: 260px;
-          background: rgba(10, 10, 15, 0.6); border: 1px solid rgba(255,255,255,0.05);
+          position: relative; border-radius: var(--r-xl); overflow: hidden; height: 280px;
+          background: rgba(10, 10, 15, 0.7); border: 1px solid rgba(255,255,255,0.05);
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           cursor: pointer;
         }
-        .gate-card:hover { transform: translateY(-8px) scale(1.01); border-color: var(--gate-color); }
+        .gate-card::before {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(180deg, transparent 0%, rgba(168,168,255,0.05) 100%);
+          opacity: 0; transition: 0.4s; z-index: 1;
+        }
+        .gate-card:hover::before { opacity: 1; }
+        
+        /* Scanning Line */
+        .gate-card::after {
+          content: ''; position: absolute; top: -100%; left: 0; width: 100%; height: 2px;
+          background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+          opacity: 0; z-index: 10; pointer-events: none;
+        }
+        .gate-card:hover::after {
+          animation: scan-line 2s linear infinite;
+          opacity: 0.5;
+        }
+        @keyframes scan-line {
+          0% { top: -10%; }
+          100% { top: 110%; }
+        }
+
+        .gate-card:hover { transform: translateY(-8px) scale(1.02); border-color: var(--gate-color); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
         .gate-active { border-color: var(--destruction-red) !important; box-shadow: 0 0 30px var(--destruction-red-glow); }
         
         .gate-rank-badge {
-          position: absolute; top: 20px; left: 20px; padding: 4px 12px;
-          font-size: 0.65rem; font-weight: 900; border-radius: 6px; color: #000;
-          z-index: 2; letter-spacing: 1px;
+          position: absolute; top: 20px; left: 20px; padding: 6px 14px;
+          font-size: 0.7rem; font-weight: 950; border-radius: 8px; color: #000;
+          z-index: 5; letter-spacing: 2px; text-transform: uppercase;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
         .gate-status-badge {
-          position: absolute; top: 20px; right: 20px; padding: 6px 12px;
-          font-size: 0.6rem; font-weight: 900; border-radius: 6px; color: #fff;
-          background: var(--destruction-red); z-index: 2; letter-spacing: 1px;
-          display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
-          box-shadow: 0 0 15px var(--destruction-red-glow);
+          position: absolute; top: 20px; right: 20px; padding: 8px 14px;
+          font-size: 0.65rem; font-weight: 950; border-radius: 8px; color: #fff;
+          background: var(--destruction-red); z-index: 5; letter-spacing: 1.5px;
+          display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+          box-shadow: 0 0 20px var(--destruction-red-glow);
         }
         .raid-timer-val { font-family: monospace; font-size: 0.75rem; opacity: 0.9; }
+        /* Mana Wave Effect */
+        .mana-wave {
+          position: absolute; bottom: 0; left: 0; width: 100%; height: 40px;
+          background: var(--gate-color); opacity: 0.1; filter: blur(20px);
+          z-index: 1; transition: 0.4s;
+        }
+        .gate-card:hover .mana-wave { height: 100%; opacity: 0.05; }
+        
         .gate-energy-pulse {
-          position: absolute; top: -50px; right: -50px; width: 200px; height: 200px;
-          border-radius: 50%; opacity: 0.1; transition: 0.4s;
+          position: absolute; top: -50px; right: -50px; width: 250px; height: 250px;
+          border-radius: 50%; opacity: 0.05; transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          background: radial-gradient(circle, var(--gate-color) 0%, transparent 70%);
         }
-        .gate-card:hover .gate-energy-pulse { opacity: 0.3; transform: scale(1.2); }
+        .gate-card:hover .gate-energy-pulse { opacity: 0.2; transform: scale(1.3) translate(-20px, 20px); }
         
-        .gate-content { position: relative; z-index: 2; padding: 60px 24px 24px; height: 100%; display: flex; flex-direction: column; }
-        .gate-header-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
-        .gate-category { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
-        .gate-id { font-size: 0.55rem; color: var(--t4); font-family: monospace; opacity: 0.5; }
+        .gate-content { position: relative; z-index: 5; padding: 70px 24px 24px; height: 100%; display: flex; flex-direction: column; }
+        .gate-header-row { display: flex; justify-content: space-between; margin-bottom: 14px; align-items: center; }
+        .gate-category { font-size: 0.7rem; font-weight: 950; text-transform: uppercase; letter-spacing: 2px; color: var(--gate-color); filter: brightness(1.2); }
+        .gate-id { font-size: 0.6rem; color: var(--t4); font-family: 'JetBrains Mono', monospace; opacity: 0.4; }
         
-        .gate-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .gate-title-text { font-size: 1.3rem; font-weight: 900; color: var(--t1); margin: 0; line-height: 1.2; flex: 1; }
+        .gate-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .gate-title-text { font-size: 1.45rem; font-weight: 950; color: #fff; margin: 0; line-height: 1.1; flex: 1; letter-spacing: -0.5px; }
         .gate-subtask-counter {
-          display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 900;
-          color: var(--accent-primary); background: rgba(168,168,255,0.1);
-          padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(168,168,255,0.2);
-          white-space: nowrap; margin-left: 10px;
+          display: flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 950;
+          color: var(--accent-primary); background: rgba(168,168,255,0.12);
+          padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(168,168,255,0.25);
+          white-space: nowrap; margin-left: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
-        .gate-desc { font-size: 0.8rem; color: var(--t3); line-height: 1.5; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .gate-desc { font-size: 0.85rem; color: var(--t3); line-height: 1.6; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; opacity: 0.8; }
         
-        .gate-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
-        .gate-meta-info { display: flex; flex-direction: column; gap: 4px; }
-        .gate-reward { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 800; color: var(--t2); }
-        .gate-time-info { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: var(--t3); }
-        .gate-recur-badge { color: var(--accent-primary) !important; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
+        .gate-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; }
+        .gate-meta-info { display: flex; flex-direction: column; gap: 6px; }
+        .gate-reward { display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 950; color: #fff; }
+        .gate-time-info { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--t3); font-weight: 700; }
+        .gate-recur-badge { color: var(--accent-primary) !important; text-shadow: 0 0 10px var(--accent-glow); }
         .stat-val-v3 { font-size: 0.85rem; color: #fff; font-weight: 800; }
         .stat-label-v3 { font-size: 0.55rem; font-weight: 900; opacity: 0.3; letter-spacing: 1px; margin-bottom: 2px; }
         
@@ -1161,25 +1368,17 @@ export function DungeonGatePage() {
           50% { box-shadow: 0 0 40px rgba(255,68,68,0.3); }
         }
 
-        /* FAILED gate state */
+        .gate-action-hint { font-size: 0.65rem; font-weight: 950; letter-spacing: 1.5px; display: flex; align-items: center; gap: 4px; opacity: 0; transform: translateX(-10px); transition: 0.3s; }
+        .gate-card:hover .gate-action-hint { opacity: 1; transform: translateX(0); }
+
         .gate-failed {
           border-color: rgba(239,68,68,0.5) !important;
           animation: gate-failure-flicker 3s infinite;
-          opacity: 0.8;
-        }
-        .gate-failed::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 60%);
-          z-index: 1;
-          pointer-events: none;
-          border-radius: inherit;
+          opacity: 0.8; filter: grayscale(0.5);
         }
         @keyframes gate-failure-flicker {
-          0%, 100% { box-shadow: 0 0 10px rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3) !important; }
-          33%      { box-shadow: 0 0 25px rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.6) !important; }
-          66%      { box-shadow: 0 0 8px rgba(239,68,68,0.08); }
+          0%, 100% { box-shadow: 0 0 10px rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3) !important; filter: grayscale(0.5); }
+          50%      { box-shadow: 0 0 30px rgba(239,68,68,0.3); border-color: rgba(239,68,68,0.7) !important; filter: grayscale(0.2); }
         }
         .gate-status-failed {
           background: rgba(239,68,68,0.15) !important;
@@ -1269,7 +1468,13 @@ export function DungeonGatePage() {
         
         .brief-meta-v3 { flex: 1; }
         .brief-path { font-size: 0.65rem; font-weight: 900; opacity: 0.3; letter-spacing: 2px; margin-bottom: 6px; }
-        .brief-title-v3 { font-size: 1.6rem; font-weight: 900; margin-bottom: 8px; line-height: 1.1; color: #fff; }
+        .brief-title-v3 {
+          font-size: 1.8rem; font-weight: 950; margin-bottom: 8px; line-height: 1.1; color: #fff;
+          text-transform: uppercase; letter-spacing: -1px;
+          background: linear-gradient(135deg, #fff 0%, var(--accent-primary) 100%);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          filter: drop-shadow(0 0 10px rgba(168, 168, 255, 0.3));
+        }
         .brief-urgency { font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 6px; letter-spacing: 1px; }
 
         .brief-desc-box-v3 { padding: 24px; border-radius: var(--r-lg); background: rgba(255,255,255,0.02); }
@@ -1295,6 +1500,170 @@ export function DungeonGatePage() {
         .boss-warning-v3 strong { display: block; font-size: 0.85rem; letter-spacing: 1.5px; font-weight: 900; }
         .boss-warning-v3 p { font-size: 0.75rem; opacity: 0.8; margin: 4px 0 0 0; line-height: 1.3; }
         
+
+        /* Improved Calendar V3 Styles */
+        .calendar-v3 {
+          padding: 40px;
+          border-radius: var(--r-xl);
+          background: rgba(10, 10, 15, 0.4);
+          position: relative;
+          overflow: hidden;
+        }
+        .calendar-header-v3 {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 32px;
+          padding: 0 8px;
+        }
+        .calendar-month-text {
+          font-size: 1.8rem;
+          font-weight: 950;
+          color: #fff;
+          text-transform: uppercase;
+          letter-spacing: 4px;
+        }
+        .calendar-month-text span {
+          color: var(--accent-primary);
+          opacity: 0.6;
+          margin-left: 12px;
+        }
+        .calendar-system-tag {
+          font-size: 0.65rem;
+          font-weight: 950;
+          color: var(--accent-primary);
+          opacity: 0.4;
+          letter-spacing: 5px;
+          margin-top: 6px;
+        }
+        .calendar-nav-v3 {
+          display: flex;
+          gap: 16px;
+        }
+        .cal-nav-btn {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: var(--t2);
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .cal-nav-btn:hover {
+          background: var(--accent-primary);
+          color: #000;
+          border-color: var(--accent-primary);
+          box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .calendar-grid-v3 {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 12px;
+        }
+        .cal-header-cell-v3 {
+          text-align: center;
+          font-size: 0.75rem;
+          font-weight: 950;
+          color: var(--t4);
+          padding: 12px 0;
+          letter-spacing: 2px;
+        }
+        .cal-day-cell-v3 {
+          aspect-ratio: 1;
+          position: relative;
+          cursor: pointer;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.03);
+          transition: all 0.2s;
+          background: rgba(255,255,255,0.01);
+        }
+        .cal-cell-inner {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: var(--t2);
+        }
+        .cal-day-cell-v3:hover:not(.empty) {
+          background: rgba(168, 168, 255, 0.08);
+          border-color: rgba(168, 168, 255, 0.3);
+          color: #fff;
+        }
+        .cal-day-cell-v3.selected-v3 {
+          background: var(--accent-primary) !important;
+          border-color: var(--accent-primary);
+          color: #000 !important;
+          box-shadow: 0 0 25px var(--accent-glow);
+          z-index: 10;
+        }
+        .cal-day-cell-v3.selected-v3 .cal-cell-inner span,
+        .cal-day-cell-v3.selected-v3 .cal-cell-inner {
+          color: #000 !important;
+        }
+        .cal-day-cell-v3.has-task-v3 {
+          border-bottom: 3px solid var(--accent-primary);
+        }
+        .today-marker-v3 {
+          color: var(--accent-primary);
+          text-shadow: 0 0 12px var(--accent-glow);
+          position: relative;
+          font-weight: 950;
+        }
+        .today-marker-v3::after {
+          content: '';
+          position: absolute;
+          bottom: -4px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 4px;
+          height: 4px;
+          background: var(--accent-primary);
+          border-radius: 50%;
+        }
+
+        .cal-gate-indicator {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          width: 6px;
+          height: 6px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .cal-count-badge {
+          position: absolute;
+          top: 8px;
+          right: 12px;
+          font-size: 0.7rem;
+          font-weight: 950;
+          color: var(--accent-primary);
+          opacity: 0.6;
+          pointer-events: none;
+          letter-spacing: -1px;
+        }
+        .cal-gate-pulse {
+          width: 100%;
+          height: 100%;
+          background: var(--accent-primary);
+          border-radius: 50%;
+          animation: cal-pulse 2s infinite;
+        }
+        @keyframes cal-pulse {
+          0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(168, 168, 255, 0.7); }
+          70% { transform: scale(1.5); opacity: 0; box-shadow: 0 0 0 10px rgba(168, 168, 255, 0); }
+          100% { transform: scale(1); opacity: 0; box-shadow: 0 0 0 0 rgba(168, 168, 255, 0); }
+        }
+
         @keyframes pulse {
           0% { opacity: 0.6; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.05); }

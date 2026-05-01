@@ -177,7 +177,7 @@ export async function syncProgression(
 ): Promise<ProgressionResult | null> {
   const { data: prof } = await supabase
     .from("user_profiles")
-    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date, last_heartbeat, stat_strength, stat_agility, stat_sense, stat_intelligence, stat_vitality")
+    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date, last_heartbeat, stat_strength, stat_agility, stat_sense, stat_intelligence, stat_vitality, dark_mana")
     .eq("user_id", userId)
     .single();
 
@@ -226,16 +226,18 @@ export async function syncProgression(
 
   let totalOverduePenalty = 0;
   if (overdueTasks && overdueTasks.length > 0) {
+    const redGateId = typeof window !== 'undefined' ? localStorage.getItem("redGateId") : null;
+    
     for (const t of overdueTasks) {
       const deadlineDate = new Date(t.deadline);
       const todayDate = new Date(today);
       const daysLate = Math.floor((todayDate.getTime() - deadlineDate.getTime()) / (1000 * 3600 * 24));
       
       if (daysLate > 0) {
-        // Exponential Penalty: penalty = (points * 0.1) * (1.1 ^ daysLate)
-        // This ensures the penalty keeps growing the longer they wait.
-        const dailyBase = (t.points || 10) * 0.2; // 20% of points per day base
-        const expPenalty = Math.floor(dailyBase * Math.pow(1.2, daysLate));
+        // Normal Penalty: 20% of points base
+        const isRedGate = t.id === redGateId;
+        const dailyBase = (t.points || 10) * (isRedGate ? 0.5 : 0.2); // Red Gate is 50% penalty
+        const expPenalty = Math.floor(dailyBase * Math.pow(isRedGate ? 1.5 : 1.2, daysLate));
         totalOverduePenalty += expPenalty;
       }
     }
@@ -275,7 +277,8 @@ export async function syncProgression(
       streak_count: newStreak,
       last_active_date: today,
       last_heartbeat: new Date().toISOString(),
-      status: finalStatus
+      status: finalStatus,
+      dark_mana: prof.dark_mana ?? 0
     })
     .eq("user_id", userId);
 

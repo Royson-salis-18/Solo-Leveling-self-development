@@ -44,6 +44,7 @@ export function RewardsPage() {
   const [rewardForm,  setRewardForm]  = useState(EMPTY_REWARD);
   const [punishForm,  setPunishForm]  = useState(EMPTY_PUNISH);
   const [loading,     setLoading]     = useState(true);
+  const [darkMana,    setDarkMana]    = useState(0);
 
   useEffect(() => {
     if (!supabase || !user) return;
@@ -51,11 +52,12 @@ export function RewardsPage() {
       const [rRes, pRes, profRes] = await Promise.all([
         supabase.from("rewards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("punishments").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single(),
+        supabase.from("user_profiles").select("total_points, dark_mana").eq("user_id", user.id).single(),
       ]);
       setRewards(rRes.data ?? []);
       setPunishments(pRes.data ?? []);
       setProfile(profRes.data);
+      setDarkMana(profRes.data?.dark_mana || 0);
       setLoading(false);
     })();
   }, [user]);
@@ -129,14 +131,22 @@ export function RewardsPage() {
 
   const handleTriggerPunishment = async (p: Punishment) => {
     if (!supabase || !user) return;
-    await supabase.from("punishments").update({ triggered: p.triggered + 1 }).eq("id", p.id);
-    const newPoints = Math.max(0, (profile?.total_points ?? 0) - p.xp_penalty);
-    await supabase.from("user_profiles").update({ total_points: newPoints }).eq("user_id", user.id);
-    setPunishments(ps => ps.map(x => x.id === p.id ? { ...x, triggered: x.triggered + 1 } : x));
-    setProfile(prof => prof ? { ...prof, total_points: newPoints } : prof);
-    // Auto-sync level / rank / title
-    const progression = await syncProgression(supabase, user.id);
-    showProgressionToast(progression);
+    
+    // Redeem logic: reduce dark mana
+    if (darkMana > 0) {
+      const reduction = Math.min(darkMana, p.xp_penalty);
+      const newVal = darkMana - reduction;
+      setDarkMana(newVal);
+      await supabase.from("user_profiles").update({ dark_mana: newVal }).eq("user_id", user.id);
+      
+      // Update triggered count
+      await supabase.from("punishments").update({ triggered: p.triggered + 1 }).eq("id", p.id);
+      setPunishments(ps => ps.map(x => x.id === p.id ? { ...x, triggered: x.triggered + 1 } : x));
+      
+      alert(`SYSTEM: Punishment Accepted. Dark Mana reduced by ${reduction}.`);
+    } else {
+      alert("SYSTEM: You have no Dark Mana to redeem. Discipline is currently stable.");
+    }
   };
 
   const handleDeletePunishment = async (id: string) => {
@@ -159,10 +169,15 @@ export function RewardsPage() {
       <div className="page-header">
         <h2 className="page-title">Rewards & Penalties</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: "0.76rem", color: "var(--t3)" }}>Available</div>
-          <div className="badge" style={{ fontSize: "0.90rem", fontWeight: 700, padding: "5px 14px" }}>
+          <div style={{ fontSize: "0.76rem", color: "var(--t3)" }}>Mana</div>
+          <div className="badge" style={{ fontSize: "0.90rem", fontWeight: 700, padding: "5px 14px", border: '1px solid var(--accent-primary)' }}>
             {availableXP.toLocaleString()} XP
           </div>
+          {darkMana > 0 && (
+            <div className="badge dark-mana-badge" style={{ fontSize: "0.90rem", fontWeight: 700, padding: "5px 14px" }}>
+              {darkMana.toLocaleString()} Dark Mana
+            </div>
+          )}
         </div>
       </div>
 
@@ -172,7 +187,7 @@ export function RewardsPage() {
           <Gift size={13} /> Rewards
           <span className="badge-counter">{rewards.length}</span>
         </div>
-        <div className={`tab${tab === "punishments" ? " active" : ""}`} onClick={() => setTab("punishments")}>
+        <div className={`tab${tab === "punishments" ? " active" : ""} ${darkMana > 0 ? 'dark-mana-alert' : ''}`} onClick={() => setTab("punishments")}>
           <Zap size={13} /> Punishments
           <span className="badge-counter">{punishments.length}</span>
         </div>
@@ -348,6 +363,27 @@ export function RewardsPage() {
             onChange={e => setPunishForm({ ...punishForm, xp_penalty: parseInt(e.target.value) || 0 })} />
         </div>
       </Modal>
+      
+      <style>{`
+        .dark-mana-badge {
+          background: #000;
+          color: #ff4444;
+          border: 1px solid #ff4444;
+          box-shadow: 0 0 15px rgba(255, 68, 68, 0.3);
+          animation: darkPulse 2s infinite;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+        .dark-mana-alert {
+          color: #ff4444 !important;
+          border-bottom-color: #ff4444 !important;
+          animation: darkPulse 2s infinite;
+        }
+        @keyframes darkPulse {
+          0%, 100% { box-shadow: 0 0 5px #ff4444; border-color: rgba(255,68,68,0.4); }
+          50% { box-shadow: 0 0 20px #ff4444; border-color: #ff4444; }
+        }
+      `}</style>
     </section>
   );
 }

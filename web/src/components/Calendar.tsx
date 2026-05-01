@@ -4,10 +4,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 interface CalendarProps {
   selectedDate: string | null;
   onSelectDate: (date: string | null) => void;
-  taskDates?: Set<string>; // ISO date strings like "2024-05-12" that have tasks
+  taskCounts?: Record<string, number>; // ISO date strings to count of tasks
 }
 
-export function Calendar({ selectedDate, onSelectDate, taskDates }: CalendarProps) {
+export function Calendar({ selectedDate, onSelectDate, taskCounts }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const year = currentMonth.getFullYear();
@@ -32,42 +32,60 @@ export function Calendar({ selectedDate, onSelectDate, taskDates }: CalendarProp
     const formattedDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     let base = "cal-day-cell";
     if (selectedDate === formattedDate) base += " selected";
-    else if (taskDates?.has(formattedDate)) base += " has-task";
+    else if (taskCounts && taskCounts[formattedDate] > 0) base += " has-task";
     return base;
   };
 
   return (
-    <div className="panel" style={{ padding: "16px" }}>
-      <div className="flex-between mb-16">
-        <div className="font-600 text-sm">
-          {currentMonth.toLocaleString("default", { month: "long" })} {year}
+    <div className="calendar-v3 ds-glass ds-aura ds-glass-shine">
+      <div className="calendar-header-v3">
+        <div className="calendar-title-group">
+          <div className="calendar-month-text">
+            {currentMonth.toLocaleString("default", { month: "long" })} <span>{year}</span>
+          </div>
+          <div className="calendar-system-tag">TEMPORAL_COORDINATES_V3.0</div>
         </div>
-        <div className="flex gap-4">
-          <button className="btn btn-secondary btn-sm" onClick={handlePrev} style={{ padding: "4px 8px" }}>
-            <ChevronLeft size={14} />
+        <div className="calendar-nav-v3">
+          <button className="cal-nav-btn" onClick={handlePrev}>
+            <ChevronLeft size={16} />
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={handleNext} style={{ padding: "4px 8px" }}>
-            <ChevronRight size={14} />
+          <button className="cal-nav-btn" onClick={handleNext}>
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
       <div className="calendar-grid">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-          <div key={d} className="cal-header-cell">{d}</div>
+        {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(d => (
+          <div key={d} className="cal-header-cell-v3">{d}</div>
         ))}
         {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-          <div key={`empty-${i}`} className="cal-day-cell empty" />
+          <div key={`empty-${i}`} className="cal-day-cell-v3 empty" />
         ))}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
           const formattedDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const isToday = new Date().toISOString().split("T")[0] === formattedDate;
 
+          const count = taskCounts ? (taskCounts[formattedDate] || 0) : 0;
+          const intensity = Math.min(count * 0.15, 0.6); // Scale intensity based on count
+          
           return (
-            <div key={day} className={getDayClass(day)} onClick={() => handleDayClick(day)}>
-              <span className={isToday ? "today-marker" : ""}>{day}</span>
-              {taskDates?.has(formattedDate) && <div className="cal-dot" />}
+            <div 
+              key={day} 
+              className={getDayClass(day) + "-v3"} 
+              onClick={() => handleDayClick(day)}
+              style={count > 0 && selectedDate !== formattedDate ? { background: `rgba(168, 168, 255, ${0.05 + intensity})` } : {}}
+            >
+              <div className="cal-cell-inner">
+                <span className={isToday ? "today-marker-v3" : ""}>{day}</span>
+                {count > 0 && (
+                  <div className="cal-gate-indicator">
+                    <div className="cal-gate-pulse" />
+                  </div>
+                )}
+                {count > 1 && <span className="cal-count-badge">{count}</span>}
+              </div>
             </div>
           );
         })}

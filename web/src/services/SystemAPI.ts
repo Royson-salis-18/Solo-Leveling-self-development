@@ -27,6 +27,7 @@ export type DashboardData = {
   guild_title?: string;
   status?: string;
   last_heartbeat?: string;
+  dark_mana: number;
 };
 
 export type GatePayload = {
@@ -77,7 +78,7 @@ export const SystemAPI = {
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_completed", true).eq("is_failed", false).gte("completed_at", today + "T00:00:00"),
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_failed", true).gte("completed_at", today + "T00:00:00"),
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_pending", true).eq("is_completed", false),
-      s.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat").eq("user_id", userId).maybeSingle(),
+      s.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat, dark_mana").eq("user_id", userId).maybeSingle(),
       s.from("user_points").select("date,daily_points").eq("user_id", userId).order("date", { ascending: true }).limit(7),
       s.from("user_points").select("date,daily_points").eq("user_id", userId).order("date", { ascending: true }).limit(30),
       s.from("tasks").select("category,points").eq("user_id", userId),
@@ -113,6 +114,7 @@ export const SystemAPI = {
       guild_title: uData?.guild_title,
       status: uData?.status,
       last_heartbeat: uData?.last_heartbeat,
+      dark_mana: uData?.dark_mana || 0,
     };
   },
 
@@ -153,6 +155,13 @@ export const SystemAPI = {
       const { error } = await s.from("tasks").insert({ ...payload, is_active: false, is_completed: false });
       if (error) throw error;
     }
+  },
+
+  increaseDarkMana: async (userId: string, amount: number) => {
+    const s = db();
+    const { data } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
+    const current = data?.dark_mana || 0;
+    await s.from("user_profiles").update({ dark_mana: current + amount }).eq("user_id", userId);
   },
 
   /* ─── GATE: Delete ─────────────────────────── */
@@ -285,6 +294,10 @@ export const SystemAPI = {
       is_failed: true, is_completed: true, is_active: false, is_pending: false, is_paused: false, completed_at,
     }).eq("id", task.id);
     if (error) throw error;
+
+    // Dark Mana Accumulation (Database)
+    const { data: dmData } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
+    await s.from("user_profiles").update({ dark_mana: (dmData?.dark_mana || 0) + 10 }).eq("user_id", userId);
 
     // 2. Log punishment
     await s.from("punishments").insert({ user_id: userId, name: `Failed Gate: ${task.title}`, xp_penalty: penalty, triggered: 1 });

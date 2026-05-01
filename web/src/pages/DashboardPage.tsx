@@ -7,7 +7,7 @@ import {
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Sparkles, Skull, Activity } from "lucide-react";
+import { Sparkles, Skull, Activity, Zap } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 
 import { SystemAPI } from "../services/SystemAPI";
@@ -68,7 +68,10 @@ export function DashboardPage() {
   const [affiliations, setAffiliations] = useState<AffiliationRow[]>([]);
   const [shadows, setShadows] = useState<any[]>([]);
   const [showReawakening, setShowReawakening] = useState(false);
+  const [redGateId, setRedGateId] = useState<string | null>(localStorage.getItem("redGateId"));
   
+  const [isAbsoluteAuthority, setIsAbsoluteAuthority] = useState(false);
+  const [marketValue, setMarketValue] = useState(0);
   const [data, setData] = useState<DashboardData>({
     activeCount: 0,
     pendingCount: 0,
@@ -84,8 +87,8 @@ export function DashboardPage() {
     completedTasks: [],
     clanMembers: [],
     shadows: [],
+    dark_mana: 0,
   });
-
 
   useEffect(() => {
     if (!supabase || !user?.id) return;
@@ -154,6 +157,41 @@ export function DashboardPage() {
         setAffiliations(affils);
         setShadows(dashboardData.shadows);
 
+        // Red Gate Auto-Selection (B-Rank or higher: High, Super, Legendary)
+        const today = new Date().toDateString();
+        const storedDate = localStorage.getItem("redGateDate");
+        if (storedDate !== today) {
+          localStorage.removeItem("redGateId");
+          setRedGateId(null);
+        }
+
+        if (!localStorage.getItem("redGateId")) {
+          const bPlusTasks = (dashboardData.activeTasks as TaskRow[]).filter(t => 
+            ['High', 'Super', 'Legendary'].includes(t.xp_tier || '')
+          );
+          if (bPlusTasks.length > 0) {
+            const picked = bPlusTasks[0].id;
+            localStorage.setItem("redGateId", picked);
+            localStorage.setItem("redGateDate", today);
+            setRedGateId(picked);
+          }
+        }
+        // Market Value Logic (Bid System)
+        const bid = (dashboardData.level * 1000000) + (dashboardData.total_points * 10000) + ((dashboardData.streak_count || 0) * 500000);
+        setMarketValue(bid);
+
+        // Absolute Authority (Flow State) check
+        const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
+        if (lastCompletions.length >= 3) {
+          const nowTime = Date.now();
+          const threeTasksAgo = lastCompletions[0];
+          if (nowTime - threeTasksAgo < 2 * 60 * 60 * 1000) {
+            setIsAbsoluteAuthority(true);
+          } else {
+            setIsAbsoluteAuthority(false);
+          }
+        }
+
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       }
@@ -166,13 +204,26 @@ export function DashboardPage() {
     return total ? `${Math.round((data.completedCount/total)*100)}%` : "0%";
   },[data.activeCount, data.completedCount]);
 
-  const weeklyTotal = useMemo(()=>data.weeklyHistory.reduce((s,d)=>s+d.daily_points,0),[data.weeklyHistory]);
+  const weeklyTotal = useMemo(()=>data.weeklyHistory.reduce((s,d)=>s+(d.daily_points || 0),0),[data.weeklyHistory]);
 
   const toggleTaskCompletion = async (taskId: string, isCompleted: boolean) => {
     if (!supabase) return;
-    // Optimistic UI
+    if (!isCompleted) {
+      const now = Date.now();
+      const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
+      const updated = [...lastCompletions, now].slice(-3);
+      localStorage.setItem("lastCompletions", JSON.stringify(updated));
+    }
     setTasks(ts => ts.map(t => t.id === taskId ? { ...t, is_completed: !isCompleted } : t));
     await supabase.from("tasks").update({ is_completed: !isCompleted, completed_at: !isCompleted ? new Date().toISOString() : null }).eq("id", taskId);
+  };
+
+  const designateRedGate = (id: string) => {
+    const today = new Date().toDateString();
+    localStorage.setItem("redGateId", id);
+    localStorage.setItem("redGateDate", today);
+    setRedGateId(id);
+    alert("SYSTEM: Task designated as RED GATE. Fail at your own peril.");
   };
 
   const handleArise = async () => {
@@ -188,25 +239,9 @@ export function DashboardPage() {
   return (
     <section className="page dashboard-page">
       <div className="tactical-overlay" />
-      {/* ── REAWAKENING OVERLAY ── */}
-      {showReawakening && (
-        <div className="reawakening-overlay">
-          <div className="reawakening-content">
-            <div className="reawakening-glitch">SYSTEM FAILURE: HUNTER DECEASED</div>
-            <div className="reawakening-msg">
-              <div className="reawakening-skull" style={{ color: 'var(--destruction-red)' }}><Skull size={80} /></div>
-              <h2 style={{ color: 'var(--destruction-red)' }}>DECEASED ACCOUNT</h2>
-              <p>Your hunter record has been moved to the archives due to prolonged inactivity.</p>
-              <p className="reawakening-hint">Attempting to synchronize with the Shadow Monarch...</p>
-            </div>
-            <button className="reawakening-btn" onClick={handleArise} style={{ borderColor: 'var(--destruction-red)', color: 'var(--destruction-red)' }}>ARISE</button>
-          </div>
-        </div>
-      )}
-
       {/* ── TOP LEVEL BAR ── */}
       <div className="dashboard-section-header" style={{ marginBottom: 40 }}>
-        <div>
+        <div className="flex-col">
           <h1 className="page-title" style={{ margin: 0, lineHeight: 1.1 }}>
             Hunter Dashboard <span style={{ color: 'var(--accent-primary)', fontSize: '1rem', verticalAlign: 'middle', marginLeft: 12, fontWeight: 800 }}>[{data.player_rank}-Rank]</span>
           </h1>
@@ -217,8 +252,18 @@ export function DashboardPage() {
         <div className="dashboard-action-group">
           <div className="badge">Level {data.level}</div>
           <div className="badge">{data.totalXp.toLocaleString()} Mana</div>
+          <div className="market-bid-badge" title="Hunter Market Value (Projected Contract)">
+            BID: ₩{marketValue.toLocaleString()}
+          </div>
         </div>
       </div>
+
+      {isAbsoluteAuthority && (
+        <div className="absolute-authority-banner">
+          <Activity size={14} className="animate-pulse" />
+          ABSOLUTE AUTHORITY ACTIVE: 1.5x XP RESONANCE
+        </div>
+      )}
 
       {/* ── DYNAMIC SYSTEM MESSAGE BANNER ── */}
       {(() => {
@@ -231,7 +276,6 @@ export function DashboardPage() {
           { tag: "QUOTE", title: "Jin-Woo's Resolve", text: "\"I'm the only one who can level up. That is my strength and my curse.\"" },
           { tag: "HINT", title: "Shadow Tactician", text: "Did you know? Epic shadows like Igris provide a permanent +7% passive XP boost." }
         ];
-        // Use date-based index for "Message of the Day"
         const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
         const msg = messages[dayOfYear % messages.length];
 
@@ -304,6 +348,20 @@ export function DashboardPage() {
           <Skull size={32} className="q-card-icon" />
         </div>
 
+        <div className={`db-quantum-card ds-glass ${data.dark_mana > 0 ? 'q-aura-blood' : 'q-aura-dim'}`}>
+          <div className="q-card-glow" />
+          <div className="q-card-content">
+            <span className="q-card-lbl">Dark Mana Debt</span>
+            <span className="q-card-val" style={{ color: data.dark_mana > 0 ? '#ff4444' : 'inherit' }}>
+              {data.dark_mana}
+            </span>
+            <div className="q-card-footer">
+              <span className="q-card-trend">{data.dark_mana > 0 ? 'SYSTEM CORRUPTION DETECTED' : 'DISCIPLINE STABLE'}</span>
+            </div>
+          </div>
+          <Zap size={32} className="q-card-icon" style={{ color: data.dark_mana > 0 ? '#ff4444' : 'inherit' }} />
+        </div>
+
         <div className="db-quantum-card ds-glass q-aura-purple">
           <div className="q-card-glow" />
           <div className="q-card-content">
@@ -361,6 +419,12 @@ export function DashboardPage() {
         .q-aura-red { border: 1px solid rgba(239,68,68,0.15); }
         .q-aura-red .q-card-glow { background: radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%); }
         .q-aura-red .q-card-footer { color: #ff4444; }
+
+        .q-aura-blood { border: 2px solid #ff4444; background: rgba(255,68,68,0.05); }
+        .q-aura-blood .q-card-glow { background: radial-gradient(circle, rgba(255,68,68,0.2) 0%, transparent 70%); }
+        .q-aura-blood .q-card-footer { color: #ff4444; font-weight: 900; animation: flash 1s infinite alternate; }
+        .q-aura-dim { opacity: 0.5; border: 1px solid rgba(255,255,255,0.05); }
+        @keyframes flash { from { opacity: 0.5; } to { opacity: 1; } }
       `}</style>
 
       {/* ── PROGRESS / CHARTS ── */}
@@ -474,6 +538,7 @@ export function DashboardPage() {
           box-shadow: 0 16px 44px rgba(0,0,0,0.55);
           transition: transform .3s ease, box-shadow .3s ease;
         }
+
         .glass-panel:hover {
           transform: translateY(-2px);
         }
@@ -486,6 +551,7 @@ export function DashboardPage() {
           pointer-events: none;
           z-index: 0;
         }
+
         .glass-panel > * {
           position: relative;
           z-index: 1;
@@ -586,7 +652,7 @@ export function DashboardPage() {
             {tasks.filter(t => !t.is_pending && !t.is_failed).map(task => (
               <div 
                 key={task.id} 
-                className={`db-quest-card ds-glass ${task.is_completed ? 'quest-done' : ''}`}
+                className={`db-quest-card ds-glass ${task.is_completed ? 'quest-done' : ''} ${redGateId === task.id ? 'red-gate-mission' : ''}`}
                 onClick={() => toggleTaskCompletion(task.id, task.is_completed)}
               >
                 <div className="db-quest-header">
@@ -595,10 +661,21 @@ export function DashboardPage() {
                     <div className="check-custom"></div>
                   </div>
                   <div className="db-quest-info">
-                    <div className="db-quest-title">{task.title}</div>
+                    <div className="db-quest-title">
+                      {task.title}
+                      {redGateId === task.id && <span className="red-gate-tag">RED GATE</span>}
+                    </div>
                     <div className="db-quest-meta">
                       {task.category && <span className="q-tag">{task.category}</span>}
                       {task.xp_tier && <span className="q-tag xp-tag">{task.xp_tier} XP</span>}
+                      {redGateId !== task.id && ['High', 'Super', 'Legendary'].includes(task.xp_tier || '') && (
+                          <button 
+                            className="q-tag red-gate-btn"
+                            onClick={(e) => { e.stopPropagation(); designateRedGate(task.id); }}
+                          >
+                            SELECT RED GATE
+                          </button>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -812,6 +889,83 @@ export function DashboardPage() {
           font-weight: 900; cursor: pointer; letter-spacing: 4px; transition: 0.3s;
         }
         .reawakening-btn:hover { background: var(--accent-primary); color: #000; box-shadow: 0 0 30px var(--accent-glow); }
+
+        /* ── RED GATE STYLES ── */
+        .red-gate-mission {
+          border: 1px solid rgba(255, 68, 68, 0.4) !important;
+          background: linear-gradient(90deg, rgba(255, 68, 68, 0.05) 0%, rgba(0,0,0,0) 100%) !important;
+          box-shadow: 0 0 15px rgba(255, 68, 68, 0.1);
+        }
+        .red-gate-tag {
+          font-size: 0.6rem;
+          font-weight: 900;
+          color: #ff4444;
+          background: rgba(255, 68, 68, 0.1);
+          padding: 2px 6px;
+          border-radius: 4px;
+          margin-left: 8px;
+          letter-spacing: 1px;
+          border: 1px solid rgba(255, 68, 68, 0.3);
+        }
+        .red-gate-btn {
+          background: rgba(255, 68, 68, 0.1) !important;
+          color: #ff4444 !important;
+          border: 1px solid rgba(255, 68, 68, 0.3) !important;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .red-gate-btn:hover {
+          background: #ff4444 !important;
+          color: #fff !important;
+          box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+        }
+
+        /* -- MARKET VALUE & AUTHORITY -- */
+        .market-bid-badge {
+          background: linear-gradient(135deg, #111 0%, #222 100%);
+          border: 1px solid var(--accent-primary);
+          color: var(--accent-primary);
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-weight: 900;
+          font-size: 0.75rem;
+          letter-spacing: 1px;
+          box-shadow: 0 0 15px rgba(168, 168, 255, 0.2);
+        }
+        .absolute-authority-banner {
+          background: rgba(168, 168, 255, 0.1);
+          border: 1px solid var(--accent-primary);
+          color: var(--accent-primary);
+          padding: 8px 24px;
+          border-radius: var(--r-lg);
+          margin-bottom: 24px;
+          font-size: 0.75rem;
+          font-weight: 900;
+          letter-spacing: 2px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          animation: authorityPulse 2s infinite;
+        }
+        @keyframes authorityPulse {
+          0%, 100% { box-shadow: 0 0 5px var(--accent-primary); border-color: rgba(168,168,255,0.4); }
+          50% { box-shadow: 0 0 20px var(--accent-primary); border-color: var(--accent-primary); }
+        }
+        .dark-mana-badge {
+          background: #000;
+          color: #ff4444;
+          border: 1px solid #ff4444;
+          font-weight: 900;
+          font-size: 0.75rem;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          animation: darkPulse 1.5s infinite;
+          box-shadow: 0 0 10px rgba(255, 68, 68, 0.2);
+        }
+        @keyframes darkPulse {
+          0%, 100% { box-shadow: 0 0 5px #ff4444; opacity: 0.8; }
+          50% { box-shadow: 0 0 15px #ff4444; opacity: 1; }
+        }
       `}</style>
     </section>
   );

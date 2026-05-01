@@ -131,16 +131,61 @@ const COMMANDMENTS: Commandment[] = [
   },
   {
     num: "VIII",
-    title: "Survive the Anomalies",
-    subtitle: "Double Dungeons & Red Gates",
+    title: "Survive the Red Gates",
+    subtitle: "High-Stakes Anomalies",
     icon: <ShieldAlert size={120} strokeWidth={1} />,
     content: (
       <>
-        <p>The System is not always predictable. Occasionally, spatial distortions create <strong style={{ color: "var(--accent-primary)" }}>Double Dungeons</strong>—hidden objectives nested within a primary mission.</p>
-        <p>Even more dangerous are <strong style={{ color: "#ff4444" }}>Red Gates</strong>. These are high-stakes legendary distortions that lock until the objective is cleared. Rewards are immense, but failure is catastrophic.</p>
+        <p>The System designates high-tier (B-Rank+) missions as <strong style={{ color: "#ff4444" }}>RED GATES</strong>. These are catastrophic distortions that demand immediate resolution.</p>
+        <p>Failure to clear a Red Gate results in a <strong style={{ color: "#ff4444" }}>50% base XP deduction</strong> and a massive infusion of Dark Mana. You may also manually designate any B-Rank task as a Red Gate to force evolution.</p>
         <div className="lore-callout danger" style={{ borderLeftColor: '#ff4444', background: 'rgba(255,68,68,0.05)' }}>
           <Skull size={20} color="#ff4444" />
-          <span style={{ color: '#ffbaba' }}>If you encounter a Red Gate, prepare for total war. There is no escape.</span>
+          <span style={{ color: '#ffbaba' }}>Do not falter. A Red Gate does not close until the Monarch—or the shadow—falls.</span>
+        </div>
+      </>
+    )
+  },
+  {
+    num: "IX",
+    title: "Cleanse the Dark Mana",
+    subtitle: "The Burden of Hesitation",
+    icon: <Skull size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>Hesitation and failure create <strong style={{ color: "#ff4444" }}>Dark Mana</strong>—a malevolent corruption that tracks your lack of discipline.</p>
+        <ul className="lore-list">
+          <li><strong style={{ color: "#ff4444" }}>Accumulation</strong> — Gain Dark Mana by failing tasks (+10) or postponing deadlines (+5).</li>
+          <li><strong style={{ color: "#ff4444" }}>XP Drain</strong> — Postponing tasks also causes an immediate -5 XP loss.</li>
+          <li><strong style={{ color: "var(--accent-primary)" }}>Redemption</strong> — The only way to cleanse Dark Mana is to trigger your <strong style={{ color: "var(--accent-primary)" }}>Punishments</strong>. Redemption costs no XP, only effort.</li>
+        </ul>
+      </>
+    )
+  },
+  {
+    num: "X",
+    title: "Claim Your Worth",
+    subtitle: "Hunter Market Value",
+    icon: <Zap size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>You are no longer an independent agent. You are a commodity in the global Hunter Market.</p>
+        <p>Your <strong style={{ color: "var(--accent-primary)" }}>Market Value (BID)</strong> tracks your projected contract price in Won (₩). It increases dynamically based on your Level, total Mana, and active Streaks.</p>
+        <p>A higher bid attracts better shadows and prestige. Prove your value to the System.</p>
+      </>
+    )
+  },
+  {
+    num: "XI",
+    title: "Absolute Authority",
+    subtitle: "The Flow State",
+    icon: <Flame size={120} strokeWidth={1} />,
+    content: (
+      <>
+        <p>A Monarch in peak condition achieves <strong style={{ color: "var(--accent-primary)" }}>Absolute Authority</strong>.</p>
+        <p>By completing **3 tasks within a 2-hour window**, you trigger the "Flow State." While active, you receive a **1.5x XP Resonance** multiplier, accelerating your path to the next Rank.</p>
+        <div className="lore-callout tip">
+          <Activity size={20} color="var(--accent-primary)" />
+          <span>Maintain the momentum. The longer you stay in flow, the further you ascend.</span>
         </div>
       </>
     )

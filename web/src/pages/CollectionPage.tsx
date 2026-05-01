@@ -21,9 +21,36 @@ export function CollectionPage() {
   
   // Custom Alert State
   const [alertInfo, setAlertInfo] = useState<{show: boolean, title: string, message: string}>({show: false, title: "", message: ""});
+  const [timeToNextWindow, setTimeToNextWindow] = useState("");
+  const [isWindowActive, setIsWindowActive] = useState(true);
   
   useEffect(() => {
-    if (user) fetchCollection();
+    if (user) {
+      fetchCollection();
+      sweepExpiredGifts();
+    }
+    
+    // Time Window Logic (e.g. 06:00 to 22:00)
+    const updateTime = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const active = hour >= 6 && hour < 22;
+      setIsWindowActive(active);
+
+      if (!active) {
+        const next = new Date();
+        if (hour >= 22) next.setDate(next.getDate() + 1);
+        next.setHours(6, 0, 0, 0);
+        const diff = next.getTime() - now.getTime();
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        setTimeToNextWindow(`${h}h ${m}m`);
+      }
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 60000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const fetchCollection = async () => {
@@ -49,9 +76,38 @@ export function CollectionPage() {
     setLoading(false);
   };
 
+  const sweepExpiredGifts = async () => {
+    if (!user || !supabase) return;
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    // Find items marked as rental and created > 24h ago
+    const { data: expired } = await supabase
+      .from("inventory")
+      .select("id")
+      .eq("user_id", user.id)
+      .ilike("description", "%[SYSTEM_RENTAL]%")
+      .lt("created_at", yesterday);
+
+    if (expired && expired.length > 0) {
+      await supabase.from("inventory").delete().in("id", expired.map(e => e.id));
+      console.log(`System reclaimed ${expired.length} expired items.`);
+      fetchCollection();
+    }
+  };
+
   const getSystemGift = async () => {
     if (!user || !supabase) return;
     
+    // Time Window Check
+    if (!isWindowActive) {
+      setAlertInfo({ 
+        show: true, 
+        title: "Access Denied", 
+        message: `The System Gift window is closed. Access restored in ${timeToNextWindow}. (Window: 06:00 - 22:00)` 
+      });
+      return;
+    }
+
     // Daily Cooldown Check
     const today = new Date().toDateString();
     const lastGiftDate = localStorage.getItem("lastGiftDate");
@@ -66,7 +122,7 @@ export function CollectionPage() {
     await supabase.from("inventory").insert({
       user_id: user.id,
       name: picked.name,
-      description: picked.description,
+      description: `${picked.description} [SYSTEM_RENTAL]`,
       item_type: picked.item_type,
       item_category: picked.item_category,
       rarity: picked.rarity,
@@ -96,11 +152,27 @@ export function CollectionPage() {
           <h2 className="page-title" style={{ fontSize: '2.8rem', letterSpacing: '-1px' }}>System Arsenal</h2>
           <p className="text-sm text-muted" style={{ letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 800, opacity: 0.5 }}>Leveling System • Inventory Management</p>
         </div>
-        <div className="flex gap-12">
+        <div className="flex gap-12" style={{ alignItems: 'center' }}>
+          {!isWindowActive && (
+            <div className="time-lock-badge">
+              <ShieldAlert size={12} /> LOCKED: {timeToNextWindow}
+            </div>
+          )}
           <Button variant="secondary" size="md" onClick={() => setShowAll(!showAll)} style={{ borderRadius: '12px', fontWeight: 900 }}>
             {showAll ? "Show Collected Only" : "Show All Roster"}
           </Button>
-          <Button variant="primary" size="md" onClick={getSystemGift} style={{ borderRadius: '12px', fontWeight: 900, boxShadow: '0 0 20px rgba(168,168,255,0.4)' }}>
+          <Button 
+            variant="primary" 
+            size="md" 
+            onClick={getSystemGift} 
+            disabled={!isWindowActive}
+            style={{ 
+              borderRadius: '12px', 
+              fontWeight: 900, 
+              boxShadow: isWindowActive ? '0 0 20px rgba(168,168,255,0.4)' : 'none',
+              opacity: isWindowActive ? 1 : 0.5
+            }}
+          >
             <Sparkles size={16} /> Claim Daily Gift
           </Button>
         </div>
@@ -280,7 +352,16 @@ export function CollectionPage() {
                     col={colArr}
                     glow={glowStr}
                     icon={<Icon size={24} />}
-                    sub={isCollected ? item.description : "Information encrypted by the System."}
+                    sub={isCollected ? (
+                      <>
+                        {item.description}
+                        {item.description.includes("[SYSTEM_RENTAL]") && (
+                          <div style={{ color: 'var(--destruction-red)', fontSize: '0.65rem', fontWeight: 900, marginTop: 4, letterSpacing: '1px' }}>
+                            ⚠ SYSTEM RENTAL: EXPIRES SOON
+                          </div>
+                        )}
+                      </>
+                    ) : "Information encrypted by the System."}
                     label={item.item_category.toUpperCase()}
                   />
                 );
@@ -406,6 +487,21 @@ export function CollectionPage() {
           opacity: 0.05; mix-blend-mode: overlay; pointer-events: none; animation: storm 8s steps(5) infinite;
         }
         @keyframes storm { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-1%, -1%); } }
+
+        .time-lock-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(255, 80, 80, 0.1);
+          border: 1px solid rgba(255, 80, 80, 0.3);
+          color: #ff5050;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 0.7rem;
+          font-weight: 900;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
       `}</style>
     </section>
   );
