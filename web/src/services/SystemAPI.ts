@@ -13,7 +13,9 @@ export type DashboardData = {
   completedCount: number;
   failedCount: number;
   totalXp: number;
+  total_points: number;
   level: number;
+  streak_count?: number;
   weeklyHistory: Array<{ date: string; daily_points: number }>;
   monthlyHistory: Array<{ date: string; daily_points: number }>;
   categoryDistribution: Array<{ category: string; points: number }>;
@@ -78,7 +80,7 @@ export const SystemAPI = {
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_completed", true).eq("is_failed", false).gte("completed_at", today + "T00:00:00"),
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_failed", true).gte("completed_at", today + "T00:00:00"),
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_pending", true).eq("is_completed", false),
-      s.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat, dark_mana").eq("user_id", userId).maybeSingle(),
+      s.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat, dark_mana, streak_count").eq("user_id", userId).maybeSingle(),
       s.from("user_points").select("date,daily_points").eq("user_id", userId).order("date", { ascending: true }).limit(7),
       s.from("user_points").select("date,daily_points").eq("user_id", userId).order("date", { ascending: true }).limit(30),
       s.from("tasks").select("category,points").eq("user_id", userId),
@@ -100,7 +102,9 @@ export const SystemAPI = {
       failedCount: fc || 0,
       pendingCount: pc || 0,
       totalXp: uData?.total_points || 0,
+      total_points: uData?.total_points || 0,
       level: uData?.level || 1,
+      streak_count: uData?.streak_count || 0,
       player_rank: uData?.player_rank || "E",
       player_title: uData?.player_title || "Newcomer",
       weeklyHistory: pRes.data || [],

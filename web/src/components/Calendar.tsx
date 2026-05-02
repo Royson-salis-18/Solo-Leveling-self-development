@@ -5,9 +5,10 @@ interface CalendarProps {
   selectedDate: string | null;
   onSelectDate: (date: string | null) => void;
   taskCounts?: Record<string, number>; // ISO date strings to count of tasks
+  taskDates?: Set<string>;
 }
 
-export function Calendar({ selectedDate, onSelectDate, taskCounts }: CalendarProps) {
+export function Calendar({ selectedDate, onSelectDate, taskCounts, taskDates }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const year = currentMonth.getFullYear();
@@ -32,7 +33,7 @@ export function Calendar({ selectedDate, onSelectDate, taskCounts }: CalendarPro
     const formattedDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     let base = "cal-day-cell";
     if (selectedDate === formattedDate) base += " selected";
-    else if (taskCounts && taskCounts[formattedDate] > 0) base += " has-task";
+    else if ((taskCounts && taskCounts[formattedDate] > 0) || (taskDates && taskDates.has(formattedDate))) base += " has-task";
     return base;
   };
 
@@ -68,6 +69,7 @@ export function Calendar({ selectedDate, onSelectDate, taskCounts }: CalendarPro
           const isToday = new Date().toISOString().split("T")[0] === formattedDate;
 
           const count = taskCounts ? (taskCounts[formattedDate] || 0) : 0;
+          const hasTask = taskDates ? taskDates.has(formattedDate) : count > 0;
           const intensity = Math.min(count * 0.15, 0.6); // Scale intensity based on count
           
           return (
@@ -75,11 +77,11 @@ export function Calendar({ selectedDate, onSelectDate, taskCounts }: CalendarPro
               key={day} 
               className={getDayClass(day) + "-v3"} 
               onClick={() => handleDayClick(day)}
-              style={count > 0 && selectedDate !== formattedDate ? { background: `rgba(168, 168, 255, ${0.05 + intensity})` } : {}}
+              style={(count > 0 || hasTask) && selectedDate !== formattedDate ? { background: `rgba(168, 168, 255, ${0.05 + intensity})` } : {}}
             >
               <div className="cal-cell-inner">
                 <span className={isToday ? "today-marker-v3" : ""}>{day}</span>
-                {count > 0 && (
+                {(count > 0 || hasTask) && (
                   <div className="cal-gate-indicator">
                     <div className="cal-gate-pulse" />
                   </div>

@@ -7,7 +7,7 @@ import {
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Sparkles, Skull, Activity, Zap } from "lucide-react";
+import { Sparkles, Skull, Activity } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 
 import { SystemAPI } from "../services/SystemAPI";
@@ -346,20 +346,6 @@ export function DashboardPage() {
             </div>
           </div>
           <Skull size={32} className="q-card-icon" />
-        </div>
-
-        <div className={`db-quantum-card ds-glass ${data.dark_mana > 0 ? 'q-aura-blood' : 'q-aura-dim'}`}>
-          <div className="q-card-glow" />
-          <div className="q-card-content">
-            <span className="q-card-lbl">Dark Mana Debt</span>
-            <span className="q-card-val" style={{ color: data.dark_mana > 0 ? '#ff4444' : 'inherit' }}>
-              {data.dark_mana}
-            </span>
-            <div className="q-card-footer">
-              <span className="q-card-trend">{data.dark_mana > 0 ? 'SYSTEM CORRUPTION DETECTED' : 'DISCIPLINE STABLE'}</span>
-            </div>
-          </div>
-          <Zap size={32} className="q-card-icon" style={{ color: data.dark_mana > 0 ? '#ff4444' : 'inherit' }} />
         </div>
 
         <div className="db-quantum-card ds-glass q-aura-purple">
@@ -797,6 +783,22 @@ export function DashboardPage() {
                 <div className="log-xp">+{q.points} XP</div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showReawakening && (
+        <div className="reawakening-overlay">
+          <div className="reawakening-content">
+            <div className="reawakening-glitch">CRITICAL_SYSTEM_FAILURE</div>
+            <Skull size={80} className="reawakening-skull" />
+            <h2>YOU HAVE DIED</h2>
+            <p>Your heartbeat ceased to resonate with the System.</p>
+            <p className="reawakening-hint">The Monarch does not permit such a pathetic end.</p>
+            
+            <button className="reawakening-btn" onClick={handleArise}>
+              ARISE
+            </button>
           </div>
         </div>
       )}

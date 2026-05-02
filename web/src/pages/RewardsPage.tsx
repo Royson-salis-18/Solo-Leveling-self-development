@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
@@ -45,6 +46,16 @@ export function RewardsPage() {
   const [punishForm,  setPunishForm]  = useState(EMPTY_PUNISH);
   const [loading,     setLoading]     = useState(true);
   const [darkMana,    setDarkMana]    = useState(0);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash === "#punishments") {
+      setTab("punishments");
+    } else if (location.hash === "#rewards") {
+      setTab("rewards");
+    }
+  }, [location.hash]);
 
   useEffect(() => {
     if (!supabase || !user) return;

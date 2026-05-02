@@ -37,6 +37,7 @@ type Profile = {
   player_job?: string;
   monarch_allegiance?: string;
   status?: string;
+  dark_mana?: number;
 };
 
 
@@ -519,6 +520,12 @@ export function ProfilePage() {
             <div className="pf-record-item">
               <span>NEXT RANK</span>
               <strong style={{ opacity: 0.5, fontSize: "0.8rem" }}>{nextRank?.rank ?? "MAX"}</strong>
+            </div>
+            <div className="pf-record-item">
+              <span>DARK MANA DEBT</span>
+              <strong style={{ color: (profile as any).dark_mana > 0 ? "#ff4444" : "inherit" }}>
+                {(profile as any).dark_mana || 0}
+              </strong>
             </div>
             <div className="pf-record-item" style={{ borderBottom: "none" }}>
               <span>SERIAL NO.</span>

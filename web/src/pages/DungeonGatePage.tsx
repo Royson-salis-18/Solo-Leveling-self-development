@@ -194,7 +194,8 @@ export function DungeonGatePage() {
 
       if (editingId && originalDeadline && formData.deadline && formData.deadline > originalDeadline) {
         SystemAPI.increaseDarkMana(user.id, 5); // Penalty for postponing
-        // Deduct XP for postponing
+        if (supabase) {
+          // Deduct XP for postponing
         const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
         const newXp = Math.max(0, (prof?.total_points || 0) - 5);
         await supabase.from("user_profiles").update({ total_points: newXp }).eq("user_id", user.id);
@@ -203,6 +204,7 @@ export function DungeonGatePage() {
         const { syncProgression, showProgressionToast } = await import("../lib/levelEngine");
         const progression = await syncProgression(supabase, user.id);
         showProgressionToast(progression);
+        }
       }
 
       await SystemAPI.saveGate(payload, editingId);
