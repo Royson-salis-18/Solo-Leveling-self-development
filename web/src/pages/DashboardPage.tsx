@@ -78,6 +78,7 @@ export function DashboardPage() {
     completedCount: 0,
     failedCount: 0,
     totalXp: 0, level: 1,
+    total_points: 0,
     weeklyHistory: [],
     monthlyHistory: [],
     categoryDistribution: [],

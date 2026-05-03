@@ -13,6 +13,7 @@ interface AuraCardProps {
   glow?: string;
   icon?: React.ReactNode | string;
 
+  sub?: React.ReactNode;
   bonus?: number;
   label?: string;
   className?: string;
