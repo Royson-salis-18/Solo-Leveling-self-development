@@ -248,6 +248,7 @@ export function CollectionPage() {
                               rankLabel={top.rarity === 'Mythic' ? 'MONARCH' : 'GRAND MARSHAL'}
                               rarityColor={color}
                               isCollected={true}
+                              isCorrupted={!!top.is_corrupted}
                               effectType={top.effectType}
                               col={top.col}
                               glow={top.glow}
@@ -297,6 +298,7 @@ export function CollectionPage() {
                             rankLabel={s.rarity === 'Mythic' ? 'MONARCH' : s.rarity === 'Legendary' ? 'GRAND MARSHAL' : s.rarity === 'Epic' ? 'COMMANDER' : s.rarity === 'Rare' ? 'KNIGHT' : 'ELITE'}
                             rarityColor={RARITY_COLORS[s.rarity.toUpperCase() as keyof typeof RARITY_COLORS] || '#475569'}
                             isCollected={!!s.collected}
+                            isCorrupted={!!s.is_corrupted}
                             effectType={s.effectType}
                             col={s.col}
                             glow={s.glow}

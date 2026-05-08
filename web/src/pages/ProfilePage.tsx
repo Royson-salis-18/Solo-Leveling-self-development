@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
@@ -9,6 +9,20 @@ import { calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "..
 import { AuraCard } from "../components/AuraCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { PLAYER_CLASSES, PLAYER_JOBS, MONARCHS, SKILL_CATALOG, ITEM_CATALOG } from "../lib/catalog";
+
+const STREAM_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}()<>|/\\:;.,-_+=*#@$%";
+
+function makeDataStreamText(width = 250, rows = 60) {
+  const lines: string[] = [];
+  for (let r = 0; r < rows; r++) {
+    let line = "";
+    for (let c = 0; c < width; c++) {
+      line += STREAM_CHARS[Math.floor(Math.random() * STREAM_CHARS.length)];
+    }
+    lines.push(line);
+  }
+  return lines.join("\n");
+}
 
 type Profile = {
   user_id: string;
@@ -84,6 +98,18 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [globalRank, setGlobalRank] = useState<number | string>("...");
+  const licenseTiltRef = useRef<HTMLDivElement | null>(null);
+  const tiltRafRef = useRef<number | null>(null);
+  const tiltTargetRef = useRef({ x: 0, y: 0 });
+  const tiltCurrentRef = useRef({ x: 0, y: 0 });
+  const draggingRef = useRef(false);
+  const [licenseRevealed, setLicenseRevealed] = useState(false);
+  const [licenseScanning, setLicenseScanning] = useState(false);
+  const [revealProgress, setRevealProgress] = useState(0);
+  const [isHoveringLicense, setIsHoveringLicense] = useState(false);
+  const [streamText] = useState(() => makeDataStreamText(300, 80)); // Generate once, larger
+
+  // Removed frequent stream text interval to eliminate lag
 
   const fetchProfile = async () => {
     if (!supabase || !user) return;
@@ -281,12 +307,45 @@ export function ProfilePage() {
   }));
 
   const currentWeapon = WEAPONS.find(w => w.name === profile.weapon_of_choice) || WEAPONS[0];
+  const weaponRankScore: Record<string, number> = { S: 95, A: 82, B: 68, C: 54, D: 38, E: 24 };
+  const weaponScore = weaponRankScore[String(currentWeapon.rank || "").toUpperCase()] ?? 55;
+  const typeKey = String(currentWeapon.type || "shadow").toLowerCase();
+  const affinityStat =
+    typeKey.includes("lightning") ? profile.stat_agility :
+    typeKey.includes("flame") || typeKey.includes("fire") ? profile.stat_strength :
+    typeKey.includes("smoke") ? profile.stat_sense :
+    profile.stat_intelligence;
+  const armDps = Math.round(weaponScore * 8 + profile.level * 2.5 + affinityStat * 0.8);
+  const armCrit = Math.min(75, Math.round(8 + profile.stat_agility * 0.35));
+  const armSync = Math.min(100, Math.round(40 + affinityStat * 0.6));
 
   const userSkills = SKILL_CATALOG.filter(s => 
     s.required_class === profile.player_class || 
     s.required_monarch === profile.monarch_allegiance ||
     (!s.required_class && !s.required_monarch)
   );
+
+  const runLicenseScan = () => {
+    if (licenseScanning || licenseRevealed) return;
+    setLicenseScanning(true);
+    setRevealProgress(0);
+    const start = performance.now();
+    const duration = 1050;
+
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2.8);
+      setRevealProgress(eased * 100);
+      if (p < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        setLicenseScanning(false);
+        setLicenseRevealed(true);
+        setRevealProgress(100);
+      }
+    };
+    requestAnimationFrame(tick);
+  };
 
   return (
     <section className="page profile-page">
@@ -326,68 +385,150 @@ export function ProfilePage() {
       {/* ── TIER 1: LICENSE + ARMAMENT ── */}
       <div className="pf-tier1">
 
-        {/* LEFT: FLIPPABLE LICENSE CARD */}
+        {/* LEFT: FLIPPABLE HUNTER LICENCE (true licence look) */}
         <div className="pf-license-col">
+          <div className="pf-section-label">
+            <Fingerprint size={15} style={{ color: "var(--accent-primary)" }} />
+            <span>HUNTER LICENCE</span>
+          </div>
           <div
-            className="pf-flip-container"
-            onClick={() => setFlipped(!flipped)}
+            ref={licenseTiltRef}
+            className="pf-flip-container pf-tilt"
+            onMouseDown={() => { draggingRef.current = false; }}
+            onMouseMove={(e) => {
+              const el = licenseTiltRef.current;
+              if (!el) return;
+              const rect = el.getBoundingClientRect();
+              const dx = (e.clientX - rect.left) / rect.width - 0.5;
+              const dy = (e.clientY - rect.top) / rect.height - 0.5;
+              
+              // Direct DOM update for CSS variables (Buttery Smooth, No React Lag)
+              const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+              el.style.setProperty("--scanPct", `${percent}%`);
+              
+              if (!licenseRevealed && !flipped) {
+                if (percent > 99.5) {
+                  setLicenseRevealed(true);
+                  setRevealProgress(100);
+                  el.style.setProperty("--scanPct", "100%");
+                }
+              }
+
+              draggingRef.current = true;
+              tiltTargetRef.current = { x: dy * -14, y: dx * 18 };
+              if (tiltRafRef.current != null) return;
+              tiltRafRef.current = window.requestAnimationFrame(() => {
+                tiltRafRef.current = null;
+                const cur = tiltCurrentRef.current;
+                const tgt = tiltTargetRef.current;
+                cur.x += (tgt.x - cur.x) * 0.14;
+                cur.y += (tgt.y - cur.y) * 0.14;
+                el.style.setProperty("--tiltX", `${cur.x.toFixed(2)}deg`);
+                el.style.setProperty("--tiltY", `${cur.y.toFixed(2)}deg`);
+              });
+            }}
+            onMouseEnter={() => setIsHoveringLicense(true)}
+            onMouseLeave={() => {
+              setIsHoveringLicense(false);
+              const el = licenseTiltRef.current;
+              if (!el) return;
+              tiltTargetRef.current = { x: 0, y: 0 };
+              const cur = tiltCurrentRef.current;
+              cur.x *= 0.5;
+              cur.y *= 0.5;
+              el.style.setProperty("--tiltX", `0deg`);
+              el.style.setProperty("--tiltY", `0deg`);
+            }}
+            onClick={() => {
+              if (draggingRef.current) return;
+              if (!flipped && !licenseRevealed) {
+                runLicenseScan();
+                return;
+              }
+              setFlipped(!flipped);
+            }}
           >
             <div className={`pf-flipper ${flipped ? "is-flipped" : ""}`}>
-
               {/* FRONT */}
-              <div className="pf-face pf-front">
-                <AuraCard
-                  name="" rankLabel="" rarityColor="#ffd700" isCollected={true}
-                  effectType={(profile.guild_aura_card as any) || "shadow"}
-                  className="hero-aura-wrapper"
-                  style={{ width: "100%", height: "100%", padding: 0, margin: 0, borderRadius: 28, border: "2.5px solid rgba(168,168,255,0.4)" }}
-                >
-                  <div className="pf-front-inner">
+              <div className="pf-face pf-front ds-glass pf-lic">
+                <div className="pf-lic-holo" />
+                <div className="pf-lic-inner" style={{ pointerEvents: "none" }}>
+                  <div
+                    className="pf-lic-real"
+                    style={{ clipPath: licenseRevealed ? "none" : `inset(0 calc(100% - var(--scanPct, 0%)) 0 0)` }}
+                  >
                     <div className="pf-card-header">
                       <div className="pf-chip" />
                       <span className="pf-issuer">GLOBAL HUNTERS ASSOCIATION</span>
                     </div>
 
-                    <div className="pf-card-body">
+                    <div className="pf-card-body" style={{ alignItems: "flex-start" }}>
                       <div className="pf-photo-box">
                         <span className="pf-photo-initial">{initial}</span>
                         <div className="pf-rank-badge">{profile.player_rank}</div>
                       </div>
+
                       <div className="pf-card-details">
                         <div className="pf-field">
-                          <span className="pf-lbl">MONARCH IDENTITY</span>
+                          <span className="pf-lbl">NAME</span>
                           <div className="pf-val pf-val-name">{profile.name}</div>
                         </div>
-                         <div className="pf-field">
-                          <span className="pf-lbl">CLASS & JOB</span>
-                          <div className="pf-val" style={{ color: "var(--accent-primary)", fontSize: "0.9rem" }}>
-                            {profile.player_class} • {profile.player_job || "None"}
+                        <div className="pf-field">
+                          <span className="pf-lbl">LEVEL</span>
+                          <div className="pf-val" style={{ color: "var(--accent-primary)" }}>{profile.level}</div>
+                        </div>
+                        <div className="pf-field">
+                          <span className="pf-lbl">CLASS / JOB</span>
+                          <div className="pf-val" style={{ fontSize: "0.85rem", opacity: 0.9 }}>
+                            {profile.player_class}{profile.player_job ? ` • ${profile.player_job}` : ""}
                           </div>
                         </div>
                         <div className="pf-field">
-                          <span className="pf-lbl">MONARCH ALLEGIANCE</span>
-                          <div className="pf-val" style={{ fontSize: "0.8rem", color: "#ffd700" }}>{profile.monarch_allegiance || "None"}</div>
-                        </div>
-                        <div className="pf-field">
                           <span className="pf-lbl">TITLE</span>
-                          <div className="pf-val" style={{ fontSize: "0.8rem", opacity: 0.7 }}>{profile.player_title}</div>
+                          <div className="pf-val" style={{ fontSize: "0.78rem", opacity: 0.75 }}>{profile.player_title}</div>
                         </div>
                         <div className="pf-field">
-                          <span className="pf-lbl">MANA TOTAL</span>
-                          <div className="pf-val" style={{ fontSize: "0.85rem" }}>{profile.total_points.toLocaleString()} XP</div>
+                          <span className="pf-lbl">MANA</span>
+                          <div className="pf-val" style={{ fontSize: "0.8rem" }}>{profile.total_points.toLocaleString()} XP</div>
+                        </div>
+                        <div className="pf-field">
+                          <span className="pf-lbl">ID</span>
+                          <div className="pf-val" style={{ fontSize: "0.7rem", fontFamily: "monospace", opacity: 0.75 }}>
+                            {profile.user_id.slice(0, 12).toUpperCase()}
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pf-card-footer">
-                      <div className="pf-barcode" />
-                      <Fingerprint size={26} style={{ color: "var(--accent-primary)", opacity: 0.4 }} />
+                    <div className="pf-lic-footer">
+                      <div className="pf-lic-qr">
+                        <QrCode size={44} strokeWidth={1.2} />
+                      </div>
+                      <div className="pf-lic-barcode" />
+                      <Fingerprint size={24} style={{ color: "var(--accent-primary)", opacity: 0.35 }} />
                     </div>
                   </div>
-                </AuraCard>
+
+                  <div
+                    className="pf-lic-ascii"
+                    style={{ clipPath: licenseRevealed ? "inset(0 0 0 100%)" : `inset(0 0 0 var(--scanPct, 0%))` }}
+                  >
+                    <pre>{streamText}</pre>
+                    <div className="pf-lic-ascii-vignette" />
+                  </div>
+                  {(licenseScanning || (isHoveringLicense && !licenseRevealed)) && (
+                    <div
+                      className="pf-lic-scan-line"
+                      style={{ left: `var(--scanPct, 0%)` }}
+                    >
+                      <div className="pf-lic-scan-core" />
+                      <div className="pf-lic-scan-glow" />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* BACK */}
+              {/* BACK (keep official system back) */}
               <div className="pf-face pf-back ds-glass">
                 <div className="pf-back-inner">
                   <div className="pf-mag-stripe" />
@@ -411,28 +552,39 @@ export function ProfilePage() {
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
 
           <div className="pf-flip-hint">
-            <RefreshCw size={13} /> CLICK TO TOGGLE SYSTEM VIEW
+            <RefreshCw size={13} /> {!licenseRevealed ? "CLICK TO SCAN & REVEAL" : "CLICK TO TOGGLE SYSTEM VIEW"}
           </div>
         </div>
 
-        {/* RIGHT: PRIMARY ARMAMENT */}
+        {/* RIGHT: PRIMARY ARMAMENT (weapon card look, no licence elements) */}
         <div className="pf-armament-col">
           <div className="pf-section-label">
             <Swords size={15} style={{ color: "var(--accent-primary)" }} />
             <span>PRIMARY ARMAMENT</span>
           </div>
+
           <AuraCard
             name={currentWeapon.name}
-            rankLabel={`${currentWeapon.rank}-RANK EQUIPPED`}
+            rankLabel={`${currentWeapon.rank}-RANK`}
             rarityColor={currentWeapon.color}
             isCollected={true}
             effectType={currentWeapon.type as any}
-            style={{ flex: 1, width: "100%", minHeight: 0 }}
+            label="WEAPON"
+            icon={<Swords size={22} />}
+            interactive={false}
+            sub={
+              <div className="pf-arm-mini">
+                <div className="pf-arm-pill"><span>DPS</span>{armDps.toLocaleString()}</div>
+                <div className="pf-arm-pill"><span>SYNC</span>{armSync}%</div>
+                <div className="pf-arm-pill"><span>CRIT</span>{armCrit}%</div>
+                <div className="pf-arm-pill"><span>STYLE</span>{(profile.gear_style || "Modern").toUpperCase()}</div>
+              </div>
+            }
+            style={{ width: "100%", minHeight: 360 }}
           />
         </div>
       </div>
@@ -893,7 +1045,156 @@ export function ProfilePage() {
           display: flex;
           flex-direction: column;
           gap: 14px;
-          height: 340px; /* Match License Height */
+          height: 360px; /* Match License Height */
+        }
+        .pf-armament-col--license {
+          height: auto;
+          align-items: center;
+        }
+
+        /* Licence face (keep it stable + smooth) */
+        .pf-lic {
+          background: rgba(12, 12, 18, 0.78);
+          border: 1px solid rgba(255,255,255,0.10);
+        }
+        .pf-lic-holo {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: linear-gradient(135deg, transparent 42%, rgba(168,168,255,0.10) 52%, transparent 62%);
+          background-size: 220% 220%;
+          animation: pfHolo 7s ease-in-out infinite;
+          opacity: 0.85;
+        }
+        @keyframes pfHolo {
+          0% { background-position: 120% 120%; }
+          50% { background-position: 40% 40%; }
+          100% { background-position: -20% -20%; }
+        }
+        .pf-lic-inner {
+          position: relative;
+          z-index: 2;
+          height: 100%;
+          padding: 24px 28px;
+          display: flex;
+          flex-direction: column;
+          box-sizing: border-box;
+          pointer-events: none; /* prevents jittery hover/click focus */
+        }
+        .pf-lic-real {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          padding: 24px 28px;
+          display: flex;
+          flex-direction: column;
+          box-sizing: border-box;
+          will-change: clip-path;
+          border-radius: inherit;
+        }
+        .pf-lic-ascii {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          overflow: hidden;
+          border-radius: inherit;
+          background:
+            radial-gradient(circle at 20% 30%, rgba(167,139,250,0.14) 0%, transparent 35%),
+            radial-gradient(circle at 70% 70%, rgba(6,182,212,0.08) 0%, transparent 38%),
+            rgba(6, 8, 16, 0.92);
+          will-change: clip-path;
+        }
+        .pf-lic-ascii pre {
+          margin: 0;
+          padding: 0;
+          height: 100%;
+          width: 400%;
+          white-space: pre;
+          overflow: hidden;
+          font-family: "Courier New", monospace;
+          font-size: 7px;
+          line-height: 0.9;
+          letter-spacing: 0.15em;
+          color: rgba(196,181,253,0.3);
+          text-shadow: 0 0 8px rgba(139,92,246,0.1);
+          animation: pfAsciiScroll 30s linear infinite;
+        }
+        @keyframes pfAsciiScroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .pf-lic-ascii-vignette {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: linear-gradient(to right, rgba(0,0,0,0.2), transparent 22%, transparent 78%, rgba(0,0,0,0.25));
+        }
+        .pf-lic-scan-line {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 0;
+          z-index: 3;
+          pointer-events: none;
+        }
+        .pf-lic-scan-core {
+          position: absolute;
+          top: 7%;
+          bottom: 7%;
+          left: -1px;
+          width: 2px;
+          border-radius: 4px;
+          background: rgba(238, 228, 255, 0.95);
+        }
+        .pf-lic-scan-glow {
+          position: absolute;
+          top: 4%;
+          bottom: 4%;
+          left: -14px;
+          width: 28px;
+          background: linear-gradient(
+            to right,
+            rgba(139,92,246,0),
+            rgba(196,181,253,0.35) 35%,
+            rgba(255,255,255,0.5) 50%,
+            rgba(196,181,253,0.35) 65%,
+            rgba(139,92,246,0)
+          );
+          filter: blur(1px);
+        }
+
+        /* Tilt wrapper (independent of flip) */
+        .pf-tilt {
+          transform-style: preserve-3d;
+          transform: perspective(1400px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
+          will-change: transform;
+        }
+        .pf-lic-footer {
+          display: flex;
+          align-items: flex-end;
+          gap: 14px;
+          margin-top: auto;
+        }
+        .pf-lic-qr {
+          padding: 8px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.92);
+          color: #000;
+          border: 1px solid rgba(0,0,0,0.10);
+          box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+        }
+        .pf-lic-barcode {
+          flex: 1;
+          height: 26px;
+          opacity: 0.55;
+          border-radius: 10px;
+          background: repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,0.75),
+            rgba(255,255,255,0.75) 1.6px,
+            transparent 1.6px,
+            transparent 5px
+          );
         }
         .pf-section-label {
           display: flex;
@@ -905,6 +1206,35 @@ export function ProfilePage() {
           text-transform: uppercase;
           opacity: 0.5;
           padding-left: 4px;
+        }
+
+        /* Armament stats strip (calmer, compact) */
+        .pf-arm-mini {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px 10px;
+          margin-top: 8px;
+        }
+        .pf-arm-pill {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 7px 10px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+          color: rgba(255,255,255,0.85);
+          font-size: 0.78rem;
+          font-weight: 900;
+          letter-spacing: 0.02em;
+        }
+        .pf-arm-pill span {
+          font-size: 0.55rem;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.35);
+          font-weight: 900;
         }
 
         /* ── TIER 2 ── */

@@ -23,7 +23,8 @@ const EMPTY_FORM = {
   recurrence_interval: 1,      
   recurrence_days: [] as number[], 
   recurrence_day_of_month: 1,  
-  recurrence_custom_label: "", 
+  recurrence_custom_label: "",
+  is_gauntlet: false,
 };
 
 
@@ -190,6 +191,7 @@ export function DungeonGatePage() {
         xp_tier: formData.xp_tier,
         is_recurring: isRecurring,
         parent_id: formData.parentId,
+        is_gauntlet: formData.is_gauntlet,
       };
 
       if (editingId && originalDeadline && formData.deadline && formData.deadline > originalDeadline) {
@@ -246,6 +248,7 @@ export function DungeonGatePage() {
       recurrence_days: rdays,
       recurrence_day_of_month: gate.recurrence_day_of_month || 1,
       recurrence_custom_label: gate.recurrence_custom_label || "",
+      is_gauntlet: !!gate.is_gauntlet,
     });
     setOriginalDeadline(gate.deadline || "");
     setShowModal(true);
@@ -519,8 +522,8 @@ export function DungeonGatePage() {
                 return (
                   <div 
                     key={gate.id} 
-                    className={`gate-card ds-glass ds-aura ${gate.is_failed ? 'gate-failed' : ''} ${isActive && !gate.is_failed ? 'gate-active' : ''} ${isPaused ? 'gate-paused' : ''} ${isRedGate && !gate.is_failed ? 'gate-red-gate' : ''} ${isDoubleDungeon ? 'gate-double-dungeon' : ''}`} 
-                    style={{ '--gate-color': gate.is_failed ? '#ff4444' : color } as any}
+                    className={`gate-card ds-glass ds-aura ${gate.is_failed ? 'gate-failed' : ''} ${isActive && !gate.is_failed ? 'gate-active' : ''} ${isPaused ? 'gate-paused' : ''} ${isRedGate && !gate.is_failed ? 'gate-red-gate' : ''} ${isDoubleDungeon ? 'gate-double-dungeon' : ''} ${gate.is_gauntlet ? 'gate-gauntlet' : ''}`} 
+                    style={{ '--gate-color': gate.is_failed ? '#ff4444' : (gate.is_gauntlet ? '#3b82f6' : color) } as any}
                     onClick={() => setSelectedGate(gate)}
                   >
                     <div className="gate-rank-badge" style={{
@@ -528,7 +531,7 @@ export function DungeonGatePage() {
                       border: `1px solid ${gate.is_failed ? 'rgba(239,68,68,0.6)' : isRedGate ? '#ff4444' : color}88`,
                       color: gate.is_failed ? '#ff4444' : '#000'
                     }}>
-                      {gate.is_failed ? '☠' : isRedGate ? 'RED' : gateDepth === 2 ? 'DOUBLE' : gateDepth === 3 ? 'TRIPLE' : gateDepth >= 4 ? 'GOD' : rank}-{gate.is_failed ? 'FAILED' : 'RANK'}
+                      {gate.is_failed ? '☠' : gate.is_gauntlet ? 'GAUNTLET' : isRedGate ? 'RED' : gateDepth === 2 ? 'DOUBLE' : gateDepth === 3 ? 'TRIPLE' : gateDepth >= 4 ? 'GOD' : rank}-{gate.is_failed ? 'FAILED' : 'RANK'}
                     </div>
                     {gate.is_failed && (
                       <div className="gate-status-badge gate-status-failed">
@@ -1099,6 +1102,65 @@ export function DungeonGatePage() {
             </select>
           </div>
         </div>
+
+        <div className="form-group" style={{ marginTop: 8 }}>
+          <label className="gauntlet-toggle-label">
+            <div className={`gauntlet-switch ${formData.is_gauntlet ? 'active' : ''}`}>
+              <div className={`gauntlet-knob ${formData.is_gauntlet ? 'active' : ''}`} />
+            </div>
+            <input 
+              type="checkbox" 
+              style={{ display: 'none' }}
+              checked={formData.is_gauntlet}
+              onChange={e => setFormData({ ...formData, is_gauntlet: e.target.checked })}
+            />
+            <span className="gauntlet-label-text">GAUNTLET MODE (CHAIN OF 5 SUBTASKS)</span>
+          </label>
+        </div>
+
+        <style>{`
+          .gauntlet-toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+          }
+          .gauntlet-switch {
+            width: 40px;
+            height: 20px;
+            border-radius: 20px;
+            background: #1f2937;
+            position: relative;
+            transition: background 0.3s;
+          }
+          .gauntlet-switch.active {
+            background: #2563eb;
+          }
+          .gauntlet-knob {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.3s;
+          }
+          .gauntlet-knob.active {
+            transform: translateX(20px);
+          }
+          .gauntlet-label-text {
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            color: rgba(255,255,255,0.4);
+            transition: color 0.2s;
+          }
+          .gauntlet-toggle-label:hover .gauntlet-label-text {
+            color: #fff;
+          }
+        `}</style>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group">

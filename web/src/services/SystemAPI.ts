@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase";
 import { calculateNextDeadline, findNextValidDeadline } from "../lib/taskUtils";
 import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
 import { OracleService } from "./OracleService";
+import { MODE_CONFIGS, type ModeType } from "../lib/modeConfig";
 
 /* ═══════════════════════════════════════════════
    TYPES — Universal Mission Schema (UMS)
@@ -30,6 +31,10 @@ export type DashboardData = {
   status?: string;
   last_heartbeat?: string;
   dark_mana: number;
+  current_mode?: string;
+  ego_score?: number;
+  season_end_date?: string;
+  playmaker_rating?: number;
 };
 
 export type GatePayload = {
@@ -80,7 +85,8 @@ export const SystemAPI = {
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_completed", true).eq("is_failed", false).gte("completed_at", today + "T00:00:00"),
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_failed", true).gte("completed_at", today + "T00:00:00"),
       s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", userId).eq("is_pending", true).eq("is_completed", false),
-      s.from("user_profiles").select("total_points,level,player_rank,player_title,guild_id, guilds(name, id), guild_title, status, last_heartbeat, dark_mana, streak_count").eq("user_id", userId).maybeSingle(),
+      // Keep profile fetch schema-tolerant; relation/optional fields are loaded separately.
+      s.from("user_profiles").select("*").eq("user_id", userId).maybeSingle(),
       s.from("user_points").select("date,daily_points").eq("user_id", userId).order("date", { ascending: true }).limit(7),
       s.from("user_points").select("date,daily_points").eq("user_id", userId).order("date", { ascending: true }).limit(30),
       s.from("tasks").select("category,points").eq("user_id", userId),
@@ -90,7 +96,30 @@ export const SystemAPI = {
       s.from("shadows").select("*").eq("user_id", userId),
     ]);
 
-    const uData = uRes.data;
+    let uData: any = uRes.data;
+    if (!uData || uRes.error) {
+      // Fallback: avoid zeroed dashboard when relational profile select fails.
+      const { data: basicProfile } = await s
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      uData = basicProfile || null;
+    }
+
+    let guildData: { name: string; id: string } | undefined = (uData as any)?.guilds;
+    if (!guildData && uData?.guild_id) {
+      const { data: guild } = await s
+        .from("guilds")
+        .select("name,id")
+        .eq("id", uData.guild_id)
+        .maybeSingle();
+      guildData = guild || undefined;
+    }
+
+    const weeklyHistory = pRes.data || [];
+    const monthlyHistory = mRes.data || [];
+    const totalPointsFromTasks = (tRes.data || []).reduce((sum: number, t: any) => sum + (t.points || 0), 0);
     const catMap: Record<string, number> = {};
     (tRes.data || []).forEach((t: any) => {
       catMap[t.category] = (catMap[t.category] || 0) + (t.points || 0);
@@ -101,24 +130,28 @@ export const SystemAPI = {
       completedCount: cc || 0,
       failedCount: fc || 0,
       pendingCount: pc || 0,
-      totalXp: uData?.total_points || 0,
-      total_points: uData?.total_points || 0,
+      totalXp: uData?.total_points ?? totalPointsFromTasks,
+      total_points: uData?.total_points ?? totalPointsFromTasks,
       level: uData?.level || 1,
       streak_count: uData?.streak_count || 0,
       player_rank: uData?.player_rank || "E",
       player_title: uData?.player_title || "Newcomer",
-      weeklyHistory: pRes.data || [],
-      monthlyHistory: mRes.data || [],
+      weeklyHistory,
+      monthlyHistory,
       categoryDistribution: Object.entries(catMap).map(([category, points]) => ({ category, points })),
       activeTasks: activeTasksRes.data || [],
       completedTasks: completedTasksRes.data || [],
       clanMembers: clanMembRes.data || [],
       shadows: shadowsRes.data || [],
-      guild: (uData as any)?.guilds,
+      guild: guildData,
       guild_title: uData?.guild_title,
       status: uData?.status,
       last_heartbeat: uData?.last_heartbeat,
       dark_mana: uData?.dark_mana || 0,
+      current_mode: uData?.current_mode || "Normal",
+      ego_score: uData?.ego_score || 0,
+      season_end_date: uData?.season_end_date,
+      playmaker_rating: uData?.playmaker_rating || 0,
     };
   },
 
@@ -156,8 +189,30 @@ export const SystemAPI = {
       const { error } = await s.from("tasks").update(payload).eq("id", editingId);
       if (error) throw error;
     } else {
-      const { error } = await s.from("tasks").insert({ ...payload, is_active: false, is_completed: false });
+      const { data: newGate, error } = await s.from("tasks").insert({ ...payload, is_active: false, is_completed: false }).select("id").single();
       if (error) throw error;
+
+      // If Gauntlet, generate 5 stages
+      if ((payload as any).is_gauntlet && newGate) {
+        const stages = [
+          "Stage 1: Perimeter Breach",
+          "Stage 2: Dungeon Entry",
+          "Stage 3: Mob Clearing",
+          "Stage 4: Mini-Boss Encounter",
+          "Stage 5: Boss Chamber Access"
+        ];
+        const subtasks = stages.map(title => ({
+          user_id: payload.user_id,
+          assigned_to: payload.assigned_to,
+          parent_id: newGate.id,
+          title,
+          category: payload.category,
+          points: 5,
+          xp_tier: "Low",
+          priority: "Normal"
+        }));
+        await s.from("tasks").insert(subtasks);
+      }
     }
   },
 
@@ -166,6 +221,51 @@ export const SystemAPI = {
     const { data } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
     const current = data?.dark_mana || 0;
     await s.from("user_profiles").update({ dark_mana: current + amount }).eq("user_id", userId);
+  },
+
+  /* ─── SPECIAL GATES (g2, g3) ──────────────── */
+
+  manifestWeeklyTrial: async (userId: string) => {
+    const s = db();
+    const today = new Date();
+    const weekStart = new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
+    
+    // Check if trial already exists for this week
+    const { data: existing } = await s.from("tasks")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_weekly_trial", true)
+      .gte("created_at", weekStart + "T00:00:00");
+
+    if (existing && existing.length > 0) return;
+
+    await s.from("tasks").insert({
+      user_id: userId,
+      assigned_to: userId,
+      title: `Weekly Trial: [SYSTEM_SURVIVAL_TEST]`,
+      category: "General",
+      points: 500,
+      xp_tier: "Legendary",
+      priority: "URGENT",
+      is_weekly_trial: true,
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      description: "The System demands a proof of growth. Conquer this S-Rank trial to maintain your standing. Failure will result in severe mana corruption."
+    });
+  },
+
+  manifestMonarchsJudgment: async (userId: string, taskTitle: string) => {
+    const s = db();
+    await s.from("tasks").insert({
+      user_id: userId,
+      assigned_to: userId,
+      title: `Monarch's Judgment: ${taskTitle}`,
+      category: "Work",
+      points: 150,
+      xp_tier: "Super",
+      priority: "URGENT",
+      deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      description: "The Oracle has judged your performance. Complete this mandatory mission to redeem your standing."
+    });
   },
 
   /* ─── GATE: Delete ─────────────────────────── */
@@ -233,15 +333,38 @@ export const SystemAPI = {
     if (updateErr) throw updateErr;
 
     // 2. Calculate & award XP
-    const normalizedPts = calculateEffectiveXp(task.points, task.category, currentTotalXp);
-    const pts = await applyXpBoost(s, userId, normalizedPts);
-
     const { data: prof } = await s.from("user_profiles")
-      .select("total_points, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense")
+      .select("total_points, current_mode, ego_score, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense")
       .eq("user_id", userId).single();
+
+    const modeName = (prof?.current_mode as ModeType) || "Normal";
+    const config = MODE_CONFIGS[modeName];
+    
+    // Zone Multiplier (bl2): 2.5x
+    const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
+    const isZone = lastCompletions.length >= 5 && (Date.now() - lastCompletions[0] < 90 * 60 * 1000);
+    const zoneMult = isZone ? 2.5 : 1.0;
+
+    // Ego Burst Multiplier (bl1): 1.1x
+    const isEgoBurst = (prof?.ego_score || 0) > 50; // Example trigger
+    const egoMult = isEgoBurst ? 1.1 : 1.0;
+
+    // Devour Multiplier (bl5): Category weight increase
+    const devouredCategories = JSON.parse(localStorage.getItem("devouredCategories") || "{}");
+    const devourMult = devouredCategories[task.category] ? 1.15 : 1.0;
+
+    // Mode multiplier
+    const normalizedPts = calculateEffectiveXp(task.points, task.category, currentTotalXp) * config.xpMultiplier * zoneMult * egoMult * devourMult;
+    const pts = await applyXpBoost(s, userId, normalizedPts);
 
     const statColumn = CATEGORY_STAT_MAP[task.category];
     const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
+    
+    // Ego score update (bl1)
+    if (task.priority === "URGENT" || task.xp_tier === "High" || task.xp_tier === "Legendary") {
+      updatePayload.ego_score = (prof?.ego_score || 0) + 1;
+    }
+
     if (statColumn && prof) {
       updatePayload[statColumn] = ((prof as any)[statColumn] || 0) + 1;
     }
@@ -299,9 +422,39 @@ export const SystemAPI = {
     }).eq("id", task.id);
     if (error) throw error;
 
+    // Infrastructure: Season stats (i2)
+    const profRes = await s.from("user_profiles").select("current_mode, dark_mana").eq("user_id", userId).single();
+    const mode = (profRes.data?.current_mode as ModeType) || "Normal";
+    const config = MODE_CONFIGS[mode];
+
+    // Shadow Permadeath (e5) - Nightmare only
+    if (mode === 'Nightmare' && task.xp_tier === 'High') {
+      const roll = Math.random();
+      if (roll <= 0.3) {
+        const { data: shadowPool } = await s.from("shadows").select("id, name").eq("user_id", userId);
+        if (shadowPool && shadowPool.length > 0) {
+          const victim = shadowPool[Math.floor(Math.random() * shadowPool.length)];
+          await s.from("shadows").delete().eq("id", victim.id);
+          await s.from("permanent_record_logs").insert({
+            user_id: userId,
+            event_type: 'shadow_death',
+            metadata: { shadow_name: victim.name, gate_title: task.title }
+          });
+        }
+      }
+    }
+
+    // Shadow Corruption (e4) - Hard+
+    if ((mode === 'Hard' || mode === 'Nightmare') && (profRes.data?.dark_mana || 0) + config.dmOnFail >= 50) {
+      const { data: shadowPool } = await s.from("shadows").select("id").eq("user_id", userId).eq("is_corrupted", false);
+      if (shadowPool && shadowPool.length > 0) {
+        const victim = shadowPool[Math.floor(Math.random() * shadowPool.length)];
+        await s.from("shadows").update({ is_corrupted: true }).eq("id", victim.id);
+      }
+    }
+
     // Dark Mana Accumulation (Database)
-    const { data: dmData } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
-    await s.from("user_profiles").update({ dark_mana: (dmData?.dark_mana || 0) + 10 }).eq("user_id", userId);
+    await s.from("user_profiles").update({ dark_mana: (profRes.data?.dark_mana || 0) + config.dmOnFail }).eq("user_id", userId);
 
     // 2. Log punishment
     await s.from("punishments").insert({ user_id: userId, name: `Failed Gate: ${task.title}`, xp_penalty: penalty, triggered: 1 });

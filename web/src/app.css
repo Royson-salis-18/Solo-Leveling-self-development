@@ -3671,3 +3671,58 @@ body {
 
 .aura-card.locked { opacity: 0.42; filter: grayscale(0.6); }
 
+/* Solo Rain Overlay (entry + level-up) */
+.solo-rain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.solo-rain-overlay.is-active {
+  opacity: 1;
+}
+.solo-rain-overlay .rain-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150vw;
+  height: 150vh;
+  transform: translate(-50%, -50%) rotateX(20deg) scale(1);
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+.solo-rain-overlay .vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent, rgba(1, 4, 9, 0.92) 100%);
+}
+.solo-rain-overlay .hologram-overlay {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(138, 92, 246, 0.04) 2px,
+    rgba(138, 92, 246, 0.04) 4px
+  );
+  display: flex;
+  align-items: flex-end;
+  padding: 1.4rem 2rem;
+}
+.solo-rain-overlay .hud-text {
+  color: #b794ff;
+  font-family: "Courier New", monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.12rem;
+  opacity: 0.82;
+  text-shadow: 0 0 8px rgba(183, 148, 255, 0.75);
+}
+
+/* Level-up overlay should sit above app chrome */
+.solo-levelup-fx {
+  z-index: 1200;
+}
+

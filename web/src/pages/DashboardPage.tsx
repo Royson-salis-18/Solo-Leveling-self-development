@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
   Cell, AreaChart, Area, CartesianGrid,
@@ -9,10 +9,15 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Sparkles, Skull, Activity } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
-
-import { SystemAPI } from "../services/SystemAPI";
-import type { DashboardData } from "../services/SystemAPI";
 import { AuraCard } from "../components/AuraCard";
+
+import { SystemAPI, type DashboardData } from "../services/SystemAPI";
+import { ModeBadge } from "../components/ModeBadge";
+import { ZoneOverlay } from "../components/ZoneOverlay";
+import { SeasonHUD } from "../components/SeasonHUD";
+import { PlaymakerCard } from "../components/PlaymakerCard";
+import type { ModeType } from "../lib/modeConfig";
+import { calculatePlaymakerRating, evaluateWeeklySelection } from "../lib/levelEngine";
 
 
 type TaskRow = {
@@ -62,6 +67,7 @@ const TOOLTIP_STYLE = {
 /* ─── COMPONENT ─────────────────────────────────────────────────── */
 export function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivityRow[]>([]);
@@ -70,8 +76,9 @@ export function DashboardPage() {
   const [showReawakening, setShowReawakening] = useState(false);
   const [redGateId, setRedGateId] = useState<string | null>(localStorage.getItem("redGateId"));
   
-  const [isAbsoluteAuthority, setIsAbsoluteAuthority] = useState(false);
+  const [isZoneActive, setIsZoneActive] = useState(false);
   const [marketValue, setMarketValue] = useState(0);
+  const [weeklySelection, setWeeklySelection] = useState<any[]>([]);
   const [data, setData] = useState<DashboardData>({
     activeCount: 0,
     pendingCount: 0,
@@ -89,6 +96,8 @@ export function DashboardPage() {
     clanMembers: [],
     shadows: [],
     dark_mana: 0,
+    current_mode: "Normal",
+    ego_score: 0
   });
 
   useEffect(() => {
@@ -96,7 +105,14 @@ export function DashboardPage() {
     const userId = user.id;
     (async () => {
       try {
+        await SystemAPI.manifestWeeklyTrial(userId);
         const dashboardData = await SystemAPI.fetchDashboardData(userId);
+        
+        // Mode Check (m1)
+        if (!dashboardData.current_mode) {
+          navigate('/mode-selection');
+          return;
+        }
         
         // Status / Heartbeat sweep
         let currentStatus = dashboardData.status || 'ACTIVE';
@@ -158,6 +174,17 @@ export function DashboardPage() {
         setAffiliations(affils);
         setShadows(dashboardData.shadows);
 
+        // Weekly Selection Calculation (bl4)
+        const weeklyTop = evaluateWeeklySelection(dashboardData.completedTasks);
+        setWeeklySelection(weeklyTop);
+
+        // Playmaker Rating On-the-fly (bl6)
+        if (dashboardData.playmaker_rating === 0 && dashboardData.completedCount > 0) {
+          const avgXp = weeklyTop.reduce((acc, t) => acc + (t.points || 0), 0) / (weeklyTop.length || 1);
+          const rating = calculatePlaymakerRating(dashboardData.completedCount, dashboardData.activeCount + dashboardData.completedCount, avgXp, dashboardData.streak_count || 0, dashboardData.ego_score || 0);
+          setData(prev => ({ ...prev, playmaker_rating: rating }));
+        }
+
         // Red Gate Auto-Selection (B-Rank or higher: High, Super, Legendary)
         const today = new Date().toDateString();
         const storedDate = localStorage.getItem("redGateDate");
@@ -181,15 +208,15 @@ export function DashboardPage() {
         const bid = (dashboardData.level * 1000000) + (dashboardData.total_points * 10000) + ((dashboardData.streak_count || 0) * 500000);
         setMarketValue(bid);
 
-        // Absolute Authority (Flow State) check
+        // Zone State (Flow State) check: 5 tasks in 90 min (bl2)
         const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
-        if (lastCompletions.length >= 3) {
+        if (lastCompletions.length >= 5) {
           const nowTime = Date.now();
-          const threeTasksAgo = lastCompletions[0];
-          if (nowTime - threeTasksAgo < 2 * 60 * 60 * 1000) {
-            setIsAbsoluteAuthority(true);
+          const fiveTasksAgo = lastCompletions[0];
+          if (nowTime - fiveTasksAgo < 90 * 60 * 1000) {
+            setIsZoneActive(true);
           } else {
-            setIsAbsoluteAuthority(false);
+            setIsZoneActive(false);
           }
         }
 
@@ -200,19 +227,34 @@ export function DashboardPage() {
   }, [user]);
 
 
-  const completionRate = useMemo(()=>{
+  const completionRate = useMemo(() => {
     const total = data.activeCount + data.completedCount;
-    return total ? `${Math.round((data.completedCount/total)*100)}%` : "0%";
-  },[data.activeCount, data.completedCount]);
+    if (total > 0) {
+      return `${Math.round((data.completedCount / total) * 100)}%`;
+    }
 
-  const weeklyTotal = useMemo(()=>data.weeklyHistory.reduce((s,d)=>s+(d.daily_points || 0),0),[data.weeklyHistory]);
+    // Fallback: when daily task counters are empty, infer "sync" from profile/category data.
+    const totalCategoryPoints = data.categoryDistribution.reduce((sum, cat) => sum + (cat.points || 0), 0);
+    if (totalCategoryPoints > 0) {
+      const engagedCategories = data.categoryDistribution.filter((cat) => (cat.points || 0) > 0).length;
+      const inferredSync = Math.min(100, Math.round((engagedCategories / 10) * 100));
+      return `${inferredSync}%`;
+    }
+
+    return "0%";
+  }, [data.activeCount, data.completedCount, data.categoryDistribution]);
+
+  const weeklyTotal = useMemo(() => {
+    const weekly = data.weeklyHistory.reduce((sum, day) => sum + (day.daily_points || 0), 0);
+    return weekly > 0 ? weekly : data.totalXp;
+  }, [data.weeklyHistory, data.totalXp]);
 
   const toggleTaskCompletion = async (taskId: string, isCompleted: boolean) => {
     if (!supabase) return;
     if (!isCompleted) {
       const now = Date.now();
       const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
-      const updated = [...lastCompletions, now].slice(-3);
+      const updated = [...lastCompletions, now].slice(-5);
       localStorage.setItem("lastCompletions", JSON.stringify(updated));
     }
     setTasks(ts => ts.map(t => t.id === taskId ? { ...t, is_completed: !isCompleted } : t));
@@ -239,13 +281,18 @@ export function DashboardPage() {
 
   return (
     <section className="page dashboard-page">
+      <SeasonHUD mode={data.current_mode || 'Normal'} darkMana={data.dark_mana} endDate={data.season_end_date || null} />
+      <ZoneOverlay isActive={isZoneActive} onExit={() => setIsZoneActive(false)} />
       <div className="tactical-overlay" />
       {/* ── TOP LEVEL BAR ── */}
       <div className="dashboard-section-header" style={{ marginBottom: 40 }}>
         <div className="flex-col">
-          <h1 className="page-title" style={{ margin: 0, lineHeight: 1.1 }}>
-            Hunter Dashboard <span style={{ color: 'var(--accent-primary)', fontSize: '1rem', verticalAlign: 'middle', marginLeft: 12, fontWeight: 800 }}>[{data.player_rank}-Rank]</span>
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="page-title" style={{ margin: 0, lineHeight: 1.1 }}>
+              Hunter Dashboard <span style={{ color: 'var(--accent-primary)', fontSize: '1rem', verticalAlign: 'middle', marginLeft: 12, fontWeight: 800 }}>[{data.player_rank}-Rank]</span>
+            </h1>
+            <ModeBadge mode={(data.current_mode as ModeType) || 'Normal'} darkMana={data.dark_mana} />
+          </div>
           <p className="page-subtitle" style={{ fontSize: '1rem', color: 'var(--accent-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '4px 0 0' }}>
             {data.player_title}
           </p>
@@ -259,10 +306,10 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {isAbsoluteAuthority && (
+      {isZoneActive && (
         <div className="absolute-authority-banner">
           <Activity size={14} className="animate-pulse" />
-          ABSOLUTE AUTHORITY ACTIVE: 1.5x XP RESONANCE
+          ZONE STATE ACTIVE: 2.5x XP RESONANCE
         </div>
       )}
 
@@ -349,16 +396,16 @@ export function DashboardPage() {
           <Skull size={32} className="q-card-icon" />
         </div>
 
-        <div className="db-quantum-card ds-glass q-aura-purple">
+        <div className="db-quantum-card ds-glass q-aura-blue">
           <div className="q-card-glow" />
           <div className="q-card-content">
-            <span className="q-card-lbl">Weekly Mana</span>
-            <span className="q-card-val">{weeklyTotal.toLocaleString()}</span>
+            <span className="q-card-lbl">Ego Score</span>
+            <span className="q-card-val">{data.ego_score}</span>
             <div className="q-card-footer">
-              <span className="q-card-trend">STRENGTHENING...</span>
+              <span className="q-card-trend">STRENGTHENING EGO...</span>
             </div>
           </div>
-          <Sparkles size={32} className="q-card-icon" />
+          <Activity size={32} className="q-card-icon" />
         </div>
       </div>
 
@@ -406,6 +453,10 @@ export function DashboardPage() {
         .q-aura-red { border: 1px solid rgba(239,68,68,0.15); }
         .q-aura-red .q-card-glow { background: radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%); }
         .q-aura-red .q-card-footer { color: #ff4444; }
+        
+        .q-aura-blue { border: 1px solid rgba(59,130,246,0.15); }
+        .q-aura-blue .q-card-glow { background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%); }
+        .q-aura-blue .q-card-footer { color: #3b82f6; }
 
         .q-aura-blood { border: 2px solid #ff4444; background: rgba(255,68,68,0.05); }
         .q-aura-blood .q-card-glow { background: radial-gradient(circle, rgba(255,68,68,0.2) 0%, transparent 70%); }
@@ -584,7 +635,6 @@ export function DashboardPage() {
               <div className="glass-panel dashboard-panel-flex">
                 <div className="chart-label-wrapper">
                   <span className="chart-label-text">XP By Life Area</span>
-                  <span style={{ fontSize: "0.66rem", color: "rgba(255,160,0,0.6)" }}>Academics weighted ×0.5</span>
                 </div>
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart
@@ -608,6 +658,13 @@ export function DashboardPage() {
                 </ResponsiveContainer>
               </div>
             )}
+
+            {/* Playmaker Card (u1) */}
+            <PlaymakerCard 
+              rating={data.playmaker_rating || 0} 
+              topTasks={weeklySelection} 
+              streak={data.streak_count || 0} 
+            />
           </div>
         </div>
       )}

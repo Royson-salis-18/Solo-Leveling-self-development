@@ -143,18 +143,31 @@ export function RewardsPage() {
   const handleTriggerPunishment = async (p: Punishment) => {
     if (!supabase || !user) return;
     
-    // Redeem logic: reduce dark mana
+    // Redeem logic: reduce dark mana AND reduce XP
     if (darkMana > 0) {
       const reduction = Math.min(darkMana, p.xp_penalty);
-      const newVal = darkMana - reduction;
-      setDarkMana(newVal);
-      await supabase.from("user_profiles").update({ dark_mana: newVal }).eq("user_id", user.id);
+      const newDarkMana = darkMana - reduction;
+      const newXP = Math.max(0, (profile?.total_points ?? 0) - reduction);
+      
+      // Update local state
+      setDarkMana(newDarkMana);
+      setProfile(prev => prev ? { ...prev, total_points: newXP } : prev);
+      
+      // Update DB
+      await supabase.from("user_profiles").update({ 
+        dark_mana: newDarkMana, 
+        total_points: newXP 
+      }).eq("user_id", user.id);
       
       // Update triggered count
       await supabase.from("punishments").update({ triggered: p.triggered + 1 }).eq("id", p.id);
       setPunishments(ps => ps.map(x => x.id === p.id ? { ...x, triggered: x.triggered + 1 } : x));
       
-      alert(`SYSTEM: Punishment Accepted. Dark Mana reduced by ${reduction}.`);
+      // Sync level/rank/title since XP changed
+      const progression = await syncProgression(supabase, user.id);
+      showProgressionToast(progression);
+      
+      alert(`SYSTEM: Punishment Accepted. Dark Mana reduced by ${reduction}. Mana (XP) reduced by ${reduction}.`);
     } else {
       alert("SYSTEM: You have no Dark Mana to redeem. Discipline is currently stable.");
     }
@@ -279,9 +292,53 @@ export function RewardsPage() {
         </>
       ) : (
         <>
-          {/* ── Punishments ── */}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-            <Button variant="danger" size="sm" onClick={() => setShowPunishModal(true)}>
+          {/* ── Active Mana Debt Redemption ── */}
+          {darkMana > 0 && (
+            <div style={{ marginBottom: 30 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <Zap size={16} color="#ff4444" />
+                <h3 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#ff4444", margin: 0, textTransform: "uppercase", letterSpacing: "1px" }}>
+                  Active Mana Debt Redemption
+                </h3>
+              </div>
+              <p className="text-muted text-sm" style={{ marginBottom: 16 }}>
+                You are currently in debt. Claim a punishment below to cleanse Dark Mana. 
+                <span style={{ color: "#ff4444", marginLeft: 5 }}>Note: Redemption also reduces your actual XP.</span>
+              </p>
+
+              {punishments.length === 0 ? (
+                <article className="panel panel-empty">
+                  <p className="text-muted text-sm">No punishment templates available. Add some in the Registry below.</p>
+                </article>
+              ) : (
+                <article className="panel panel-no-pad" style={{ borderColor: "rgba(255, 68, 68, 0.3)", background: "rgba(20, 0, 0, 0.4)" }}>
+                  {punishments.map((p, i) => (
+                    <div
+                      key={`active-${p.id}`}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
+                        borderBottom: i < punishments.length - 1 ? "1px solid rgba(255, 68, 68, 0.15)" : "none",
+                      }}
+                    >
+                      <div className="dark-mana-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff4444", flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: "0.90rem", fontWeight: 500, color: "var(--t1)" }}>{p.name}</div>
+                        <div style={{ fontSize: "0.70rem", color: "#ff4444", opacity: 0.8 }}>Redeem -{p.xp_penalty} Debt</div>
+                      </div>
+                      <Button variant="danger" size="sm" onClick={() => handleTriggerPunishment(p)} style={{ boxShadow: "0 0 10px rgba(255, 68, 68, 0.2)" }}>
+                        Claim
+                      </Button>
+                    </div>
+                  ))}
+                </article>
+              )}
+            </div>
+          )}
+
+          {/* ── Punishment Registry ── */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--t2)", margin: 0 }}>Registry of Discipline</h3>
+            <Button variant="secondary" size="sm" onClick={() => setShowPunishModal(true)}>
               <Plus size={13} /> Add Punishment
             </Button>
           </div>
@@ -301,7 +358,7 @@ export function RewardsPage() {
                     borderBottom: i < punishments.length - 1 ? "1px solid var(--border-0)" : "none",
                   }}
                 >
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "rgba(255,100,100,0.60)", flexShrink: 0 }} />
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "rgba(255,100,100,0.30)", flexShrink: 0 }} />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "0.90rem", fontWeight: 500, color: "var(--t1)", marginBottom: 3 }}>
@@ -312,23 +369,18 @@ export function RewardsPage() {
                     </div>
                   </div>
 
-                  <div style={{ fontSize: "0.92rem", fontWeight: 700, color: "rgba(255,130,130,0.85)", marginRight: 12 }}>
-                    -{p.xp_penalty} XP
+                  <div style={{ fontSize: "0.92rem", fontWeight: 700, color: "var(--t3)", marginRight: 12 }}>
+                    {p.xp_penalty} XP
                   </div>
 
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <Button variant="danger" size="sm" onClick={() => handleTriggerPunishment(p)}>
-                      Apply
-                    </Button>
-                    <button
-                      onClick={() => handleDeletePunishment(p.id)}
-                      style={{ background: "none", border: "none", color: "rgba(255,80,80,0.45)", cursor: "pointer", padding: "4px 6px", borderRadius: "var(--r-sm)", transition: "color 0.15s" }}
-                      onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,80,80,0.85)")}
-                      onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,80,80,0.45)")}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDeletePunishment(p.id)}
+                    style={{ background: "none", border: "none", color: "rgba(255,80,80,0.45)", cursor: "pointer", padding: "4px 6px", borderRadius: "var(--r-sm)", transition: "color 0.15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,80,80,0.85)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,80,80,0.45)")}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </article>
@@ -393,6 +445,14 @@ export function RewardsPage() {
         @keyframes darkPulse {
           0%, 100% { box-shadow: 0 0 5px #ff4444; border-color: rgba(255,68,68,0.4); }
           50% { box-shadow: 0 0 20px #ff4444; border-color: #ff4444; }
+        }
+        .dark-mana-pulse-dot {
+          animation: dotPulse 1.5s infinite;
+        }
+        @keyframes dotPulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.5); opacity: 0.5; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </section>

@@ -1,0 +1,122 @@
+version: "3.9"
+
+name: solo-leveling-ms
+
+services:
+  api-gateway:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["sh", "-c", "echo 'gateway scaffold - replace with real service' && sleep infinity"]
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      JWT_ISSUER: solo-leveling
+      JWT_AUDIENCE: solo-leveling-web
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/solo_leveling
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+  quest-service:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["sh", "-c", "echo 'quest service scaffold' && sleep infinity"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/solo_leveling
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+  progression-service:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["sh", "-c", "echo 'progression service scaffold' && sleep infinity"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/solo_leveling
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+  social-service:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["sh", "-c", "echo 'social service scaffold' && sleep infinity"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/solo_leveling
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  ai-service:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["sh", "-c", "echo 'ai service scaffold' && sleep infinity"]
+    environment:
+      NODE_ENV: development
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REQUEST_TIMEOUT_MS: 15000
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: solo_leveling
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solo_leveling"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  backend:
+    driver: bridge

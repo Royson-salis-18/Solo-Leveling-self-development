@@ -5,6 +5,7 @@
  * to auto-update level, rank, and title in the database.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { MODE_CONFIGS, type ModeType } from "./modeConfig";
 
 /* ═══════════════════════════════════════════════
    CONSTANTS
@@ -66,6 +67,7 @@ export const calcXpProgress = (totalXp: number): number =>
 
 /* ── Rank thresholds ────────────────────────── */
 const RANK_THRESHOLDS: { rank: string; minLevel: number }[] = [
+  { rank: "SS", minLevel: 101 },
   { rank: "S", minLevel: 40 },
   { rank: "A", minLevel: 25 },
   { rank: "B", minLevel: 16 },
@@ -74,7 +76,7 @@ const RANK_THRESHOLDS: { rank: string; minLevel: number }[] = [
   { rank: "E", minLevel: 1 },
 ];
 
-export const RANKS = ["E", "D", "C", "B", "A", "S"] as const;
+export const RANKS = ["E", "D", "C", "B", "A", "S", "SS"] as const;
 
 export const calcRank = (level: number): string => {
   for (const t of RANK_THRESHOLDS) {
@@ -177,11 +179,14 @@ export async function syncProgression(
 ): Promise<ProgressionResult | null> {
   const { data: prof } = await supabase
     .from("user_profiles")
-    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date, last_heartbeat, stat_strength, stat_agility, stat_sense, stat_intelligence, stat_vitality, dark_mana")
+    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date, last_heartbeat, stat_strength, stat_agility, stat_sense, stat_intelligence, stat_vitality, dark_mana, current_mode, ego_score")
     .eq("user_id", userId)
     .single();
 
   if (!prof) return null;
+
+  const currentModeName = (prof.current_mode as ModeType) || "Normal";
+  const config = MODE_CONFIGS[currentModeName];
 
   const totalXp   = prof.total_points ?? 0;
   const prevLevel = prof.level ?? 1;
@@ -203,15 +208,40 @@ export async function syncProgression(
     if (diffDays === 1) {
       newStreak += 1;
     } else if (diffDays > 1) {
-      decayPenalty = Math.floor(totalXp * 0.01 * (diffDays - 1));
+      const decayDays = Math.max(0, diffDays - config.gracePeriod);
+      
+      if (decayDays > 0) {
+        if (config.compoundingDecay) {
+          // Nightmare: Each day multiplies prior balance by 0.97
+          let tempXp = totalXp;
+          for(let i=0; i<decayDays; i++) {
+            tempXp *= (1 - config.decayRate);
+          }
+          decayPenalty = Math.floor(totalXp - tempXp);
+        } else {
+          decayPenalty = Math.floor(totalXp * config.decayRate * decayDays);
+        }
+      }
       newStreak = 1; 
     }
   }
 
   const adjustedTotalXp = Math.max(-5000, totalXp - decayPenalty);
 
+  // Mode-aware XP calculation
   const newLevel = calcLevel(adjustedTotalXp < 0 ? 0 : adjustedTotalXp);
-  const newRank  = calcRank(newLevel);
+  let newRank = calcRank(newLevel);
+  
+  // Rank-down logic (Hard/Nightmare only)
+  if (config.rankDownEnabled && RANKS.indexOf(newRank as any) < RANKS.indexOf(prevRank as any)) {
+    // Rank has naturally dropped due to XP decay/penalties
+  } else if (!config.rankDownEnabled) {
+    // Prevent rank drop in Easy/Normal
+    if (RANKS.indexOf(newRank as any) < RANKS.indexOf(prevRank as any)) {
+      newRank = prevRank;
+    }
+  }
+
   const newTitle = calcTitle(cls, adjustedTotalXp < 0 ? 0 : adjustedTotalXp);
 
   // OVERDUE PENALTY SCAN
@@ -234,11 +264,14 @@ export async function syncProgression(
       const daysLate = Math.floor((todayDate.getTime() - deadlineDate.getTime()) / (1000 * 3600 * 24));
       
       if (daysLate > 0) {
-        // Normal Penalty: 20% of points base
-        const isRedGate = t.id === redGateId;
-        const dailyBase = (t.points || 10) * (isRedGate ? 0.5 : 0.2); // Red Gate is 50% penalty
-        const expPenalty = Math.floor(dailyBase * Math.pow(isRedGate ? 1.5 : 1.2, daysLate));
-        totalOverduePenalty += expPenalty;
+        // Mode-aware Overdue Penalty: use exponential formula from TODO (e6)
+        // overduePenalty = 0.2 × XP × (1 + daysLate)^0.5
+        const xpPoints = t.points || 10;
+        const expPenalty = Math.floor(0.2 * xpPoints * Math.pow(1 + daysLate, 0.5));
+        
+        // Cap at 80% to avoid instant wipe
+        const cappedPenalty = Math.min(expPenalty, Math.floor(xpPoints * 0.8));
+        totalOverduePenalty += cappedPenalty;
       }
     }
   }
@@ -308,6 +341,17 @@ export function showProgressionToast(result: ProgressionResult | null) {
 
   if (result.leveledUp) {
     msgs.push(`⚡ LEVEL UP! ${result.prevLevel} → ${result.level}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("solo-leveling:level-up", {
+          detail: {
+            level: result.level,
+            prevLevel: result.prevLevel,
+            rank: result.rank,
+          },
+        })
+      );
+    }
   }
   if (result.rankedUp) {
     msgs.push(`🔥 RANK UP! ${result.prevRank}-Rank → ${result.rank}-Rank`);
@@ -364,4 +408,42 @@ export async function applyXpBoost(
     return baseXp * 2; // 2x multiplier
   }
   return baseXp;
+}
+
+/* ═══════════════════════════════════════════════
+   PLAYMAKER RATING (bl6)
+   Score = (Comp% * 0.4) + (AvgDiff * 0.3) + (Streak * 0.2) + (Ego * 0.1)
+═══════════════════════════════════════════════ */
+
+export function calculatePlaymakerRating(
+  completedCount: number,
+  totalCount: number,
+  avgXp: number,
+  streak: number,
+  egoScore: number
+): number {
+  if (totalCount === 0) return 0;
+  
+  const compRate = (completedCount / totalCount) * 100;
+  // Avg XP normalized (assuming 100 is "High" tier)
+  const normAvgXp = Math.min(100, (avgXp / 100) * 100);
+  // Streak normalized (cap at 30 days)
+  const normStreak = Math.min(100, (streak / 30) * 100);
+  // Ego Score normalized (cap at 100)
+  const normEgo = Math.min(100, (egoScore / 100) * 100);
+
+  const score = (compRate * 0.4) + (normAvgXp * 0.3) + (normStreak * 0.2) + (normEgo * 0.1);
+  return Math.round(score * 10) / 10;
+}
+
+/* ═══════════════════════════════════════════════
+   WEEKLY SELECTION (bl4)
+   Rank top 11 tasks by XP value
+═══════════════════════════════════════════════ */
+
+export function evaluateWeeklySelection(tasks: any[]): any[] {
+  return [...tasks]
+    .filter(t => t.is_completed)
+    .sort((a, b) => (b.points || 0) - (a.points || 0))
+    .slice(0, 11);
 }

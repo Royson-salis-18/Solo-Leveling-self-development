@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Lock, Skull } from 'lucide-react';
 
 export type EffectType = 'shadow' | 'flame' | 'smoke' | 'lightning';
@@ -17,6 +17,8 @@ interface AuraCardProps {
   bonus?: number;
   label?: string;
   className?: string;
+  isCorrupted?: boolean;
+  interactive?: boolean;
   style?: React.CSSProperties;
   children?: React.ReactNode;
 }
@@ -34,14 +36,22 @@ export function AuraCard({
   bonus = 0,
   label,
   className = "",
+  isCorrupted = false,
+  interactive = true,
   style,
   children
 }: AuraCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 10, y: -16, z: 1 });
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
 
   // Always-on particles — locked = dim, unlocked = vivid
   const alphaScale = isCollected ? 1.0 : 0.75;
+  const soloFrontId = useMemo(() => Math.random().toString(36).slice(2, 10), []);
+  const qrPattern = useMemo(() => [1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1], []);
+  const barcodePattern = useMemo(() => 'tssttststtssttssttstsststtsstts'.split(''), []);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -65,6 +75,10 @@ export function AuraCard({
     };
 
     const type = effectType;
+    const isCorrupt = isCorrupted;
+
+    const CORRUPT_COL = [[255, 0, 0], [150, 0, 0], [100, 0, 0]];
+    const activeCol = isCorrupt ? CORRUPT_COL : col;
 
     /* ── EFFECT HELPERS ── */
     let pts: any[] = [];
@@ -74,7 +88,7 @@ export function AuraCard({
     let t = 0;
 
     const spawnFlame = (init: boolean) => {
-      const c = col[Math.floor(Math.random() * col.length)];
+      const c = activeCol[Math.floor(Math.random() * activeCol.length)];
       pts.push({
         x: w * 0.1 + Math.random() * w * 0.8,
         y: init ? Math.random() * h : h + 10,
@@ -88,7 +102,7 @@ export function AuraCard({
     };
 
     const spawnShadow = (init: boolean) => {
-      const c = col[Math.floor(Math.random() * col.length)];
+      const c = activeCol[Math.floor(Math.random() * activeCol.length)];
       pts.push({
         x: Math.random() * w,
         y: init ? Math.random() * h : h + 5,
@@ -102,7 +116,7 @@ export function AuraCard({
     };
 
     const spawnSmoke = (init: boolean) => {
-      const c = col[Math.floor(Math.random() * col.length)];
+      const c = activeCol[Math.floor(Math.random() * activeCol.length)];
       pts.push({
         x: w * 0.05 + Math.random() * w * 0.9,
         y: init ? Math.random() * h : h + 5,
@@ -136,12 +150,12 @@ export function AuraCard({
         }
         branches.push(bsegs);
       }
-      const [r, g, b] = col[Math.floor(Math.random() * col.length)];
+      const [r, g, b] = activeCol[Math.floor(Math.random() * activeCol.length)];
       bolts.push({ segs, branches, alpha: 1 * alphaScale, life: 0, maxLife: 14, r, g, b });
     };
 
     const spawnOrb = () => {
-      const [r, g, b] = col[0];
+      const [r, g, b] = activeCol[0];
       orbs.push({
         x: w * 0.2 + Math.random() * w * 0.6,
         y: h * 0.3 + Math.random() * h * 0.5,
@@ -355,13 +369,45 @@ export function AuraCard({
     };
   }, [isCollected, effectType, col, glow, alphaScale]);
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const updateCompact = () => {
+      const rect = el.getBoundingClientRect();
+      setIsCompact(rect.width < 260 || rect.height < 280);
+    };
+    updateCompact();
+    const observer = new ResizeObserver(updateCompact);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const handlePointerMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    if (children || !isCollected || !containerRef.current || isCompact) return;
+    if (window.matchMedia && !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const rx = ((event.clientY - rect.top) / rect.height - 0.5) * -16;
+    const ry = ((event.clientX - rect.left) / rect.width - 0.5) * 16;
+    setTilt({ x: rx, y: ry, z: 1 });
+  };
+
+  const resetTilt = () => {
+    if (children) return;
+    setTilt({ x: 10, y: -16, z: 1 });
+  };
+
   return (
     <div
       ref={containerRef}
       className={`aura-card ${!isCollected ? 'aura-locked' : 'aura-unlocked'} ${className}`}
+      onMouseMove={interactive ? handlePointerMove : undefined}
+      onMouseLeave={interactive ? resetTilt : undefined}
+      onDoubleClick={interactive ? (() => !children && !isCompact && setIsFlipped((prev) => !prev)) : undefined}
       style={{
         '--accent-border': isCollected ? rarityColor : `${rarityColor}22`,
         '--rarity-glow': isCollected ? rarityColor : 'transparent',
+        transform: !interactive || children || isCompact ? undefined : `perspective(900px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) rotateZ(1.2deg) scale(${tilt.z})`,
         ...style
       } as React.CSSProperties}
     >
@@ -369,6 +415,20 @@ export function AuraCard({
       <div className="card-glass" />
       <div className="glitch-bar"></div>
       <div className="scanline"></div>
+      {isCorrupted && (
+        <div 
+          className="corruption-overlay"
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(69, 10, 10, 0.2)',
+            border: '2px solid rgba(220, 38, 38, 0.5)',
+            borderRadius: '12px',
+            pointerEvents: 'none',
+            zIndex: 10,
+            animation: 'corruptionPulse 2s infinite'
+          }}
+        />
+      )}
 
       <Skull 
         size={70} 
@@ -388,9 +448,62 @@ export function AuraCard({
         <Lock size={13} className="aura-lock-icon" />
       )}
 
-      {!children && <span className="card-rank">{rankLabel}</span>}
+      {!children && !isCompact && (
+        <div className={`solo-card-inner ${isFlipped ? 'solo-card-flipped' : ''}`}>
+          <div className="solo-card-face solo-card-front">
+            <div className="solo-layers">
+              <div className="solo-l-tint" />
+              <div className="solo-l-grid" />
+              <div className="solo-l-iridescent" />
+              <div className="solo-l-vignette" />
+              <div className="solo-l-shimmer" />
+              <div className="solo-l-toprim" />
+              <div className="solo-l-botrim" />
+              <div className="solo-l-leftrim" />
+            </div>
 
-      {!children && (
+            <div className="solo-card-content">
+              <div className="solo-col-left">
+                <Skull size={16} className="solo-skull" />
+                <div className="solo-qr-block">
+                  {qrPattern.map((on, idx) => (
+                    <div key={`${soloFrontId}-qr-${idx}`} className={`solo-qr-cell ${on ? 'on' : ''}`} />
+                  ))}
+                </div>
+                <div className="solo-card-number">{name.slice(0, 3).toUpperCase()}</div>
+                <div className="solo-rank-badge">{rankLabel}</div>
+              </div>
+
+              <div className="solo-col-right">
+                <div className="solo-card-label" style={{ color: isCollected ? rarityColor : 'rgba(255,255,255,0.35)' }}>
+                  {label || effectType}
+                </div>
+                <span className="solo-card-icon" style={{ opacity: isCollected ? 1 : 0.4 }}>
+                  {icon}
+                </span>
+                <div className="solo-card-name" style={{ opacity: isCollected ? 1 : 0.6 }}>{name}</div>
+                <div className="solo-card-sub" style={{ opacity: isCollected ? 0.7 : 0.4 }}>{sub}</div>
+              </div>
+            </div>
+
+            <div className="solo-barcode-strip">
+              {barcodePattern.map((kind, idx) => (
+                <div key={`${soloFrontId}-bar-${idx}`} className={`solo-bar ${kind === 't' ? 't' : kind === 's' ? 's' : ''}`} />
+              ))}
+            </div>
+            <div className="solo-barcode-txt">SL-SYSTEM-{rankLabel.replace(/\s+/g, '-').toUpperCase()}</div>
+          </div>
+
+          <div className="solo-card-face solo-card-back">
+            <div className="solo-back-grid" />
+            <div className="solo-back-logo">HUNTER</div>
+            <div className="solo-back-stripe" />
+            <div className="solo-back-sub">SYSTEM - AUTHENTICATED</div>
+          </div>
+        </div>
+      )}
+
+      {!children && isCompact && (
         <div className="card-content">
           <div className="card-label" style={{ paddingBottom: '2px', opacity: isCollected ? 0.8 : 0.35, color: isCollected ? rarityColor : 'inherit' }}>
             {label || effectType}
@@ -417,6 +530,120 @@ export function AuraCard({
           +{bonus}% XP
         </div>
       )}
+
+      {isCorrupted && (
+        <div
+          className="corruption-badge"
+          style={{
+            position: 'absolute', bottom: 16, right: 16, zIndex: 10,
+            display: 'inline-flex', alignItems: 'center', gap: '4px',
+            background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            padding: '3px 8px', borderRadius: '4px',
+            fontSize: '0.6rem', fontWeight: 900,
+            backdropFilter: 'blur(8px)',
+            letterSpacing: '2px',
+            animation: 'corruptionFlicker 0.2s infinite'
+          }}
+        >
+          <Skull size={10} /> CORRUPTED
+        </div>
+      )}
+
+      <style>{`
+        .solo-card-inner {
+          position: absolute;
+          inset: 0;
+          transform-style: preserve-3d;
+          transition: transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 6;
+        }
+        .solo-card-flipped {
+          transform: rotateY(180deg);
+        }
+        .solo-card-face {
+          position: absolute;
+          inset: 0;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          border-radius: inherit;
+          overflow: hidden;
+        }
+        .solo-card-front {
+          background: rgba(14, 9, 38, 0.38);
+          border: 1px solid rgba(167, 139, 250, 0.28);
+          box-shadow:
+            0 0 0 1px rgba(124, 58, 237, 0.12),
+            0 8px 36px rgba(91, 33, 182, 0.45),
+            0 22px 68px rgba(29, 78, 216, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.07),
+            inset 0 -1px 0 rgba(167, 139, 250, 0.08);
+        }
+        .solo-card-back {
+          transform: rotateY(180deg);
+          background: rgba(9, 5, 26, 0.52);
+          border: 1px solid rgba(124, 58, 237, 0.22);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .solo-layers { position: absolute; inset: 0; pointer-events: none; }
+        .solo-l-tint { position: absolute; inset: 0; background: linear-gradient(130deg, rgba(91,33,182,0.07) 0%, transparent 42%, rgba(29,78,216,0.2) 65%, rgba(124,58,237,0.3) 80%, rgba(6,182,212,0.12) 100%); }
+        .solo-l-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(167,139,250,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(167,139,250,0.1) 1px, transparent 1px); background-size: 16px 16px; mask-image: linear-gradient(to right, black 0%, transparent 52%); -webkit-mask-image: linear-gradient(to right, black 0%, transparent 52%); }
+        .solo-l-iridescent { position: absolute; inset: 0; mix-blend-mode: screen; background: linear-gradient(125deg, transparent 40%, rgba(124,58,237,0.28) 52%, rgba(59,130,246,0.32) 65%, rgba(6,182,212,0.18) 78%, rgba(124,58,237,0.12) 90%); }
+        .solo-l-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 90% 80% at 66% 50%, rgba(124,58,237,0.14) 0%, transparent 68%); }
+        .solo-l-shimmer { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 0%, transparent 26%, rgba(255,255,255,0.025) 38%, rgba(167,139,250,0.2) 50%, rgba(59,130,246,0.09) 56%, rgba(255,255,255,0.025) 62%, transparent 74%, transparent 100%); animation: soloShimmer 5.5s ease-in-out infinite; }
+        .solo-l-toprim, .solo-l-botrim, .solo-l-leftrim { position: absolute; }
+        .solo-l-toprim { top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(to right, transparent, rgba(167,139,250,0.75) 30%, rgba(6,182,212,0.5) 70%, transparent); }
+        .solo-l-botrim { bottom: 0; left: 0; right: 0; height: 1px; background: linear-gradient(to right, transparent, rgba(91,33,182,0.5) 50%, transparent); }
+        .solo-l-leftrim { top: 0; bottom: 0; left: 0; width: 1px; background: linear-gradient(to bottom, transparent, rgba(167,139,250,0.35) 50%, transparent); }
+        .solo-card-content {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          grid-template-columns: 90px 1fr;
+          padding: 16px 16px 32px;
+          z-index: 2;
+        }
+        .solo-col-left { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+        .solo-skull { color: rgba(196,181,253,0.75); }
+        .solo-qr-block { display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); gap: 1.5px; width: 46px; height: 46px; }
+        .solo-qr-cell { border-radius: 1px; background: rgba(167,139,250,0.1); }
+        .solo-qr-cell.on { background: rgba(196,181,253,0.78); }
+        .solo-card-number { font-size: 12px; font-weight: 800; color: rgba(233,213,255,0.92); letter-spacing: 2px; }
+        .solo-rank-badge { font-size: 8px; color: rgba(103, 232, 249, 0.9); letter-spacing: 1.4px; text-transform: uppercase; }
+        .solo-col-right { display: flex; flex-direction: column; justify-content: center; }
+        .solo-card-label { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800; margin-bottom: 8px; }
+        .solo-card-icon { font-size: 24px; display: block; margin-bottom: 10px; }
+        .solo-card-name { font-size: 15px; font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 4px; }
+        .solo-card-sub { font-size: 10px; color: rgba(255,255,255,0.6); line-height: 1.4; }
+        .solo-barcode-strip { position: absolute; bottom: 12px; left: 14px; right: 14px; height: 10px; display: flex; align-items: center; gap: 1px; z-index: 2; }
+        .solo-bar { flex: 1; height: 100%; background: rgba(167,139,250,0.32); border-radius: 0.5px; }
+        .solo-bar.t { height: 130%; background: rgba(167,139,250,0.65); }
+        .solo-bar.s { height: 65%; background: rgba(167,139,250,0.18); }
+        .solo-barcode-txt { position: absolute; bottom: 2px; right: 14px; font-size: 6px; color: rgba(100,88,148,0.65); letter-spacing: 1.2px; z-index: 3; }
+        .solo-back-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(167,139,250,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(167,139,250,0.07) 1px, transparent 1px); background-size: 20px 20px; }
+        .solo-back-logo { font-size: 20px; font-weight: 900; color: rgba(196,181,253,0.55); letter-spacing: 7px; text-shadow: 0 0 24px rgba(124,58,237,0.7); z-index: 1; }
+        .solo-back-stripe { width: 78%; height: 28px; background: linear-gradient(to right, rgba(91,33,182,0.45), rgba(29,78,216,0.55), rgba(6,182,212,0.3)); border-radius: 5px; z-index: 1; box-shadow: 0 0 22px rgba(91,33,182,0.45); }
+        .solo-back-sub { font-size: 8px; color: rgba(167,139,250,0.38); letter-spacing: 2px; z-index: 1; text-transform: uppercase; }
+
+        @keyframes soloShimmer {
+          0% { transform: translateX(-90%) skewX(-12deg); opacity: 0; }
+          12% { opacity: 1; }
+          88% { opacity: 1; }
+          100% { transform: translateX(190%) skewX(-12deg); opacity: 0; }
+        }
+        @keyframes corruptionFlicker {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes corruptionPulse {
+          0%, 100% { opacity: 0.6; box-shadow: 0 0 10px rgba(220,38,38,0.2); }
+          50% { opacity: 1; box-shadow: 0 0 25px rgba(220,38,38,0.5); }
+        }
+      `}</style>
     </div>
   );
 }

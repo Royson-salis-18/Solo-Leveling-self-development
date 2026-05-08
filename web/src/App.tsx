@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider }      from "./lib/authContext";
 import { NotificationProvider } from "./lib/notificationContext";
@@ -18,11 +18,34 @@ import { RegisterPage }      from "./pages/RegisterPage";
 import { GuidePage }         from "./pages/GuidePage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { CollectionPage }    from "./pages/CollectionPage";
+import { ModeSelectionPage } from "./pages/ModeSelectionPage";
 import { OracleArchitect }    from "./components/OracleArchitect";
+import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import "./app.css";
 
 function AppContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showLevelUpFx, setShowLevelUpFx] = useState(false);
+  const [levelUpHud, setLevelUpHud] = useState("LEVEL UP // ARISE");
+
+  useEffect(() => {
+    let timer: number | null = null;
+    const onLevelUp = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ level?: number; rank?: string }>).detail;
+      const nextHud = detail?.level
+        ? `LEVEL ${detail.level} UNLOCKED${detail.rank ? ` // ${detail.rank}-RANK` : ""}`
+        : "LEVEL UP // ARISE";
+      setLevelUpHud(nextHud);
+      setShowLevelUpFx(true);
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setShowLevelUpFx(false), 2200);
+    };
+    window.addEventListener("solo-leveling:level-up", onLevelUp);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("solo-leveling:level-up", onLevelUp);
+    };
+  }, []);
 
   return (
     <Routes>
@@ -51,11 +74,18 @@ function AppContent() {
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route path="/profile"     element={<ProfilePage />} />
                   <Route path="/guide"       element={<GuidePage />} />
+                  <Route path="/mode-selection" element={<ModeSelectionPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="*"            element={<Navigate to="/" replace />} />
                 </Routes>
               </main>
               <OracleArchitect />
+              <SoloRainOverlay
+                active={showLevelUpFx}
+                hudText={levelUpHud}
+                tone="levelup"
+                className="solo-levelup-fx"
+              />
             </div>
           </ProtectedRoute>
         }
