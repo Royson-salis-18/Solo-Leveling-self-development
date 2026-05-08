@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MODE_CONFIGS, type ModeType } from '../lib/modeConfig';
 import { supabase } from '../lib/supabase';
-import { Shield, Zap, Skull, Activity, ChevronRight, Lock } from 'lucide-react';
+import { Zap, Skull, Activity, ChevronRight, Lock } from 'lucide-react';
 
 export const ModeSelectionPage: React.FC = () => {
   const navigate = useNavigate();
