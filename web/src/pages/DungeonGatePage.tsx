@@ -10,7 +10,7 @@ import { useAuth }  from "../lib/authContext";
 import { RaidTimer } from "../components/RaidTimer";
 import { Calendar }  from "../components/Calendar";
 
-import { SystemAPI } from "../services/SystemAPI";
+import { SystemAPI, type GatePayload } from "../services/SystemAPI";
 
 const WEEKDAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
@@ -177,9 +177,9 @@ export function DungeonGatePage() {
     setSaving(true);
     try {
       const isRecurring = formData.recurrence_type !== "none";
-      const payload: any = {
+      const payload: GatePayload = {
         user_id: user.id,
-        assigned_to: user.id,
+        assigned_to: formData.assignTo || user.id,
         title: formData.title,
         category: formData.category,
         points: getXpByTier(formData.xp_tier),
@@ -190,6 +190,11 @@ export function DungeonGatePage() {
         priority: formData.priority,
         xp_tier: formData.xp_tier,
         is_recurring: isRecurring,
+        recurrence_type: formData.recurrence_type,
+        recurrence_interval: formData.recurrence_interval,
+        recurrence_days: JSON.stringify(formData.recurrence_days),
+        recurrence_day_of_month: formData.recurrence_day_of_month,
+        recurrence_custom_label: formData.recurrence_custom_label,
         parent_id: formData.parentId,
         is_gauntlet: formData.is_gauntlet,
       };
@@ -198,14 +203,14 @@ export function DungeonGatePage() {
         SystemAPI.increaseDarkMana(user.id, 5); // Penalty for postponing
         if (supabase) {
           // Deduct XP for postponing
-        const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-        const newXp = Math.max(0, (prof?.total_points || 0) - 5);
-        await supabase.from("user_profiles").update({ total_points: newXp }).eq("user_id", user.id);
-        
-        // Sync level/rank UI
-        const { syncProgression, showProgressionToast } = await import("../lib/levelEngine");
-        const progression = await syncProgression(supabase, user.id);
-        showProgressionToast(progression);
+          const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
+          const newXp = Math.max(0, (prof?.total_points || 0) - 5);
+          await supabase.from("user_profiles").update({ total_points: newXp }).eq("user_id", user.id);
+          
+          // Sync level/rank UI
+          const { syncProgression, showProgressionToast } = await import("../lib/levelEngine");
+          const progression = await syncProgression(supabase, user.id);
+          showProgressionToast(progression);
         }
       }
 
@@ -215,8 +220,9 @@ export function DungeonGatePage() {
       setShowModal(false);
       setEditingId(null);
       setFormData(EMPTY_FORM);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error manifesting gate:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message || "Unknown error occurred while manifesting gate."}`);
     } finally {
       setSaving(false);
     }
@@ -1297,7 +1303,38 @@ export function DungeonGatePage() {
         </div>
       </Modal>
 
-      <NLPImportModal isOpen={showNLP} onClose={() => setShowNLP(false)} onTasksCreate={() => fetchQuests()} />
+      <NLPImportModal 
+        isOpen={showNLP} 
+        onClose={() => setShowNLP(false)} 
+        onTasksCreate={async (parsedTasks) => {
+          if (!user) return;
+          setSaving(true);
+          try {
+            for (const pt of parsedTasks) {
+              const payload: GatePayload = {
+                user_id: user.id,
+                assigned_to: user.id,
+                title: pt.title,
+                category: pt.category || "General",
+                points: pt.points || 10,
+                description: pt.description || "",
+                deadline: pt.deadline || null,
+                priority: pt.priority || "Normal",
+                xp_tier: pt.xp_tier || "Low",
+                is_recurring: false,
+                is_gauntlet: false
+              };
+              await SystemAPI.saveGate(payload, null);
+            }
+            await fetchQuests();
+          } catch (err: any) {
+            console.error("NLP Import Error:", err);
+            alert(`⚠️ IMPORT FAILED: ${err.message}`);
+          } finally {
+            setSaving(false);
+          }
+        }} 
+      />
 
       <style>{`
         .gate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px; }

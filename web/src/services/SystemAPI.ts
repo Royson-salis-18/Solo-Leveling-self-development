@@ -49,8 +49,14 @@ export type GatePayload = {
   xp_tier: string;
   points: number;
   is_recurring: boolean;
+  recurrence_type?: string;
+  recurrence_interval?: number;
+  recurrence_days?: string; // JSON string
+  recurrence_day_of_month?: number;
+  recurrence_custom_label?: string;
   parent_id?: string | null;
   assigned_to?: string;
+  is_gauntlet?: boolean;
 };
 
 /* ═══════════════════════════════════════════════
@@ -194,7 +200,7 @@ export const SystemAPI = {
       if (error) throw error;
 
       // If Gauntlet, generate 5 stages
-      if ((payload as any).is_gauntlet && newGate) {
+      if (payload.is_gauntlet && newGate) {
         const stages = [
           "Stage 1: Perimeter Breach",
           "Stage 2: Dungeon Entry",
@@ -219,9 +225,11 @@ export const SystemAPI = {
 
   increaseDarkMana: async (userId: string, amount: number) => {
     const s = db();
-    const { data } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
+    const { data, error: fError } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
+    if (fError) throw fError;
     const current = data?.dark_mana || 0;
-    await s.from("user_profiles").update({ dark_mana: current + amount }).eq("user_id", userId);
+    const { error: uError } = await s.from("user_profiles").update({ dark_mana: current + amount }).eq("user_id", userId);
+    if (uError) throw uError;
   },
 
   /* ─── SPECIAL GATES (g2, g3) ──────────────── */
@@ -240,7 +248,7 @@ export const SystemAPI = {
 
     if (existing && existing.length > 0) return;
 
-    await s.from("tasks").insert({
+    const { error } = await s.from("tasks").insert({
       user_id: userId,
       assigned_to: userId,
       title: `Weekly Trial: [SYSTEM_SURVIVAL_TEST]`,
@@ -252,11 +260,12 @@ export const SystemAPI = {
       deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       description: "The System demands a proof of growth. Conquer this S-Rank trial to maintain your standing. Failure will result in severe mana corruption."
     });
+    if (error) throw error;
   },
 
   manifestMonarchsJudgment: async (userId: string, taskTitle: string) => {
     const s = db();
-    await s.from("tasks").insert({
+    const { error } = await s.from("tasks").insert({
       user_id: userId,
       assigned_to: userId,
       title: `Monarch's Judgment: ${taskTitle}`,
@@ -267,6 +276,7 @@ export const SystemAPI = {
       deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       description: "The Oracle has judged your performance. Complete this mandatory mission to redeem your standing."
     });
+    if (error) throw error;
   },
 
   /* ─── GATE: Delete ─────────────────────────── */
@@ -504,7 +514,8 @@ export const SystemAPI = {
   /* ─── HEARTBEAT ────────────────────────────── */
 
   updateHeartbeat: async (userId: string) => {
-    await db().from("user_profiles").update({ last_heartbeat: new Date().toISOString() }).eq("user_id", userId);
+    const { error } = await db().from("user_profiles").update({ last_heartbeat: new Date().toISOString() }).eq("user_id", userId);
+    if (error) throw error;
   },
 
   /* ─── SYSTEM SWEEP: Overdue → Pending ──────── */
@@ -519,13 +530,15 @@ export const SystemAPI = {
     const expiredRecur = allTasks.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < today);
     for (const task of expiredRecur) {
       const nextDeadline = findNextValidDeadline(task);
-      await s.from("tasks").update({ is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
+      const { error } = await s.from("tasks").update({ is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
+      if (error) throw error;
     }
 
     // Overdue active → pending
     const overdue = allTasks.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < today);
     if (overdue.length > 0) {
-      await s.from("tasks").update({ is_pending: true, is_completed: false, is_active: false }).in("id", overdue.map(t => t.id));
+      const { error } = await s.from("tasks").update({ is_pending: true, is_completed: false, is_active: false }).in("id", overdue.map(t => t.id));
+      if (error) throw error;
     }
   },
 

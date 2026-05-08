@@ -11,6 +11,7 @@ import { useAuth }  from "../lib/authContext";
 import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
 import { SHADOW_CATALOG } from "../lib/catalog";
 import { calculateNextDeadline, findNextValidDeadline } from "../lib/taskUtils";
+import { SystemAPI, type GatePayload } from "../services/SystemAPI";
 
 const EMPTY_FORM = {
   title: "", category: "General", description: "",
@@ -229,31 +230,37 @@ export function QuestsPage() {
   const handleSave = async () => {
     if (!supabase || !user || !formData.title.trim()) return;
 
-    const payload: any = {
-      user_id:     user.id, // creator is always current user
-      title:       formData.title,
-      category:    formData.category,
-      points:      getXpByTier(formData.xp_tier),
+    const payload: GatePayload = {
+      user_id: user.id,
+      assigned_to: formData.assignTo || user.id,
+      title: formData.title,
+      category: formData.category,
+      points: getXpByTier(formData.xp_tier),
       description: formData.description,
-      deadline:    formData.deadline || null,
-      start_time:  formData.start_time || null,
-      end_time:    formData.end_time || null,
-      priority:    formData.priority,
-      xp_tier:     formData.xp_tier,
-      parent_id:   formData.parentId,
-      assigned_to: formData.assignTo || null,
+      deadline: formData.deadline || null,
+      start_time: formData.start_time || null,
+      end_time: formData.end_time || null,
+      priority: formData.priority,
+      xp_tier: formData.xp_tier,
       is_recurring: formData.recurrence_type !== "none",
+      recurrence_type: formData.recurrence_type,
+      recurrence_interval: formData.recurrence_interval,
+      recurrence_days: JSON.stringify(formData.recurrence_days),
+      recurrence_day_of_month: formData.recurrence_day_of_month,
+      recurrence_custom_label: formData.recurrence_custom_label,
+      parent_id: formData.parentId,
     };
 
-    if (editQuest) {
-      await supabase.from("tasks").update(payload).eq("id", editQuest.id);
-    } else {
-      await supabase.from("tasks").insert(payload);
+    try {
+      await SystemAPI.saveGate(payload, editQuest?.id || null);
+      fetchQuests();
+      setShowModal(false);
+      setEditQuest(null);
+      setFormData(EMPTY_FORM);
+    } catch (err: any) {
+      console.error("Error saving quest:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message || "Failed to save quest."}`);
     }
-    fetchQuests();
-    setShowModal(false);
-    setEditQuest(null);
-    setFormData(EMPTY_FORM);
   };
 
   const handleComplete = async (id: string, isDone: boolean) => {
@@ -500,19 +507,28 @@ export function QuestsPage() {
 
   const handleNLP = async (parsed: any[]) => {
     if (!supabase || !user) return;
-    const items = parsed.map((t: any) => ({
-      user_id:     user.id,
-      title:       t.title,
-      category:    t.category   || "General",
-      points:      t.points || getXpByTier(t.xp_tier || "Low"),
-      description: t.description || "",
-      deadline:    t.deadline   || null,
-      priority:    t.priority   || "Normal",
-      xp_tier:     t.xp_tier    || "Low",
-    }));
-    await supabase.from("tasks").insert(items);
-    fetchQuests();
-    setShowNLP(false);
+    try {
+      for (const t of parsed) {
+        const payload: GatePayload = {
+          user_id: user.id,
+          assigned_to: user.id,
+          title: t.title,
+          category: t.category || "General",
+          points: t.points || getXpByTier(t.xp_tier || "Low"),
+          description: t.description || "",
+          deadline: t.deadline || null,
+          priority: t.priority || "Normal",
+          xp_tier: t.xp_tier || "Low",
+          is_recurring: false,
+        };
+        await SystemAPI.saveGate(payload, null);
+      }
+      fetchQuests();
+      setShowNLP(false);
+    } catch (err: any) {
+      console.error("NLP Import Error:", err);
+      alert(`⚠️ IMPORT FAILED: ${err.message}`);
+    }
   };
 
   const hasSkipItem = inventory.length > 0;
