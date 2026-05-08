@@ -179,7 +179,7 @@ export async function syncProgression(
 ): Promise<ProgressionResult | null> {
   const { data: prof } = await supabase
     .from("user_profiles")
-    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date, last_heartbeat, stat_strength, stat_agility, stat_sense, stat_intelligence, stat_vitality, dark_mana, current_mode, ego_score")
+    .select("total_points, level, player_rank, player_title, player_class, streak_count, last_active_date, last_heartbeat, stat_strength, stat_agility, stat_sense, stat_intelligence, stat_vitality, dark_mana, current_mode, ego_score, status")
     .eq("user_id", userId)
     .single();
 

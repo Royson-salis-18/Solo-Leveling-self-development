@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { useAuth } from './authContext';
 import { Bell, MessageSquare, Shield, Zap, X } from 'lucide-react';

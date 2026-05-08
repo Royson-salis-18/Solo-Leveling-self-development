@@ -1,7 +1,7 @@
 import { useNotifications } from "../lib/notificationContext";
 import { Bell, Check, Trash2, ExternalLink, Inbox, MessageSquare, Zap, Shield, UserPlus, Trash } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "../components/Button";
+
 
 export function NotificationsPage() {
   const { notifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotifications();
