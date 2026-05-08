@@ -1,32 +1,24 @@
-# Solo Leveling: Shadow Monarch UI/UX Overhaul
+# Solo Leveling: Shadow Monarch System V5 (Hardcore Economy)
 
 ## 🎯 Current Objectives
-Refining the "System" experience into a premium, lore-accurate "Shadow Monarch" interface.
-
-## 📋 Task List
-
-### 🛠️ Core Infrastructure & Legitimacy
-- [x] **Legit Resonance Matrix**: 
-  - [x] Task-based calculation.
-  - [x] Class-based weighting (e.g., Tank gets Fitness bonus, Mage gets Mind bonus).
-- [x] **Combat Attributes**: Real stats (Str, Agi, Int, Vit) in DB.
-- [x] **Skill System**: Fetch unique player skills from DB.
-- [x] **Guild Personalization**: Logo, Aura, and Title selection.
-
-### 🏛️ Feature Buildout (Complete)
-- [x] **The Monarch's War Room**: Strategic command center with live global raid oversight.
-- [x] **Dungeon Gate**: High-fidelity Portal UI with multi-stage mission flow (ENTER -> CONQUERED).
-- [x] **Hunter's License**: High-fidelity interactive identity card embedded system-wide.
-
-### 🎨 Visual & Aesthetic Polish
-- [x] **Standardize Page Titles**: White-to-glow text-shadow system.
-- [x] **Minimalist Headers**: Removed decorative icon rings for a "System" look.
-- [x] **Glassmorphism Overhaul**: Deep navy-slate palette with blue electric accents.
-- [ ] **Cinematic "ARISE"**: Replace browser alerts with shadow extraction animation.
+Maintaining the **Shadow Monarch System V5** — ensuring the hardcore accountability economy remains balanced and stable.
 
 ## 🚀 Completed Tasks
-- [x] Removed header icons from Dashboard, Leaderboard, and Profile.
-- [x] Fixed background darkening filter to make text visible.
-- [x] Overhauled Player Profile Popup with unified two-column layout and embedded License.
-- [x] Fixed Leaderboard popup blank screen and z-index layering issues.
-- [x] Centered logo and standardized sidebar branding.
+- [x] **Rolling Weekly Threshold**: Implemented logic to calculate XP from C-Rank+ tasks in the last 7 days vs 300 XP goal.
+- [x] **Hard Mode Status Mapping**: ACTIVE, STAGNANT, PENALTY, DECEASED states with associated penalties/locks.
+- [x] **E-Rank Constraints**: 15 XP/day cap and exclusion from weekly threshold count.
+- [x] **Compounding Corruption**: 10%/day penalty on Dark Mana debt.
+- [x] **Gate Validation**: Rank-based manifestation buffers and 20-gate limit.
+- [x] **High Stakes**: 50% XP cost penalty for Red Gate failure.
+- [x] **Multi-Key Reward Unlock**: Tier 1-5 validation (Streak/Rank/Mana/Trigger Gate).
+- [x] **Redemption Dual-Cost**: DM redemption costs 1.5x XP.
+- [x] **UI/UX Polish**: Weekly activity bar, Status tooltips, and Instruction panels across all core pages.
+- [x] **ARISE Ritual**: XP restoration logic for reawakening from DECEASED state.
+- [x] **Initial V5 Logic Bible authored**.
+- [x] **Base Hard Mode XP tiers (5-50 XP) implemented**.
+- [x] **Weekly 3-objective requirement for S-Rank Trials enforced**.
+- [x] **Syntax errors in Dungeon Gate logic resolved**.
+- [x] **System Catalog Integration**: Integrated lore-accurate System Rewards and Punishments.
+- [x] **System Manifestation Clauses**: Implemented auto-triggering gates (Penalty Zone, Survival Test, Ego Stabilization).
+- [x] **Premium UI Overhaul**: Refined Dashboard layout, glassmorphic typography, and tactical grid spacing.
+

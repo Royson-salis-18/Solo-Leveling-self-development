@@ -208,11 +208,17 @@ CREATE TABLE IF NOT EXISTS rewards (
     user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     name           TEXT NOT NULL,
     xp_cost        INTEGER DEFAULT 100,
-    tier           TEXT DEFAULT 'instant' CHECK (tier IN ('instant', 'medium', 'major')),
+    tier           TEXT DEFAULT '1',
     is_claimed     BOOLEAN DEFAULT FALSE,
     claimed_at     TIMESTAMP WITH TIME ZONE,
+    expires_at     TIMESTAMP WITH TIME ZONE,
+    trigger_gate_id UUID REFERENCES tasks(id),
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE rewards DROP CONSTRAINT IF EXISTS rewards_tier_check;
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS trigger_gate_id UUID REFERENCES tasks(id);
 
 CREATE TABLE IF NOT EXISTS punishments (
     id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -566,4 +572,25 @@ ALTER TABLE guilds ADD COLUMN IF NOT EXISTS aura_theme TEXT;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS reawakened_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS dark_mana INTEGER DEFAULT 0;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS dark_mana_started_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS current_mode     TEXT DEFAULT 'Normal';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS season_end_date  TIMESTAMP WITH TIME ZONE;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS last_mode_switch TIMESTAMP WITH TIME ZONE;
 
+-- ==========================================
+-- SEASON RECORDS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS season_records (
+    id             UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    mode           TEXT NOT NULL,
+    start_date     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    end_date       TIMESTAMP WITH TIME ZONE,
+    final_xp       INTEGER DEFAULT 0,
+    status         TEXT DEFAULT 'active'
+);
+
+ALTER TABLE season_records ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own season records" ON season_records;
+CREATE POLICY "Users can manage own season records" ON season_records FOR ALL USING (auth.uid() = user_id);

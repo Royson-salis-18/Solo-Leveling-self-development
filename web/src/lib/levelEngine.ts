@@ -212,7 +212,7 @@ export async function syncProgression(
       
       if (decayDays > 0) {
         if (config.compoundingDecay) {
-          // Nightmare: Each day multiplies prior balance by 0.97
+          // Hell: Each day multiplies prior balance by 0.97
           let tempXp = totalXp;
           for(let i=0; i<decayDays; i++) {
             tempXp *= (1 - config.decayRate);
@@ -243,6 +243,10 @@ export async function syncProgression(
   }
 
   const newTitle = calcTitle(cls, adjustedTotalXp < 0 ? 0 : adjustedTotalXp);
+
+  const leveledUp    = newLevel > prevLevel;
+  const rankedUp     = RANKS.indexOf(newRank as any) > RANKS.indexOf(prevRank as any);
+  const titleChanged = newTitle !== prevTitle;
 
   // OVERDUE PENALTY SCAN
   // Find tasks where deadline < today and not completed/failed
@@ -277,37 +281,35 @@ export async function syncProgression(
 
   const finalXp = Math.max(-5000, adjustedTotalXp - totalOverduePenalty);
 
-  // Weekly Activity Threshold (300-500 XP per week required for Hard Mode)
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const { data: weeklyPoints } = await supabase
-    .from("user_points")
-    .select("daily_points")
+  // Weekly Activity Threshold (300 XP per week required for Hard Mode)
+  // V5 Rule: Only C-Rank and above (xp_tier != 'Low') count toward threshold.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: weeklyTasks } = await supabase
+    .from("tasks")
+    .select("points, xp_tier")
     .eq("user_id", userId)
-    .gte("date", sevenDaysAgo);
+    .eq("is_completed", true)
+    .neq("xp_tier", "Low")
+    .gte("completed_at", sevenDaysAgo);
 
-  const totalWeeklyXp = (weeklyPoints || []).reduce((sum: number, p: any) => sum + (p.daily_points || 0), 0);
+  const totalWeeklyXp = (weeklyTasks || []).reduce((sum: number, t: any) => sum + (t.points || 0), 0);
 
   // Status Logic: Priority Chain (DECEASED > PENALTY > STAGNANT > ACTIVE)
   let newStatus = 'ACTIVE';
-  if (finalXp < 0) {
-    newStatus = 'PENALTY';
-  } else if (totalWeeklyXp < 300) {
-    newStatus = 'STAGNANT';
-  } else if (finalXp < 100) {
-    newStatus = 'NEWBIE';
-  }
-
-  const leveledUp    = newLevel > prevLevel;
-  const rankedUp     = RANKS.indexOf(newRank as any) > RANKS.indexOf(prevRank as any);
-  const titleChanged = newTitle !== prevTitle;
-
-  // --- SELF-REAPER CHECK (1 Week Inactivity) ---
-  let finalStatus = newStatus;
+  
+  // 1. Check for DECEASED (7+ days inactive)
   const heartbeat = prof.last_heartbeat ? new Date(prof.last_heartbeat) : null;
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  
   if (heartbeat && heartbeat < oneWeekAgo) {
-    finalStatus = 'DECEASED';
+    newStatus = 'DECEASED';
+  } 
+  // 2. Check for PENALTY (Negative XP)
+  else if (finalXp < 0) {
+    newStatus = 'PENALTY';
+  } 
+  // 3. Check for STAGNANT (< 300 XP/week from C-Rank+)
+  else if (totalWeeklyXp < 300) {
+    newStatus = 'STAGNANT';
   }
 
   // Only write if something actually changed (or just always update heartbeat)
@@ -321,7 +323,7 @@ export async function syncProgression(
       streak_count: newStreak,
       last_active_date: today,
       last_heartbeat: new Date().toISOString(),
-      status: finalStatus,
+      status: newStatus,
       dark_mana: prof.dark_mana ?? 0
     })
     .eq("user_id", userId);
@@ -337,8 +339,30 @@ export async function syncProgression(
     prevLevel,
     prevRank,
     prevTitle,
-    status: finalStatus
+    status: newStatus
   };
+}
+
+/**
+ * V5 Corruption Multiplier: +10% to next penalty per day of unredeemed debt.
+ * Returns the multiplier (e.g. 1.2 for 2 days of debt).
+ */
+export async function calculateCorruptionMultiplier(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { data: prof } = await supabase
+    .from("user_profiles")
+    .select("dark_mana, dark_mana_started_at")
+    .eq("user_id", userId)
+    .single();
+
+  if (!prof || !prof.dark_mana || prof.dark_mana <= 0 || !prof.dark_mana_started_at) {
+    return 1.0;
+  }
+
+  const startedAt = new Date(prof.dark_mana_started_at);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - startedAt.getTime()) / (1000 * 3600 * 24));
+  
+  return 1.0 + (diffDays * 0.1);
 }
 
 /* ═══════════════════════════════════════════════

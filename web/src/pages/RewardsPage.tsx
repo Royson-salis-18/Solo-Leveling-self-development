@@ -4,9 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { syncProgression, showProgressionToast } from "../lib/levelEngine";
+
 import { Plus, Trash2, Gift, Zap } from "lucide-react";
-import { ITEM_CATALOG, SHADOW_CATALOG } from "../lib/catalog";
+import { SYSTEM_REWARDS, SYSTEM_PUNISHMENTS } from "../lib/catalog";
 
 type Reward = {
   id: string;
@@ -25,9 +25,11 @@ type Punishment = {
 };
 
 const TIER_OPTS = [
-  { key: "instant", label: "Instant" },
-  { key: "medium",  label: "Medium" },
-  { key: "major",   label: "Major" },
+  { key: "1", label: "Tier 1: Indulgence", streak: 3,  rank: "E", xp: 25 },
+  { key: "2", label: "Tier 2: Comfort",    streak: 7,  rank: "C", xp: 150 },
+  { key: "3", label: "Tier 3: Leisure",    streak: 14, rank: "B", xp: 400 },
+  { key: "4", label: "Tier 4: Splurge",    streak: 21, rank: "A", xp: 800 },
+  { key: "5", label: "Tier 5: Legendary",  streak: 60, rank: "S", xp: 3000 },
 ];
 
 const EMPTY_REWARD = { name: "", xp_cost: 100, tier: "instant" as const };
@@ -46,6 +48,9 @@ export function RewardsPage() {
   const [punishForm,  setPunishForm]  = useState(EMPTY_PUNISH);
   const [loading,     setLoading]     = useState(true);
   const [darkMana,    setDarkMana]    = useState(0);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [recentGates, setRecentGates] = useState<any[]>([]);
+  const [selectedGate, setSelectedGate] = useState<string>("");
 
   const location = useLocation();
 
@@ -60,15 +65,18 @@ export function RewardsPage() {
   useEffect(() => {
     if (!supabase || !user) return;
     (async () => {
-      const [rRes, pRes, profRes] = await Promise.all([
+      const [rRes, pRes, profRes, gateRes] = await Promise.all([
         supabase.from("rewards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("punishments").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("user_profiles").select("total_points, dark_mana").eq("user_id", user.id).single(),
+        supabase.from("user_profiles").select("*").eq("user_id", user.id).single(),
+        supabase.from("tasks").select("id, title, completed_at").eq("user_id", user.id).eq("is_completed", true).order("completed_at", { ascending: false }).limit(10),
       ]);
-      setRewards(rRes.data ?? []);
-      setPunishments(pRes.data ?? []);
+      setRewards([...SYSTEM_REWARDS, ...(rRes.data ?? [])] as any);
+      setPunishments([...SYSTEM_PUNISHMENTS, ...(pRes.data ?? [])] as any);
       setProfile(profRes.data);
+      setUserProfile(profRes.data);
       setDarkMana(profRes.data?.dark_mana || 0);
+      setRecentGates(gateRes.data ?? []);
       setLoading(false);
     })();
   }, [user]);
@@ -87,39 +95,24 @@ export function RewardsPage() {
   };
 
   const handleClaimReward = async (reward: Reward) => {
-    if (!supabase || !user || reward.is_claimed || (profile?.total_points ?? 0) < reward.xp_cost) return;
+    if (!supabase || !user || reward.is_claimed) return;
     
-    // Check if reward matches an item or shadow
-    const catalogItem = ITEM_CATALOG.find(i => i.name.toLowerCase() === reward.name.toLowerCase());
-    const catalogShadow = SHADOW_CATALOG.find(s => s.name.toLowerCase() === reward.name.toLowerCase());
-
-    if (catalogItem) {
-      await supabase.from("inventory").insert({
-        user_id: user.id,
-        name: catalogItem.name,
-        description: catalogItem.description,
-        item_type: catalogItem.item_type,
-        item_category: catalogItem.item_category,
-        rarity: catalogItem.rarity,
-        quantity: 1
-      });
-    } else if (catalogShadow) {
-      await supabase.from("shadows").insert({
-        user_id: user.id,
-        name: catalogShadow.name,
-        rarity: catalogShadow.rarity,
-        bonus_type: "xp_boost",
-        bonus_value: (catalogShadow as any).bonus || 0.05
-      });
+    const tierRule = TIER_OPTS.find(t => t.key === reward.tier);
+    if (tierRule && (parseInt(reward.tier) >= 2) && !selectedGate) {
+      alert("⚠️ TRIGGER REQUIRED: Select a recently conquered gate to manifest this reward.");
+      return;
     }
 
-    await supabase.from("rewards").update({ is_claimed: true, claimed_at: new Date().toISOString() }).eq("id", reward.id);
-    await supabase.from("user_profiles").update({ total_points: (profile?.total_points ?? 0) - reward.xp_cost }).eq("user_id", user.id);
-    setRewards(rs => rs.map(r => r.id === reward.id ? { ...r, is_claimed: true } : r));
-    setProfile(p => p ? { ...p, total_points: p.total_points - reward.xp_cost } : p);
-    // Auto-sync level / rank / title
-    const progression = await syncProgression(supabase, user.id);
-    showProgressionToast(progression);
+    try {
+      const { SystemAPI } = await import("../services/SystemAPI");
+      const res = await SystemAPI.claimReward(user.id, reward, selectedGate || undefined);
+      
+      setRewards(rs => rs.map(r => r.id === reward.id ? { ...r, is_claimed: true } : r));
+      setProfile(p => p ? { ...p, total_points: p.total_points - reward.xp_cost } : p);
+      alert(`✨ REWARD MANIFESTED! Claim window: 72 hours. Expires: ${new Date(res.expires_at).toLocaleString()}`);
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const handleDeleteReward = async (id: string) => {
@@ -143,33 +136,23 @@ export function RewardsPage() {
   const handleTriggerPunishment = async (p: Punishment) => {
     if (!supabase || !user) return;
     
-    // Redeem logic: reduce dark mana AND reduce XP
-    if (darkMana > 0) {
-      const reduction = Math.min(darkMana, p.xp_penalty);
-      const newDarkMana = darkMana - reduction;
-      const newXP = Math.max(0, (profile?.total_points ?? 0) - reduction);
+    try {
+      const { SystemAPI } = await import("../services/SystemAPI");
+      await SystemAPI.redeemDarkMana(user.id, p.xp_penalty);
       
-      // Update local state
-      setDarkMana(newDarkMana);
-      setProfile(prev => prev ? { ...prev, total_points: newXP } : prev);
-      
-      // Update DB
-      await supabase.from("user_profiles").update({ 
-        dark_mana: newDarkMana, 
-        total_points: newXP 
-      }).eq("user_id", user.id);
-      
-      // Update triggered count
-      await supabase.from("punishments").update({ triggered: p.triggered + 1 }).eq("id", p.id);
+      setDarkMana(prev => Math.max(0, prev - p.xp_penalty));
       setPunishments(ps => ps.map(x => x.id === p.id ? { ...x, triggered: x.triggered + 1 } : x));
       
-      // Sync level/rank/title since XP changed
-      const progression = await syncProgression(supabase, user.id);
-      showProgressionToast(progression);
+      const [rRes, profRes] = await Promise.all([
+        supabase.from("rewards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_profiles").select("total_points, dark_mana").eq("user_id", user.id).single(),
+      ]);
+      setRewards(rRes.data ?? []);
+      setProfile(profRes.data);
       
-      alert(`SYSTEM: Punishment Accepted. Dark Mana reduced by ${reduction}. Mana (XP) reduced by ${reduction}.`);
-    } else {
-      alert("SYSTEM: You have no Dark Mana to redeem. Discipline is currently stable.");
+      alert(`⚖️ SYSTEM: Punishment Accepted. Dark Mana reduced by ${p.xp_penalty}. Dual-cost applied (1.5x XP).`);
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -182,11 +165,7 @@ export function RewardsPage() {
   const filteredRewards = rewards.filter(r => activeFilter === "all" || r.tier === activeFilter);
   const availableXP = profile?.total_points ?? 0;
 
-  const tierColor = (tier: string) => {
-    if (tier === "major")   return "rgba(255,220,100,0.70)";
-    if (tier === "medium")  return "rgba(180,200,255,0.65)";
-    return "rgba(200,255,200,0.60)";
-  };
+
 
   return (
     <section className="page">
@@ -202,6 +181,22 @@ export function RewardsPage() {
               {darkMana.toLocaleString()} Dark Mana
             </div>
           )}
+        </div>
+      </div>
+
+      {/* ── Rule of Reward Panel (V5) ── */}
+      <div className="panel" style={{ background: "rgba(30,30,60,0.4)", border: "1px solid var(--border-1)", marginBottom: 24 }}>
+        <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>
+          📜 THE RULE OF REWARD
+        </h3>
+        <p className="text-muted" style={{ fontSize: "0.78rem", lineHeight: 1.5, marginBottom: 10 }}>
+          Rewards are not gifts; they are manifested from excess mana. To stabilize a reward, the System enforces strict requirements based on Tier. High-tier manifestations (Tier 2+) require a **Trigger Gate** — a mission completed in the last 48 hours to serve as an anchor.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: "0.72rem", color: "var(--t3)" }}>
+          <div>• 72-Hour Claim Window: Manifestations expire in 3 days.</div>
+          <div>• Expiration Penalty: -1 Day Streak if not claimed.</div>
+          <div>• Mana Block: Tier 3+ locked if Dark Mana &gt; 0.</div>
+          <div>• Integrity: Dual-cost applied to all redemptions.</div>
         </div>
       </div>
 
@@ -224,15 +219,30 @@ export function RewardsPage() {
           {/* ── Reward filters + add ── */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div className="tabs" style={{ marginBottom: 0 }}>
-              {(["all", "instant", "medium", "major"] as const).map(k => (
-                <div key={k} className={`tab${activeFilter === k ? " active" : ""}`} onClick={() => setActiveFilter(k)}>
-                  {k.charAt(0).toUpperCase() + k.slice(1)}
+              {(["all", "1", "2", "3", "4", "5"] as const).map(k => (
+                <div key={k} className={`tab${activeFilter === k ? " active" : ""}`} onClick={() => setActiveFilter(k as any)}>
+                  {k === "all" ? "All" : `T${k}`}
                 </div>
               ))}
             </div>
-            <Button variant="primary" size="sm" onClick={() => setShowRewardModal(true)}>
-              <Plus size={13} /> Add Reward
-            </Button>
+            <div style={{ display: "flex", gap: 10 }}>
+              {parseInt(activeFilter) >= 2 && (
+                <select 
+                  className="form-select" 
+                  style={{ width: 200, height: 32, fontSize: '0.75rem', padding: '0 8px' }}
+                  value={selectedGate}
+                  onChange={(e) => setSelectedGate(e.target.value)}
+                >
+                  <option value="">Select Trigger Gate...</option>
+                  {recentGates.map(g => (
+                    <option key={g.id} value={g.id}>{g.title}</option>
+                  ))}
+                </select>
+              )}
+              <Button variant="primary" size="sm" onClick={() => setShowRewardModal(true)}>
+                <Plus size={13} /> Add Reward
+              </Button>
+            </div>
           </div>
 
           {filteredRewards.length === 0 ? (
@@ -243,7 +253,6 @@ export function RewardsPage() {
           ) : (
             <article className="panel panel-no-pad">
               {filteredRewards.map((reward, i) => {
-                const canAfford = availableXP >= reward.xp_cost && !reward.is_claimed;
                 return (
                   <div
                     key={reward.id}
@@ -251,35 +260,52 @@ export function RewardsPage() {
                       display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
                       borderBottom: i < filteredRewards.length - 1 ? "1px solid var(--border-0)" : "none",
                       opacity: reward.is_claimed ? 0.45 : 1,
+                      position: 'relative'
                     }}
                   >
-                    {/* Tier dot */}
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: tierColor(reward.tier), flexShrink: 0 }} />
+                    {/* Tier Indicator */}
+                    <div className={`tier-tag tier-${reward.tier}`}>T{reward.tier}</div>
+                    {reward.id?.toString().startsWith('sys-') && (
+                      <div className="badge" style={{ fontSize: '0.6rem', padding: '1px 6px', background: 'rgba(255,255,255,0.1)', color: 'var(--accent-primary)', marginLeft: 8 }}>SYSTEM</div>
+                    )}
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: "0.90rem", fontWeight: 500, color: "var(--t1)", marginBottom: 3 }}>
                         {reward.name}
                       </div>
-                      <div style={{ fontSize: "0.70rem", color: "var(--t3)", textTransform: "capitalize" }}>
-                        {reward.tier}{reward.is_claimed ? " · Claimed" : ""}
+                      <div style={{ fontSize: "0.70rem", color: "var(--t3)", display: 'flex', gap: 8 }}>
+                        {(() => {
+                          const rule = TIER_OPTS.find(t => t.key === reward.tier);
+                          if (!rule) return null;
+                          const streakMet = (userProfile?.streak_count || 0) >= rule.streak;
+                          const rankOrder = ["E", "D", "C", "B", "A", "S", "SS"];
+                          const rankMet = rankOrder.indexOf(userProfile?.player_rank || "E") >= rankOrder.indexOf(rule.rank);
+                          return (
+                            <>
+                              <span style={{ color: streakMet ? 'var(--success)' : 'var(--error-low)' }}>Streak: {rule.streak}d</span>
+                              <span style={{ color: rankMet ? 'var(--success)' : 'var(--error-low)' }}>Rank: {rule.rank}+</span>
+                              {parseInt(reward.tier) >= 3 && (
+                                <span style={{ color: (userProfile?.dark_mana || 0) === 0 ? 'var(--success)' : 'var(--error-low)' }}>Mana: Clear</span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
-                    <div style={{ fontSize: "0.92rem", fontWeight: 700, color: canAfford ? "var(--t1)" : "var(--t3)", marginRight: 12 }}>
+                    <div style={{ fontSize: "0.92rem", fontWeight: 700, color: availableXP >= reward.xp_cost ? "var(--t1)" : "var(--t3)", marginRight: 12 }}>
                       {reward.xp_cost.toLocaleString()} XP
                     </div>
 
                     <div style={{ display: "flex", gap: 6 }}>
                       {!reward.is_claimed && (
-                        <Button variant={canAfford ? "success" : "secondary"} size="sm" onClick={() => handleClaimReward(reward)} disabled={!canAfford}>
+                        <Button variant={availableXP >= reward.xp_cost ? "success" : "secondary"} size="sm" onClick={() => handleClaimReward(reward)}>
                           Claim
                         </Button>
                       )}
                       <button
                         onClick={() => handleDeleteReward(reward.id)}
                         style={{ background: "none", border: "none", color: "rgba(255,80,80,0.45)", cursor: "pointer", padding: "4px 6px", borderRadius: "var(--r-sm)", transition: "color 0.15s" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,80,80,0.85)")}
-                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,80,80,0.45)")}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -321,6 +347,9 @@ export function RewardsPage() {
                       }}
                     >
                       <div className="dark-mana-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff4444", flexShrink: 0 }} />
+                      {p.id?.toString().startsWith('sys-') && (
+                        <div className="badge" style={{ fontSize: '0.55rem', padding: '1px 4px', background: '#ff4444', color: '#000', marginRight: 4 }}>SYSTEM</div>
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: "0.90rem", fontWeight: 500, color: "var(--t1)" }}>{p.name}</div>
                         <div style={{ fontSize: "0.70rem", color: "#ff4444", opacity: 0.8 }}>Redeem -{p.xp_penalty} Debt</div>
@@ -454,6 +483,18 @@ export function RewardsPage() {
           50% { transform: scale(1.5); opacity: 0.5; }
           100% { transform: scale(1); opacity: 1; }
         }
+        .tier-tag {
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 0.65rem;
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+        .tier-1 { background: rgba(200,255,200,0.2); color: #8f8; border: 1px solid rgba(200,255,200,0.3); }
+        .tier-2 { background: rgba(180,200,255,0.2); color: #8af; border: 1px solid rgba(180,200,255,0.3); }
+        .tier-3 { background: rgba(255,220,100,0.2); color: #fb5; border: 1px solid rgba(255,220,100,0.3); }
+        .tier-4 { background: rgba(255,100,100,0.2); color: #f88; border: 1px solid rgba(255,100,100,0.3); }
+        .tier-5 { background: rgba(255,100,255,0.2); color: #f8f; border: 1px solid rgba(255,100,255,0.3); box-shadow: 0 0 10px rgba(255,100,255,0.2); }
       `}</style>
     </section>
   );

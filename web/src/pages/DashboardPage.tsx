@@ -7,17 +7,15 @@ import {
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Sparkles, Skull, Activity } from "lucide-react";
+import { Sparkles, Skull, Activity, CheckCircle } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 import { AuraCard } from "../components/AuraCard";
 import { Modal } from "../components/Modal";
+import { SeasonHUD } from "../components/SeasonHUD";
+import { ZoneOverlay } from "../components/ZoneOverlay";
+import { PlaymakerCard } from "../components/PlaymakerCard";
 
 import { SystemAPI, type DashboardData } from "../services/SystemAPI";
-import { ModeBadge } from "../components/ModeBadge";
-import { ZoneOverlay } from "../components/ZoneOverlay";
-import { SeasonHUD } from "../components/SeasonHUD";
-import { PlaymakerCard } from "../components/PlaymakerCard";
-import type { ModeType } from "../lib/modeConfig";
 import { calculatePlaymakerRating, evaluateWeeklySelection } from "../lib/levelEngine";
 
 
@@ -33,6 +31,7 @@ type TaskRow = {
   xp_tier?: string;
   category: string;
   time?: string;
+  points: number;
 };
 
 type AffiliationRow = { id: string; name: string; role: string; type: "clan" | "guild" };
@@ -44,13 +43,7 @@ type RecentActivityRow = {
   completed_at: string;
 };
 
-const CHART_COLORS = [
-  "rgba(255,255,255,0.60)",
-  "rgba(255,255,255,0.42)",
-  "rgba(255,255,255,0.30)",
-  "rgba(255,255,255,0.20)",
-  "rgba(255,255,255,0.14)",
-];
+
 
 const TOOLTIP_STYLE = {
   contentStyle: {
@@ -263,13 +256,7 @@ export function DashboardPage() {
     await supabase.from("tasks").update({ is_completed: !isCompleted, completed_at: !isCompleted ? new Date().toISOString() : null }).eq("id", taskId);
   };
 
-  const designateRedGate = (id: string) => {
-    const today = new Date().toDateString();
-    localStorage.setItem("redGateId", id);
-    localStorage.setItem("redGateDate", today);
-    setRedGateId(id);
-    alert("SYSTEM: Task designated as RED GATE. Fail at your own peril.");
-  };
+
 
   const handleArise = async () => {
     if (!supabase || !user) return;
@@ -287,24 +274,155 @@ export function DashboardPage() {
       <ZoneOverlay isActive={isZoneActive} onExit={() => setIsZoneActive(false)} />
       <div className="tactical-overlay" />
       {/* ── TOP LEVEL BAR ── */}
-      <div className="dashboard-section-header" style={{ marginBottom: 40 }}>
-        <div className="flex-col">
-          <div className="flex items-center gap-4">
-            <h1 className="page-title" style={{ margin: 0, lineHeight: 1.1 }}>
-              Hunter Dashboard <span style={{ color: 'var(--accent-primary)', fontSize: '1rem', verticalAlign: 'middle', marginLeft: 12, fontWeight: 800 }}>[{data.player_rank}-Rank]</span>
-            </h1>
-            <ModeBadge mode={(data.current_mode as ModeType) || 'Normal'} darkMana={data.dark_mana} />
+      <div className="page-header" style={{ marginBottom: 40, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 className="page-title" style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.5px', margin: 0 }}>Hunter Dashboard</h2>
+            <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>[{data.player_rank}-Rank]</span>
+            <span style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500, marginLeft: 8 }}>{data.current_mode?.toUpperCase()} MODE</span>
           </div>
-          <p className="page-subtitle" style={{ fontSize: '1rem', color: 'var(--accent-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '4px 0 0' }}>
-            {data.player_title}
-          </p>
+          <p className="page-subtitle" style={{ fontSize: '1.2rem', color: 'var(--accent-primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '4px', marginTop: 8, opacity: 0.8 }}>{data.player_title}</p>
         </div>
-        <div className="dashboard-action-group">
-          <div className="badge">Level {data.level}</div>
-          <div className="badge">{data.totalXp.toLocaleString()} Mana</div>
-          <div className="market-bid-badge" title="Hunter Market Value (Projected Contract)">
-            BID: ₩{marketValue.toLocaleString()}
+        
+        <div className="dashboard-action-group" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {data.status === 'PENALTY' && (
+            <div className="penalty-mini-badge ds-glass" style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 6, border: '1px solid #ef4444', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }} onClick={() => window.location.href='/dungeon-gate'}>
+               <Skull size={14} className="animate-pulse" /> PENALTY ACTIVE
+            </div>
+          )}
+          <div className="badge" style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '1px', opacity: 0.6 }}>
+            LVL {data.level}
           </div>
+          <div className="badge" style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', borderRadius: 6, border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', background: 'rgba(168,168,255,0.05)', fontSize: '0.65rem', fontWeight: 800 }}>
+            {data.totalXp.toLocaleString()} MANA
+          </div>
+        </div>
+      </div>
+
+      {/* ── MONARCH TRANSMISSION (QUOTE) ── */}
+      {(() => {
+        const messages = [
+          { tag: "RAGNAROK", title: "Divine Bloodline: Su-ho's Era", text: "The power of the Monarch flows through his son. The new age has arrived." },
+          { tag: "SYSTEM", title: "Absolute Authority", text: "Survival is the only law. Your strength is the only currency." },
+          { tag: "ASHBORN", title: "Eternal Rest", text: "The shadows do not fear death. They are death. Arise." },
+          { tag: "MONARCH", title: "The World is a Game", text: "Play it by your own rules. Every level gained is a reality conquered." },
+          { tag: "SYSTEM", title: "Absolute Will", text: "A Monarch's will is absolute. Let your discipline be the hammer that shapes it." },
+          { tag: "ASHBORN", title: "Limitless Potential", text: "The only limit is the one you set yourself. Break the chains of mediocrity." },
+          { tag: "SYSTEM", title: "The Hunt Evolved", text: "The hunt never ends. It only evolves. Your shadows are waiting for your command." },
+          { tag: "MONARCH", title: "Taken, Not Given", text: "Strength is not granted. It is taken through the cold fire of daily discipline." },
+          { tag: "SYSTEM", title: "The Sovereign's Path", text: "The system chose you for a reason. Every task completed proves it right." },
+          { tag: "ASHBORN", title: "Shadow Birth", text: "Shadows are born from the intense light of your focus. Shine brighter." },
+          { tag: "MONARCH", title: "Evolution or Extinction", text: "Stagnation is death. Each dawn is a mission to surpass the version of you that slept." },
+          { tag: "SYSTEM", title: "Critical Resonance", text: "Your momentum is creating a rift in the mundane. Maintain absolute focus." },
+          { tag: "ASHBORN", title: "Kingdom of Shadows", text: "You do not build a kingdom with wishes. You build it with the souls of conquered fears." }
+        ];
+        const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+        const msg = messages[dayOfYear % messages.length];
+
+        return (
+          <div className="monarch-transmission ds-glass" style={{ 
+            marginBottom: 32, 
+            padding: '18px 48px', 
+            borderRadius: 100, 
+            border: '1px solid rgba(168,168,255,0.25)', 
+            background: 'linear-gradient(90deg, rgba(26,26,46,0.95) 0%, rgba(0,0,0,1) 100%)', 
+            position: 'relative', 
+            overflow: 'hidden', 
+            boxShadow: '0 15px 50px rgba(0,0,0,0.8), 0 0 35px rgba(168,168,255,0.18), inset 0 1px 2px rgba(255,255,255,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 24
+          }}>
+            <div style={{ 
+              width: 52, 
+              height: 52, 
+              borderRadius: 16, 
+              background: 'rgba(168,168,255,0.03)', 
+              border: '1px solid rgba(168,168,255,0.1)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <Sparkles size={24} color="var(--accent-primary)" style={{ opacity: 0.6 }} />
+            </div>
+
+            <div className="monarch-quote__meta" style={{ flex: 1, position: 'relative', zIndex: 2 }}>
+              <div className="monarch-quote__label" style={{ fontSize: '0.55rem', fontWeight: 950, color: 'var(--accent-primary)', letterSpacing: '3px', marginBottom: 2, opacity: 0.7, textTransform: 'uppercase' }}>
+                {msg.tag} TRANSMISSION
+              </div>
+              <div className="monarch-quote__title" style={{ fontSize: '1.4rem', fontWeight: 950, color: '#fff', letterSpacing: '-0.5px', lineHeight: 1.2 }}>{msg.title}</div>
+              <div className="monarch-quote__sub" style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+                {msg.text}
+              </div>
+            </div>
+            
+            {/* ── AURACARD-STYLE WATERMARK SKULL ── */}
+            <div className="monarch-quote__skull" style={{ 
+              position: 'absolute', 
+              right: 12, 
+              top: -24, 
+              transform: 'rotate(20deg)', 
+              opacity: 0.38, 
+              pointerEvents: 'none',
+              filter: 'drop-shadow(0 0 16px rgba(168,168,255,0.35))'
+            }}>
+              <Skull size={110} color="var(--accent-primary)" strokeWidth={1.8} />
+            </div>
+          </div>
+        );
+      })()}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
+        {/* ── Weekly Activity Threshold (V5 Premium) ── */}
+        <div className="panel ds-glass sovereign-panel" style={{ background: "linear-gradient(135deg, rgba(30,30,60,0.2) 0%, rgba(10,10,25,0.2) 100%)", border: "1px solid rgba(168,168,255,0.12)", padding: '24px 32px', borderRadius: 24, boxShadow: '0 16px 32px rgba(0,0,0,0.3)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
+             <div>
+               <h3 style={{ fontSize: "0.7rem", fontWeight: 950, color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "3px", margin: '0 0 4px 0', opacity: 0.8 }}>
+                 🛡️ Weekly Activity Threshold
+               </h3>
+               <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#fff' }}>
+                 {weeklyTotal} <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>/ 300 XP</span>
+               </div>
+             </div>
+             <span style={{ fontSize: '0.75rem', fontWeight: 900, color: weeklyTotal >= 300 ? '#34d399' : '#fbbf24', background: weeklyTotal >= 300 ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)', padding: '4px 10px', borderRadius: 6, border: `1px solid ${weeklyTotal >= 300 ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}` }}>
+               {weeklyTotal >= 300 ? 'STABLE' : 'STAGNATION RISK'}
+             </span>
+          </div>
+          <div style={{ height: 8, background: 'rgba(0,0,0,0.5)', borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+             <div className="sovereign-progress-fill" style={{ 
+               height: '100%', 
+               width: `${Math.min(100, (weeklyTotal / 300) * 100)}%`, 
+               background: weeklyTotal >= 300 ? 'linear-gradient(90deg, #34d399, #10b981)' : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+               boxShadow: weeklyTotal >= 300 ? '0 0 15px rgba(52,211,153,0.5)' : '0 0 15px rgba(251,191,36,0.5)',
+               transition: 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+             }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <p className="text-muted" style={{ fontSize: "0.6rem", fontWeight: 700, opacity: 0.5, margin: 0, textTransform: 'uppercase', letterSpacing: '1px' }}>
+              V5 Rule: C-Rank+ Only
+            </p>
+            {weeklyTotal < 300 && (
+              <span className="animate-pulse" style={{ fontSize: '0.6rem', color: '#fbbf24', fontWeight: 800 }}>+{(300 - weeklyTotal)} XP REQUIRED</span>
+            )}
+          </div>
+        </div>
+
+        {/* ── System Log Panel (V5 Terminal) ── */}
+        <div className="panel ds-glass terminal-log" style={{ background: "rgba(10,10,20,0.4)", border: "1px solid rgba(255,255,255,0.08)", padding: '24px', borderRadius: 24, fontFamily: "'JetBrains Mono', monospace", position: 'relative', overflow: 'hidden' }}>
+          <div className="terminal-header" style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f56' }} />
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffbd2e' }} />
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#27c93f' }} />
+            <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', marginLeft: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>System_Core_V5.0</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: "0.7rem", color: "rgba(168,168,255,0.7)" }}>
+            <div className="log-line"><span style={{ color: 'var(--accent-primary)' }}>&gt;</span> Manifestations: Permanent.</div>
+            <div className="log-line"><span style={{ color: 'var(--accent-primary)' }}>&gt;</span> Mode: {data.current_mode} Activated.</div>
+            <div className="log-line"><span style={{ color: 'var(--accent-primary)' }}>&gt;</span> Arise: B-Rank+ Protocol.</div>
+            <div className="log-line"><span style={{ color: 'var(--accent-primary)' }}>&gt;</span> Penalty: Dark Mana decay.</div>
+          </div>
+          <div className="terminal-scanline" />
         </div>
       </div>
 
@@ -315,38 +433,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ── DYNAMIC SYSTEM MESSAGE BANNER ── */}
-      {(() => {
-        const messages = [
-          { tag: "SYSTEM", title: "Arise. The Hunt Begins.", text: "The shadows are waiting for your command. Complete your daily quests to grow stronger." },
-          { tag: "MONARCH", title: "The Sovereign's Decree", text: "A true Monarch doesn't wait for opportunity. They create it through consistency." },
-          { tag: "RAGNAROK", title: "Divine Bloodline: Su-ho's Era", text: "The power of the Monarch flows through his son. The new age has arrived." },
-          { tag: "ALERT", title: "Hidden Quest Triggered", text: "Quest: 'Unstoppable Momentum'. Complete 5 tasks today for a bonus XP multiplier." },
-          { tag: "STATUS", title: "System Analysis Complete", text: "Your mana levels are stabilizing. Current rank: " + data.player_rank + ". Next rank evaluation soon." },
-          { tag: "QUOTE", title: "Jin-Woo's Resolve", text: "\"I'm the only one who can level up. That is my strength and my curse.\"" },
-          { tag: "HINT", title: "Shadow Tactician", text: "Did you know? Epic shadows like Igris provide a permanent +7% passive XP boost." }
-        ];
-        const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-        const msg = messages[dayOfYear % messages.length];
 
-        return (
-          <div className="monarch-quote" style={{ marginBottom: 24 }}>
-            <div className="monarch-quote__icon">
-              <Sparkles size={26} color="rgba(168,168,255,0.9)" />
-            </div>
-            <div className="monarch-quote__meta">
-              <div className="monarch-quote__label">
-                {msg.tag} MESSAGE
-              </div>
-              <div className="monarch-quote__title">{msg.title}</div>
-              <div className="monarch-quote__sub">{msg.text}</div>
-            </div>
-            <div className="monarch-quote__skull" aria-hidden="true">
-              <Skull size={132} />
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── QUANTUM STAT ROW ── */}
       <div className="stats-grid dashboard-premium-stats">
@@ -374,6 +461,18 @@ export function DashboardPage() {
           <Sparkles size={32} className="q-card-icon" />
         </div>
 
+        <div className="db-quantum-card ds-glass q-aura-blue">
+          <div className="q-card-glow" />
+          <div className="q-card-content">
+            <span className="q-card-lbl">Contract Valuation</span>
+            <span className="q-card-val">₩{(marketValue / 1000000).toFixed(1)}M</span>
+            <div className="q-card-footer">
+              <span className="q-card-trend">MARKET CAP RISING</span>
+            </div>
+          </div>
+          <Skull size={32} className="q-card-icon" />
+        </div>
+
         <div className="db-quantum-card ds-glass q-aura-green">
           <div className="q-card-glow" />
           <div className="q-card-content">
@@ -386,17 +485,19 @@ export function DashboardPage() {
           <Activity size={32} className="q-card-icon" />
         </div>
 
-        <div className="db-quantum-card ds-glass q-aura-red">
-          <div className="q-card-glow" />
-          <div className="q-card-content">
-            <span className="q-card-lbl">Failed Today</span>
-            <span className="q-card-val">{data.failedCount}</span>
-            <div className="q-card-footer">
-              <span className="q-card-trend" style={{ color: '#ff4444' }}>MANA DECAY</span>
+        {data.failedCount > 0 && (
+          <div className="db-quantum-card ds-glass q-aura-red">
+            <div className="q-card-glow" />
+            <div className="q-card-content">
+              <span className="q-card-lbl">Failed Today</span>
+              <span className="q-card-val">{data.failedCount}</span>
+              <div className="q-card-footer">
+                <span className="q-card-trend" style={{ color: '#ff4444' }}>MANA DECAY</span>
+              </div>
             </div>
+            <Skull size={32} className="q-card-icon" />
           </div>
-          <Skull size={32} className="q-card-icon" />
-        </div>
+        )}
 
         <div className="db-quantum-card ds-glass q-aura-blue">
           <div className="q-card-glow" />
@@ -426,9 +527,14 @@ export function DashboardPage() {
           min-height: 140px;
           display: flex;
           align-items: center;
-          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          cursor: pointer;
         }
-        .db-quantum-card:hover { transform: translateY(-4px); }
+        .db-quantum-card:hover { 
+          transform: translateY(-8px) scale(1.05); 
+          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+          z-index: 10;
+        }
         .q-card-glow {
           position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
           background: radial-gradient(circle, rgba(168,168,255,0.08) 0%, transparent 70%);
@@ -604,29 +710,28 @@ export function DashboardPage() {
       {/* ── EXPANDED ANALYTICS (30-day & Category XP) ── */}
       {(data.monthlyHistory.length > 0 || data.categoryDistribution.length > 0) && (
         <div className="page-section">
-          <div className="section-label">Extended Analytics</div>
-          <div className="dashboard-panels-row" style={{ alignItems: "stretch" }}>
+          <div className="section-label">Strategic Analytics</div>
+          <div className="dashboard-panels-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 20, alignItems: "stretch" }}>
             
             {/* 30-Day XP Trend */}
             {data.monthlyHistory.length > 0 && (
-              <div className="glass-panel dashboard-panel-flex">
-                <div className="chart-label-wrapper">
-                  <span className="chart-label-text">30-Day Momentum</span>
-                  <span style={{ fontSize: "0.66rem", color: "var(--t3)" }}>{data.monthlyHistory.length} days tracked</span>
+              <div className="glass-panel ds-glass" style={{ padding: 32, background: 'rgba(255,255,255,0.01)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="chart-label-wrapper" style={{ marginBottom: 24 }}>
+                  <span className="chart-label-text" style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>30-Day Momentum</span>
+                  <span style={{ fontSize: "0.7rem", color: "var(--accent-primary)", marginLeft: 16 }}>{data.monthlyHistory.length} DAYS SCANNED</span>
                 </div>
-                <ResponsiveContainer width="100%" height={160}>
+                <ResponsiveContainer width="100%" height={180}>
                   <AreaChart data={data.monthlyHistory} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                     <defs>
                       <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="rgba(168,168,255,0.5)" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="rgba(168,168,255,0.1)" stopOpacity={0}/>
+                        <stop offset="5%"  stopColor="rgba(168,168,255,0.3)" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="rgba(168,168,255,0.05)" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.30)" }} tickLine={false} axisLine={false} interval={Math.floor(data.monthlyHistory.length/6)} />
-                    <YAxis stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.30)" }} tickLine={false} axisLine={false} />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.2)" }} tickLine={false} axisLine={false} interval={Math.floor(data.monthlyHistory.length/6)} />
+                    <YAxis stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.2)" }} tickLine={false} axisLine={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
-                    <Area type="monotone" dataKey="daily_points" stroke="#a8a8ff" strokeWidth={1.5} fill="url(#xpGrad)" dot={false} activeDot={{ r: 4, fill: "#a8a8ff" }} />
+                    <Area type="monotone" dataKey="daily_points" stroke="var(--accent-primary)" strokeWidth={2} fill="url(#xpGrad)" dot={false} activeDot={{ r: 5, fill: "var(--accent-primary)" }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -634,26 +739,24 @@ export function DashboardPage() {
 
             {/* Category XP Bar */}
             {data.categoryDistribution.length > 0 && (
-              <div className="glass-panel dashboard-panel-flex">
-                <div className="chart-label-wrapper">
-                  <span className="chart-label-text">XP By Life Area</span>
+              <div className="glass-panel ds-glass" style={{ padding: 32, background: 'rgba(255,255,255,0.01)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="chart-label-wrapper" style={{ marginBottom: 24 }}>
+                  <span className="chart-label-text" style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Resource Allocation</span>
                 </div>
-                <ResponsiveContainer width="100%" height={160}>
+                <ResponsiveContainer width="100%" height={180}>
                   <BarChart
                     data={data.categoryDistribution
-                      .map(c => ({ ...c, weighted: c.category === "Academics" ? Math.round(c.points * 0.5) : c.points }))
+                      .map(c => ({ ...c, weighted: c.points }))
                       .sort((a,b) => b.weighted - a.weighted)
                     }
                     margin={{ top: 4, right: 4, bottom: 20, left: -20 }}
-                    barSize={18}
+                    barSize={24}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                    <XAxis dataKey="category" stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.40)" }} tickLine={false} axisLine={false} />
-                    <YAxis stroke="rgba(255,255,255,0.12)" tick={{ fontSize:9, fill:"rgba(255,255,255,0.30)" }} tickLine={false} axisLine={false} />
+                    <XAxis dataKey="category" stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.3)" }} tickLine={false} axisLine={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
-                    <Bar dataKey="weighted" radius={[4,4,0,0]}>
+                    <Bar dataKey="weighted" radius={[6,6,0,0]}>
                       {data.categoryDistribution.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        <Cell key={i} fill={i === 0 ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -695,46 +798,48 @@ export function DashboardPage() {
         </div>
         
         {tasks.filter(t => !t.is_pending && !t.is_failed).length > 0 ? (
-          <div className="dashboard-quest-grid">
+          <div className="dashboard-quest-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
             {tasks.filter(t => !t.is_pending && !t.is_failed).map(task => (
               <div 
                 key={task.id} 
-                className={`db-quest-card ds-glass ${task.is_completed ? 'quest-done' : ''} ${redGateId === task.id ? 'red-gate-mission' : ''}`}
+                className={`db-quest-card-v5 ds-glass ${task.is_completed ? 'quest-done' : ''} ${redGateId === task.id ? 'red-gate-active' : ''}`}
+                style={{ 
+                  padding: '24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)',
+                  display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden'
+                }}
                 onClick={() => toggleTaskCompletion(task.id, task.is_completed)}
               >
-                <div className="db-quest-header">
-                  <div className="db-quest-check">
+                <div className="db-quest-glow" />
+                <div className="db-quest-header" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
+                  <div className="db-quest-check-v5">
                     <input type="checkbox" checked={task.is_completed} readOnly />
-                    <div className="check-custom"></div>
-                  </div>
-                  <div className="db-quest-info">
-                    <div className="db-quest-title">
-                      {task.title}
-                      {redGateId === task.id && <span className="red-gate-tag">RED GATE</span>}
+                    <div className="check-v5-box">
+                      {task.is_completed && <CheckCircle size={14} color="#fff" />}
                     </div>
-                    <div className="db-quest-meta">
-                      {task.category && <span className="q-tag">{task.category}</span>}
-                      {task.xp_tier && <span className="q-tag xp-tag">{task.xp_tier} XP</span>}
-                      {redGateId !== task.id && ['High', 'Super', 'Legendary'].includes(task.xp_tier || '') && (
-                          <button 
-                            className="q-tag red-gate-btn"
-                            onClick={(e) => { e.stopPropagation(); designateRedGate(task.id); }}
-                          >
-                            SELECT RED GATE
-                          </button>
-                        )}
+                  </div>
+                  <div className="db-quest-info" style={{ flex: 1 }}>
+                    <div className="db-quest-title-v5" style={{ fontSize: '1.05rem', fontWeight: 850, marginBottom: 6, color: task.is_completed ? 'rgba(255,255,255,0.3)' : '#fff', letterSpacing: '-0.2px' }}>
+                      {task.title}
+                    </div>
+                    <div className="db-quest-meta-v5" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                      <span className="q-tag-v5" style={{ fontSize: '0.6rem', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>{task.category}</span>
+                      <span className="q-tag-v5 xp-aura" style={{ fontSize: '0.65rem', padding: '3px 10px', background: 'rgba(168,168,255,0.08)', color: 'var(--accent-primary)', borderRadius: 6, fontWeight: 900, border: '1px solid rgba(168,168,255,0.2)' }}>+{task.points} XP</span>
+                      {redGateId === task.id && <span className="red-tag-v5" style={{ fontSize: '0.6rem', fontWeight: 950, padding: '3px 10px', background: 'rgba(255,68,68,0.15)', color: '#ff4444', borderRadius: 6, border: '1px solid rgba(255,68,68,0.3)', letterSpacing: '1px' }}>RED GATE</span>}
                     </div>
                   </div>
                 </div>
                 
                 {task.is_active && task.started_at && (
-                  <div className="db-quest-timer ds-aura">
-                    <Activity size={10} className="animate-pulse" />
-                    <RaidTimer startedAt={task.started_at} />
+                  <div className="db-quest-footer-v5" style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
+                    <div className="active-raid-badge" style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent-primary)', fontWeight: 900 }}>
+                      <Activity size={14} className="animate-pulse" />
+                      <RaidTimer startedAt={task.started_at} />
+                    </div>
+                    <span style={{ fontSize: '0.6rem', opacity: 0.3, fontWeight: 800 }}>RAID_IN_PROGRESS</span>
                   </div>
                 )}
                 
-                <div className="db-quest-priority" style={{ background: task.priority === 'URGENT' ? '#ff4d4d' : 'var(--accent-primary)' }} />
+                <div className="db-quest-priority-v5" style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, background: task.priority === 'URGENT' ? '#ff4d4d' : 'transparent', boxShadow: task.priority === 'URGENT' ? '0 0 10px #ff4d4d' : 'none' }} />
               </div>
             ))}
           </div>
@@ -1028,6 +1133,98 @@ export function DashboardPage() {
         @keyframes darkPulse {
           0%, 100% { box-shadow: 0 0 5px #ff4444; opacity: 0.8; }
           50% { box-shadow: 0 0 15px #ff4444; opacity: 1; }
+        }
+
+        /* ── V5 PREMIUM STYLES ── */
+        .sovereign-panel {
+          position: relative;
+          overflow: hidden;
+        }
+        .sovereign-panel::after {
+          content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%;
+          background: radial-gradient(circle, rgba(168,168,255,0.05) 0%, transparent 70%);
+          pointer-events: none;
+        }
+        .sovereign-progress-fill {
+          position: relative;
+        }
+        .sovereign-progress-fill::after {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          animation: barShimmer 2s infinite;
+        }
+        @keyframes barShimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+
+        .db-quest-card-v5 {
+          cursor: pointer;
+          position: relative;
+        }
+        .db-quest-card-v5:hover {
+          background: rgba(255,255,255,0.04) !important;
+          border-color: rgba(168,168,255,0.2) !important;
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+        }
+        .db-quest-glow {
+          position: absolute; inset: 0; 
+          background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(168,168,255,0.05) 0%, transparent 60%);
+          opacity: 0; transition: opacity 0.3s;
+        }
+        .db-quest-card-v5:hover .db-quest-glow { opacity: 1; }
+        
+        .db-quest-check-v5 {
+          position: relative; width: 22px; height: 22px;
+        }
+        .db-quest-check-v5 input { position: absolute; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 2; }
+        .check-v5-box {
+          width: 22px; height: 22px; border: 2px solid rgba(255,255,255,0.1); border-radius: 8px;
+          display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .db-quest-check-v5 input:checked ~ .check-v5-box {
+          background: var(--accent-primary); border-color: var(--accent-primary);
+          box-shadow: 0 0 10px var(--accent-glow);
+        }
+        
+        .red-gate-active {
+          border: 1px solid rgba(255, 68, 68, 0.3) !important;
+          background: linear-gradient(135deg, rgba(255, 68, 68, 0.08) 0%, rgba(10,10,10,0.1) 100%) !important;
+          box-shadow: 0 0 20px rgba(255, 68, 68, 0.15);
+        }
+        .red-gate-active::before {
+          content: 'CRITICAL'; position: absolute; top: 12px; right: -25px;
+          background: #ff4444; color: #fff; font-size: 0.5rem; font-weight: 900;
+          padding: 2px 30px; transform: rotate(45deg); letter-spacing: 1px;
+        }
+
+        .xp-aura {
+          box-shadow: 0 0 10px rgba(168,168,255,0.1);
+          transition: 0.3s;
+        }
+        .db-quest-card-v5:hover .xp-aura {
+          box-shadow: 0 0 20px rgba(168,168,255,0.3);
+          border-color: var(--accent-primary);
+        }
+
+        .terminal-log {
+          box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+        .log-line {
+          position: relative;
+          z-index: 2;
+        }
+        .terminal-scanline {
+          position: absolute; inset: 0;
+          background: linear-gradient(to bottom, transparent, rgba(168,168,255,0.03) 50%, transparent);
+          background-size: 100% 4px;
+          pointer-events: none;
+          animation: terminalScan 4s linear infinite;
+        }
+        @keyframes terminalScan {
+          from { transform: translateY(-100%); }
+          to { transform: translateY(100%); }
         }
       `}</style>
       {showAnalyticsModal && (

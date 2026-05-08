@@ -167,9 +167,81 @@ export const SystemAPI = {
 
   fetchGates: async (userId: string) => {
     const s = db();
-    const { data, error } = await s.from("tasks").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    
+    // V5: Trigger system manifestation clauses before fetching
+    await SystemAPI.triggerSystemGates(userId);
+    
+    const { data, error } = await s.from("tasks")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
     if (error) throw error;
     return data || [];
+  },
+
+  triggerSystemGates: async (userId: string) => {
+    const s = db();
+    const { data: prof } = await s.from("user_profiles").select("*").eq("user_id", userId).single();
+    if (!prof) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Helper to check if gate already exists today
+    const checkExists = async (title: string) => {
+      const { data } = await s.from("tasks").select("id").eq("user_id", userId).eq("title", title).gte("created_at", today);
+      return (data || []).length > 0;
+    };
+
+    // 1. Clause: Penalty Zone (Dark Mana + Penalty Status)
+    if (prof.dark_mana > 0 && prof.status === 'PENALTY') {
+      const title = "🚨 PENALTY: Penalty Zone: Physical Trial";
+      if (!await checkExists(title)) {
+        await s.from("tasks").insert({
+          user_id: userId,
+          title,
+          category: "Punishment",
+          points: 25,
+          xp_tier: "High",
+          priority: "URGENT",
+          description: "SYSTEM: Clear your mana debt through physical discipline. 100 Pushups, 100 Situps, 100 Squats, 10km Run.",
+          deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+      }
+    }
+
+    // 2. Clause: Survival Test (7-Day Streak Milestone)
+    if (prof.streak_count > 0 && prof.streak_count % 7 === 0) {
+      const title = `🛡️ Weekly Trial: [SYSTEM_SURVIVAL_TEST] - Day ${prof.streak_count}`;
+      if (!await checkExists(title)) {
+        await s.from("tasks").insert({
+          user_id: userId,
+          title,
+          category: "General",
+          points: 50,
+          xp_tier: "Legendary",
+          priority: "High",
+          description: "SYSTEM: You have survived for a week. Prove your worth in this survival gauntlet.",
+          is_gauntlet: true,
+          is_weekly_trial: true
+        });
+      }
+    }
+
+    // 3. Clause: Ego Stabilization (S-Rank + Stagnant Status)
+    if (prof.player_rank === 'S' && prof.status === 'STAGNANT') {
+      const title = "🌀 Monarch's Trial: [EGO_STABILIZATION]";
+      if (!await checkExists(title)) {
+        await s.from("tasks").insert({
+          user_id: userId,
+          title,
+          category: "Mindfulness",
+          points: 40,
+          xp_tier: "Super",
+          priority: "High",
+          description: "SYSTEM: Your S-Rank ego is destabilizing. Realign your focus through deep work or meditation."
+        });
+      }
+    }
   },
 
   /* ─── GATE: Recurring Sweep ────────────────── */
@@ -193,11 +265,40 @@ export const SystemAPI = {
 
   saveGate: async (payload: GatePayload, editingId: string | null) => {
     const s = db();
+    
+    // V5: Max 20 simultaneous active gates
+    if (!editingId) {
+      const { count } = await s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", payload.user_id).eq("is_completed", false).eq("is_failed", false);
+      if ((count || 0) >= 20) {
+        throw new Error("⚠️ SYSTEM LIMIT: You cannot manage more than 20 active gates simultaneously. Clear your current missions first!");
+      }
+    }
+
+    // V5: Deadline Validation & Auto E-Rank
+    const now = new Date();
+    let finalPayload = { ...payload };
+    
+    if (!payload.deadline) {
+      // No deadline = Auto E-Rank
+      finalPayload.xp_tier = "Low";
+      finalPayload.points = 5;
+    } else {
+      // Deadline must be >= current + (rank * 30 mins)
+      const rankMinutes: Record<string, number> = { "Low": 30, "Mid": 60, "High": 120, "Super": 240, "Legendary": 480 };
+      const minBuffer = rankMinutes[payload.xp_tier] || 30;
+      const minDeadline = new Date(now.getTime() + minBuffer * 60000);
+      
+      const providedDeadline = new Date(payload.deadline + (payload.start_time ? `T${payload.start_time}` : "T23:59:59"));
+      if (providedDeadline < minDeadline) {
+        throw new Error(`⚠️ TEMPORAL ANOMALY: For a ${payload.xp_tier}-Rank gate, the System requires a preparation window of at least ${minBuffer} minutes.`);
+      }
+    }
+
     if (editingId) {
-      const { error } = await s.from("tasks").update(payload).eq("id", editingId);
+      const { error } = await s.from("tasks").update(finalPayload).eq("id", editingId);
       if (error) throw error;
     } else {
-      const { data: newGate, error } = await s.from("tasks").insert({ ...payload, is_active: false, is_completed: false }).select("id").single();
+      const { data: newGate, error } = await s.from("tasks").insert({ ...finalPayload, is_active: false, is_completed: false }).select("id").single();
       if (error) throw error;
 
       // If Gauntlet, generate 5 stages
@@ -226,11 +327,43 @@ export const SystemAPI = {
 
   increaseDarkMana: async (userId: string, amount: number) => {
     const s = db();
-    const { data, error: fError } = await s.from("user_profiles").select("dark_mana").eq("user_id", userId).single();
+    const { data, error: fError } = await s.from("user_profiles").select("dark_mana, dark_mana_started_at").eq("user_id", userId).single();
     if (fError) throw fError;
     const current = data?.dark_mana || 0;
-    const { error: uError } = await s.from("user_profiles").update({ dark_mana: current + amount }).eq("user_id", userId);
+    
+    const update: any = { dark_mana: current + amount };
+    if (current === 0) {
+      update.dark_mana_started_at = new Date().toISOString();
+    }
+    
+    const { error: uError } = await s.from("user_profiles").update(update).eq("user_id", userId);
     if (uError) throw uError;
+  },
+
+  redeemDarkMana: async (userId: string, amountRedeemed: number) => {
+    const s = db();
+    const { data: prof } = await s.from("user_profiles").select("total_points, dark_mana").eq("user_id", userId).single();
+    if (!prof) return;
+
+    // V5: Redemption dual-cost: 1.5x XP (10 DM = 15 XP)
+    const xpCost = Math.floor(amountRedeemed * 1.5);
+    const newDM = Math.max(0, prof.dark_mana - amountRedeemed);
+    const newXP = Math.max(-5000, prof.total_points - xpCost);
+
+    const update: any = { 
+      dark_mana: newDM,
+      total_points: newXP
+    };
+    
+    if (newDM === 0) {
+      update.dark_mana_started_at = null;
+    }
+
+    await s.from("user_profiles").update(update).eq("user_id", userId);
+    
+    // Sync progression
+    const progression = await syncProgression(s, userId);
+    showProgressionToast(progression);
   },
 
   /* ─── SPECIAL GATES (g2, g3) ──────────────── */
@@ -370,21 +503,51 @@ export const SystemAPI = {
     }).eq("id", task.id);
     if (updateErr) throw updateErr;
 
+    // V5: E-Rank Daily Cap (15 XP total per day)
+    if (task.xp_tier === "Low") {
+      const todayDate = new Date().toISOString().split("T")[0];
+      const { data: todayERankTasks } = await s.from("tasks")
+        .select("points")
+        .eq("user_id", userId)
+        .eq("xp_tier", "Low")
+        .eq("is_completed", true)
+        .gte("completed_at", todayDate + "T00:00:00");
+      
+      const currentTodayE = (todayERankTasks || []).reduce((sum: number, t: any) => sum + (t.points || 0), 0);
+      if (currentTodayE >= 15) {
+        // Award 0 XP but still complete the task
+        await s.from("tasks").update({
+          is_completed: true, is_failed: false, is_active: false, completed_at,
+        }).eq("id", task.id);
+        alert("💡 SYSTEM NOTICE: You have reached the daily 15 XP cap for E-Rank tasks. This gate was conquered, but no further power was gained.");
+        return { completed_at, extractedShadow: null, progression: null };
+      }
+    }
+
     // 2. Calculate & award XP
     const { data: prof } = await s.from("user_profiles")
-      .select("total_points, current_mode, ego_score, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense")
+      .select("total_points, current_mode, ego_score, status, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense, dark_mana")
       .eq("user_id", userId).single();
 
     const modeName = (prof?.current_mode as ModeType) || "Normal";
     const config = MODE_CONFIGS[modeName];
     
+    // V5: ARISE Ritual (Restore 50% decayed XP if B-Rank+ completed while DECEASED)
+    let ariseBonus = 0;
+    if (prof?.status === "DECEASED" && (task.xp_tier === "High" || task.xp_tier === "Super" || task.xp_tier === "Legendary")) {
+      const { data: logs } = await s.from("user_points").select("daily_points").eq("user_id", userId).lt("daily_points", 0);
+      const totalLost = Math.abs((logs || []).reduce((sum, l) => sum + l.daily_points, 0));
+      ariseBonus = Math.floor(totalLost * 0.5);
+      alert(`🌅 ARISE! You have conquered a high-rank gate after death. The System restores ${ariseBonus} XP of your decayed power.`);
+    }
+
     // Zone Multiplier (bl2): 2.5x
     const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
     const isZone = lastCompletions.length >= 5 && (Date.now() - lastCompletions[0] < 90 * 60 * 1000);
     const zoneMult = isZone ? 2.5 : 1.0;
 
     // Ego Burst Multiplier (bl1): 1.1x
-    const isEgoBurst = (prof?.ego_score || 0) > 50; // Example trigger
+    const isEgoBurst = (prof?.ego_score || 0) > 50; 
     const egoMult = isEgoBurst ? 1.1 : 1.0;
 
     // Devour Multiplier (bl5): Category weight increase
@@ -393,10 +556,13 @@ export const SystemAPI = {
 
     // Mode multiplier
     const normalizedPts = calculateEffectiveXp(task.points, task.category, currentTotalXp) * config.xpMultiplier * zoneMult * egoMult * devourMult;
-    const pts = await applyXpBoost(s, userId, normalizedPts);
+    const pts = (await applyXpBoost(s, userId, normalizedPts)) + ariseBonus;
 
     const statColumn = CATEGORY_STAT_MAP[task.category];
-    const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
+    const updatePayload: any = { 
+      total_points: (prof?.total_points ?? 0) + pts,
+      status: prof?.status === "DECEASED" ? "ACTIVE" : prof?.status // Restore status if ARISE
+    };
     
     // Update daily log for Weekly Activity Threshold
     const today = new Date().toISOString().split("T")[0];
@@ -461,61 +627,53 @@ export const SystemAPI = {
   failGate: async (userId: string, task: any) => {
     const s = db();
     const completed_at = new Date().toISOString();
-    const penalty = task.points || 10;
+    
+    // 1. Fetch current profile for penalties
+    const { data: prof } = await s.from("user_profiles")
+      .select("total_points, current_mode, dark_mana, dark_mana_started_at, player_rank")
+      .eq("user_id", userId).single();
+    
+    const mode = (prof?.current_mode as ModeType) || "Normal";
+    const config = MODE_CONFIGS[mode];
+    const { calculateCorruptionMultiplier } = await import("../lib/levelEngine");
+    const corruptionMult = await calculateCorruptionMultiplier(s, userId);
 
-    // 1. Mark as failed
+    // V5: Red Gate Penalty (A or S Rank failure = 50% of rank-level XP cost)
+    let penalty = task.points || 10;
+    if (task.xp_tier === "Super" || task.xp_tier === "Legendary") {
+      // 50% of total XP at rank level? The bible says "50% of the gate's XP" in Section 2.2 
+      // but "50% of total XP at rank level" in Section 2.4. 
+      // I'll go with 50% of total points as a high-stakes penalty.
+      penalty = Math.floor(prof?.total_points ? prof.total_points * 0.5 : task.points * 5);
+      alert("⚠️ RED GATE FAILURE: You have failed a high-stakes mission. The System has extracted 50% of your total power as recompense.");
+    }
+
+    const finalPenalty = Math.floor(penalty * corruptionMult);
+
+    // 2. Mark as failed
     const { error } = await s.from("tasks").update({
       is_failed: true, is_completed: true, is_active: false, is_pending: false, is_paused: false, completed_at,
     }).eq("id", task.id);
     if (error) throw error;
 
-    // Infrastructure: Season stats (i2)
-    const profRes = await s.from("user_profiles").select("current_mode, dark_mana").eq("user_id", userId).single();
-    const mode = (profRes.data?.current_mode as ModeType) || "Normal";
-    const config = MODE_CONFIGS[mode];
-
-    // Shadow Permadeath (e5) - Nightmare only
-    if (mode === 'Nightmare' && task.xp_tier === 'High') {
-      const roll = Math.random();
-      if (roll <= 0.3) {
-        const { data: shadowPool } = await s.from("shadows").select("id, name").eq("user_id", userId);
-        if (shadowPool && shadowPool.length > 0) {
-          const victim = shadowPool[Math.floor(Math.random() * shadowPool.length)];
-          await s.from("shadows").delete().eq("id", victim.id);
-          await s.from("permanent_record_logs").insert({
-            user_id: userId,
-            event_type: 'shadow_death',
-            metadata: { shadow_name: victim.name, gate_title: task.title }
-          });
-        }
-      }
+    // Dark Mana Accumulation
+    const newDM = (prof?.dark_mana || 0) + config.dmOnFail;
+    const dmUpdate: any = { dark_mana: newDM };
+    if (!prof?.dark_mana || prof.dark_mana === 0) {
+      dmUpdate.dark_mana_started_at = new Date().toISOString();
     }
-
-    // Shadow Corruption (e4) - Hard+
-    if ((mode === 'Hard' || mode === 'Nightmare') && (profRes.data?.dark_mana || 0) + config.dmOnFail >= 50) {
-      const { data: shadowPool } = await s.from("shadows").select("id").eq("user_id", userId).eq("is_corrupted", false);
-      if (shadowPool && shadowPool.length > 0) {
-        const victim = shadowPool[Math.floor(Math.random() * shadowPool.length)];
-        await s.from("shadows").update({ is_corrupted: true }).eq("id", victim.id);
-      }
-    }
-
-    // Dark Mana Accumulation (Database)
-    await s.from("user_profiles").update({ dark_mana: (profRes.data?.dark_mana || 0) + config.dmOnFail }).eq("user_id", userId);
-
-    // 2. Log punishment
-    await s.from("punishments").insert({ user_id: userId, name: `Failed Gate: ${task.title}`, xp_penalty: penalty, triggered: 1 });
 
     // 3. Deduct XP
-    const { data: prof } = await s.from("user_profiles").select("total_points").eq("user_id", userId).single();
-    const newPoints = Math.max(0, (prof?.total_points ?? 0) - penalty);
-    await s.from("user_profiles").update({ total_points: newPoints }).eq("user_id", userId);
+    const newPoints = Math.max(-5000, (prof?.total_points ?? 0) - finalPenalty);
+    await s.from("user_profiles").update({ ...dmUpdate, total_points: newPoints }).eq("user_id", userId);
 
-    // 4. Deduct from daily log
+    // 4. Log daily deduction
     const today = new Date().toISOString().split("T")[0];
     const { data: log } = await s.from("user_points").select("daily_points").eq("user_id", userId).eq("date", today).maybeSingle();
     if (log) {
-      await s.from("user_points").update({ daily_points: Math.max(0, log.daily_points - penalty) }).eq("user_id", userId).eq("date", today);
+      await s.from("user_points").update({ daily_points: log.daily_points - finalPenalty }).eq("user_id", userId).eq("date", today);
+    } else {
+      await s.from("user_points").insert({ user_id: userId, date: today, daily_points: -finalPenalty });
     }
 
     // 5. Sync progression
@@ -537,7 +695,60 @@ export const SystemAPI = {
       }).eq("id", task.id);
     }
 
-    return { penalty, progression };
+    return { penalty: finalPenalty, progression };
+  },
+
+  /* ─── REWARDS (V5) ─────────────────────────── */
+
+  claimReward: async (userId: string, reward: any, triggerGateId?: string) => {
+    const s = db();
+    const { data: prof } = await s.from("user_profiles")
+      .select("total_points, streak_count, player_rank, dark_mana")
+      .eq("user_id", userId).single();
+
+    if (!prof) throw new Error("Profile not found");
+
+    // V5 Unlock Validation
+    const rankOrder = ["E", "D", "C", "B", "A", "S", "SS"];
+    const rankIdx = rankOrder.indexOf(prof.player_rank || "E");
+
+    const tierRules: Record<string, any> = {
+      "1": { minStreak: 3,  minRankIdx: 0, dmBlock: false, trigger: false },
+      "2": { minStreak: 7,  minRankIdx: 2, dmBlock: false, trigger: true },
+      "3": { minStreak: 14, minRankIdx: 3, dmBlock: true,  trigger: true },
+      "4": { minStreak: 21, minRankIdx: 4, dmBlock: true,  trigger: true },
+      "5": { minStreak: 60, minRankIdx: 5, dmBlock: true,  trigger: false },
+    };
+
+    const rule = tierRules[reward.tier] || tierRules["1"];
+    
+    if (prof.streak_count < rule.minStreak) throw new Error(`⚠️ STREAK LOCK: This tier requires a ${rule.minStreak}-day streak.`);
+    if (rankIdx < rule.minRankIdx) throw new Error(`⚠️ RANK LOCK: This tier requires ${rankOrder[rule.minRankIdx]}-Rank standing.`);
+    if (rule.dmBlock && (prof.dark_mana || 0) > 0) throw new Error("⚠️ MANA CORRUPTION: Clear your Dark Mana debt to unlock high-tier rewards.");
+    if (rule.trigger && !triggerGateId) throw new Error("⚠️ TRIGGER REQUIRED: This tier requires a recently conquered gate to activate.");
+    if (prof.total_points < reward.xp_cost) throw new Error("⚠️ INSUFFICIENT MANA: You do not have enough XP to manifest this reward.");
+
+    // 1. Mark as claimed with claim window
+    const claimed_at = new Date().toISOString();
+    const expires_at = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+    
+    await s.from("rewards").update({ 
+      is_claimed: true, 
+      claimed_at, 
+      expires_at, 
+      trigger_gate_id: triggerGateId 
+    }).eq("id", reward.id);
+
+    // 2. Deduct XP
+    await s.from("user_profiles").update({ 
+      total_points: prof.total_points - reward.xp_cost 
+    }).eq("user_id", userId);
+
+    // 3. Sync
+    const progression = await syncProgression(s, userId);
+    showProgressionToast(progression);
+    
+    return { claimed_at, expires_at, progression };
   },
 
   /* ─── PROFILE: Fetch Status ────────────────── */

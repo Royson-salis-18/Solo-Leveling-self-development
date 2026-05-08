@@ -8,7 +8,7 @@ interface SeasonHUDProps {
 }
 
 export const SeasonHUD: React.FC<SeasonHUDProps> = ({ mode, darkMana, endDate }) => {
-  if (mode !== 'Nightmare') return null;
+  if (mode !== 'Hell') return null;
 
   const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 3600 * 24)) : 0;
   const progress = Math.min(100, (darkMana / 100) * 100);
@@ -24,7 +24,7 @@ export const SeasonHUD: React.FC<SeasonHUDProps> = ({ mode, darkMana, endDate })
       <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md border border-gray-800 rounded-b-xl px-4 py-1 flex items-center gap-6 shadow-2xl">
         <div className="flex items-center gap-2">
           <Skull size={14} className={isDanger ? 'text-red-600 animate-pulse' : 'text-gray-500'} />
-          <span className="text-[10px] font-black tracking-widest text-gray-400 uppercase">SEASON: NIGHTMARE</span>
+          <span className="text-[10px] font-black tracking-widest text-gray-400 uppercase">SEASON: HELL</span>
         </div>
         
         <div className="flex items-center gap-2 border-l border-gray-800 pl-6">

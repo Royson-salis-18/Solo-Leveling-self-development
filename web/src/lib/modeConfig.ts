@@ -1,4 +1,4 @@
-export type ModeType = 'Easy' | 'Normal' | 'Hard' | 'Nightmare';
+export type ModeType = 'Easy' | 'Normal' | 'Hard' | 'Hell';
 
 export interface ModeConfig {
   name: ModeType;
@@ -66,8 +66,8 @@ export const MODE_CONFIGS: Record<ModeType, ModeConfig> = {
     description: "For the elite. High stakes, no postponements, and real consequences.",
     riskReward: "High Risk / High Reward"
   },
-  Nightmare: {
-    name: 'Nightmare',
+  Hell: {
+    name: 'Hell',
     xpMultiplier: 2.5,
     decayRate: 0.03, // Compounding 0.97 multiplier
     gracePeriod: 1,

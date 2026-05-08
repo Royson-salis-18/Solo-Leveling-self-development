@@ -3,7 +3,7 @@ import { Modal }          from "../components/Modal";
 import { Button }         from "../components/Button";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
-import { Plus, Download, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers, XCircle } from "lucide-react";
+import { Plus, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers, XCircle, Grid, List } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
 
@@ -46,6 +46,7 @@ export function DungeonGatePage() {
   // Filters & Details
   const [catFilter,    setCatFilter]    = useState("All");
   const [prioFilter,   setPrioFilter]   = useState("All");
+  const [viewMode,     setViewMode]     = useState<"grid" | "list">("grid");
   const [selectedGate, setSelectedGate] = useState<DBTask | null>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
@@ -439,38 +440,93 @@ export function DungeonGatePage() {
 
   return (
     <section className="page dungeon-gate-page">
-      <div className="page-header" style={{ marginBottom: 40 }}>
+      <div className="page-header" style={{ marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <h2 className="page-title">Dungeon Gates</h2>
-          <p className="page-subtitle" style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '2px' }}>System Portal: Select your next challenge</p>
+          <h2 className="page-title" style={{ fontSize: '2.4rem', fontWeight: 950, letterSpacing: '-1px', margin: 0 }}>Dungeon Gates</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+             <p className="page-subtitle" style={{ fontSize: '0.85rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>System Portal: Select your next challenge</p>
+             <div className="badge" style={{ fontSize: '0.75rem', padding: '4px 12px', borderRadius: 8, borderColor: (tasks.filter(t => !t.is_completed && !t.is_failed).length >= 20) ? '#ff4444' : 'var(--accent-primary)', color: (tasks.filter(t => !t.is_completed && !t.is_failed).length >= 20) ? '#ff4444' : 'var(--accent-primary)' }}>
+               {tasks.filter(t => !t.is_completed && !t.is_failed).length}/20 ACTIVE GATES
+             </div>
+          </div>
         </div>
-        <div className="flex gap-12">
-           <Button variant="secondary" onClick={() => setShowNLP(true)}><Download size={14} /> Import Data</Button>
-           <Button variant="primary" onClick={() => { setEditingId(null); setFormData(EMPTY_FORM); setShowModal(true); }}><Plus size={14} /> Found New Gate</Button>
+        <div className="flex gap-3">
+          <Button onClick={() => setShowNLP(true)} variant="secondary">
+            <Zap size={16} /> NLP SCANNER
+          </Button>
+          <Button onClick={() => { setFormData(EMPTY_FORM); setEditingId(null); setShowModal(true); }} variant="primary">
+            <Plus size={18} /> MANIFEST GATE
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 32 }}>
+        {/* ── Active Manifestations ── */}
+        <div className="panel ds-glass" style={{ background: "rgba(30,30,60,0.2)", border: "1px solid rgba(168,168,255,0.1)", padding: 32, borderRadius: 24 }}>
+          <h3 style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "2px", marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Activity size={18} /> ACTIVE MANIFESTATIONS
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: '0.72rem', color: 'var(--t3)' }}>
+            <div>• Red Gates: 50% XP loss on fail.</div>
+            <div>• Prep: Rank * 30m manifestation buffer.</div>
+            <div>• Auto-Rank: E-Rank default for no deadlines.</div>
+            <div>• Capacity: Max 20 active portals.</div>
+          </div>
+        </div>
+
+        {/* ── Manifestation Protocols (Mysterious Triggers) ── */}
+        <div className="panel ds-glass" style={{ background: "rgba(20,20,40,0.2)", border: "1px solid rgba(255,255,255,0.05)", padding: 32, borderRadius: 24 }}>
+          <h3 style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--t2)", textTransform: "uppercase", letterSpacing: "2px", marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Shield size={18} /> MYSTERIOUS TRIGGERS
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, fontSize: "0.72rem" }}>
+            <div className="protocol-item" style={{ color: 'var(--t3)', display: 'flex', gap: 10 }}>
+              <span style={{ color: '#ff4444' }}>🚨</span>
+              <div>
+                <strong style={{ color: 'var(--t2)', display: 'block' }}>The Penalty Zone</strong>
+                Mana debt anchors to the mortal plane when the Hunter falters.
+              </div>
+            </div>
+            <div className="protocol-item" style={{ color: 'var(--t3)', display: 'flex', gap: 10 }}>
+              <span style={{ color: '#34d399' }}>🛡️</span>
+              <div>
+                <strong style={{ color: 'var(--t2)', display: 'block' }}>Survival Gauntlet</strong>
+                Seven suns must rise and set on a single path before the gauntlet opens.
+              </div>
+            </div>
+            <div className="protocol-item" style={{ color: 'var(--t3)', display: 'flex', gap: 10 }}>
+              <span style={{ color: 'var(--accent-primary)' }}>🌀</span>
+              <div>
+                <strong style={{ color: 'var(--t2)', display: 'block' }}>Ego Resonance</strong>
+                When the King's shadow grows long but his will remains silent.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {userStatus === 'PENALTY' && (
-        <div className="gate-filters-container ds-glass" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.05)', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', color: '#ff4444' }}>
-            <Skull size={24} className="animate-pulse" />
+        <div className="gate-filters-container ds-glass" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.05)', marginBottom: 24, borderRadius: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 32px', color: '#ff4444' }}>
+            <Skull size={28} className="animate-pulse" />
             <div>
-              <strong style={{ display: 'block', fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Penalty Protocol Active</strong>
-              <p style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: 4 }}>
-                Mana debt detected: {totalXp} XP. Shadow extraction is disabled. Complete missions to stabilize your presence.
+              <strong style={{ display: 'block', fontSize: '1rem', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 900 }}>Penalty Protocol Active</strong>
+              <p style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: 4, fontWeight: 500 }}>
+                Mana debt detected: {totalXp} XP. Complete the Penalty Gate to restore balance.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="gate-filters-container ds-glass">
-         <div className="gate-tab-row">
+      <div className="gate-filters-container ds-glass" style={{ borderRadius: 24, padding: '12px 24px' }}>
+         <div className="gate-tab-row" style={{ gap: 20 }}>
             {(["active", "pending", "completed", "calendar"] as const).map(tab => (
               <button 
                 key={tab} 
                 className={`gate-filter-btn ${activeTab === tab ? 'active' : ''}`}
                 onClick={() => setActiveTab(tab)}
+                style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '1px' }}
               >
                 {tab.toUpperCase()}
               </button>
@@ -486,10 +542,26 @@ export function DungeonGatePage() {
             </div>
             <div className="gate-select-group">
                <Target size={14} />
-               <span>URGENCY</span>
+               <span>URGENT</span>
                <select value={prioFilter} onChange={e => setPrioFilter(e.target.value)}>
                  {priorities.map(p => <option key={p} value={p}>{p}</option>)}
                </select>
+            </div>
+            <div className="view-toggle-group" style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+               <button 
+                 className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} 
+                 onClick={() => setViewMode('grid')}
+                 style={{ background: viewMode === 'grid' ? 'rgba(168,168,255,0.1)' : 'transparent', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: viewMode === 'grid' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.4)', fontSize: '0.65rem', fontWeight: 800 }}
+               >
+                 <Grid size={14} /> GRID
+               </button>
+               <button 
+                 className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} 
+                 onClick={() => setViewMode('list')}
+                 style={{ background: viewMode === 'list' ? 'rgba(168,168,255,0.1)' : 'transparent', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: viewMode === 'list' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.4)', fontSize: '0.65rem', fontWeight: 800 }}
+               >
+                 <List size={14} /> LIST
+               </button>
             </div>
          </div>
       </div>
@@ -514,7 +586,7 @@ export function DungeonGatePage() {
              </h3>
           </div>
 
-          <div className="gate-grid">
+          <div className={viewMode === 'grid' ? "gate-grid" : "gate-list"}>
             {filteredTasks.length === 0 ? (
               <div className="panel panel-empty" style={{ gridColumn: '1 / -1' }}>
                 <Skull size={48} style={{ opacity: 0.1, marginBottom: 16 }} />
@@ -635,7 +707,7 @@ export function DungeonGatePage() {
           </div>
         </div>
       ) : (
-        <div className="gate-grid">
+        <div className={viewMode === 'grid' ? "gate-grid" : "gate-list"}>
           {filteredTasks.length === 0 ? (
             <div className="panel panel-empty" style={{ gridColumn: '1 / -1' }}>
               <Skull size={48} style={{ opacity: 0.1, marginBottom: 16 }} />
@@ -1788,6 +1860,133 @@ export function DungeonGatePage() {
           0% { opacity: 0.6; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.05); }
           100% { opacity: 0.6; transform: scale(1); }
+        }
+
+        .gate-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .gate-list .gate-card {
+          display: flex;
+          flex-direction: row !important;
+          align-items: center;
+          padding: 6px 16px !important;
+          min-height: 40px !important;
+          height: auto !important;
+          margin: 0 !important;
+        }
+        .gate-list .gate-content {
+          display: flex;
+          flex-direction: row !important;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 12px;
+          padding: 0 !important;
+          height: auto !important;
+        }
+        .gate-list .gate-header-row {
+          width: 90px;
+          margin-bottom: 0 !important;
+          flex-shrink: 0;
+          font-size: 0.65rem;
+        }
+        .gate-list .gate-title-row {
+          flex: 4;
+          margin-bottom: 0 !important;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .gate-list .gate-title-text {
+          font-size: 0.85rem !important;
+          margin: 0 !important;
+        }
+        .gate-list .gate-subtask-counter {
+          margin: 0 !important;
+        }
+        .gate-list .gate-desc {
+          display: none;
+        }
+        .gate-list .gate-footer {
+          flex: 0 0 auto;
+          margin: 0 !important;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+        .gate-list .gate-action-hint {
+          display: none; /* Hide 'SCAN BRIEF' to save space and prevent overlap */
+        }
+        .gate-list .gate-reward {
+          margin: 0 !important;
+          white-space: nowrap;
+          min-width: 60px;
+          justify-content: flex-end;
+        }
+        .gate-list .gate-actions-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: 12px;
+        }
+        .gate-list .gate-id {
+          display: none; /* Hide ID in list view to save space */
+        }
+        .gate-list .gate-time-info {
+          display: none;
+        }
+        .gate-list .gate-reward {
+          font-size: 0.7rem;
+        }
+        .gate-list .gate-rank-badge {
+          position: static !important;
+          transform: none !important;
+          margin-right: 12px;
+          flex-shrink: 0;
+          width: 54px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.5rem !important;
+          border-radius: 4px !important;
+        }
+        .gate-list .gate-energy-pulse,
+        .gate-list .mana-wave,
+        .gate-list .gate-status-badge,
+        .gate-list .gate-card::after {
+          display: none !important;
+        }
+        .gate-list .gate-active {
+          box-shadow: 0 0 10px var(--destruction-red-glow) !important;
+        }
+        .gate-list .gate-actions-row {
+          display: flex !important;
+          position: static !important;
+          transform: none !important;
+          margin-left: auto !important;
+          opacity: 0.3;
+          transition: opacity 0.2s;
+        }
+        .gate-list .gate-card:hover .gate-actions-row {
+          opacity: 1;
+        }
+        .gate-list .gate-action-hint {
+          display: none !important;
+        }
+        .gate-list .gate-footer {
+          order: 3;
+        }
+        .gate-list .gate-header-row {
+          order: 1;
+          width: auto !important;
+        }
+        .gate-list .gate-title-row {
+          order: 2;
+          flex: 1;
+          margin: 0 20px !important;
         }
       `}</style>
     </section>

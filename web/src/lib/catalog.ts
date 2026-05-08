@@ -184,3 +184,20 @@ export const SKILL_CATALOG: Skill[] = [
   { name: "Dagger Rush", description: "Perform a series of lightning-fast stabs.", type: "ACTIVE", rank: "B", required_class: "Assassin" },
   { name: "Rain of Arrows", description: "Fire hundreds of arrows that cover a wide area.", type: "ACTIVE", rank: "A", required_class: "Archer" },
 ];
+
+/* ─── SYSTEM CATALOGS (V5) ─────────────────── */
+
+export const SYSTEM_REWARDS = [
+  { id: "sys-r1", name: "Mana Elixir", xp_cost: 50, tier: "1", description: "Small snack or indulgence to stabilize mana." },
+  { id: "sys-r2", name: "Shadow Rest", xp_cost: 150, tier: "2", description: "A 1-hour gaming or leisure session. Requires a Trigger Gate." },
+  { id: "sys-r3", name: "Monarch's Feast", xp_cost: 400, tier: "3", description: "A premium meal or outing. Requires B-Rank standing." },
+  { id: "sys-r4", name: "The Vault Key", xp_cost: 800, tier: "4", description: "Major splurge purchase. Requires A-Rank and 0 Dark Mana." },
+  { id: "sys-r5", name: "Sovereign's Rebirth", xp_cost: 3000, tier: "5", description: "Legendary life milestone. Requires S-Rank and 60-day streak." },
+];
+
+export const SYSTEM_PUNISHMENTS = [
+  { id: "sys-p1", name: "Physical Trial", xp_penalty: 25, description: "100 Pushups, 100 Situps, 100 Squats, 10km Run." },
+  { id: "sys-p2", name: "Mana Burn", xp_penalty: 50, description: "Cold shower and 30 mins focused meditation." },
+  { id: "sys-p3", name: "Shadow Confinement", xp_penalty: 100, description: "6-hour digital detox (no phone/social media)." },
+  { id: "sys-p4", name: "Monarch's Humility", xp_penalty: 250, description: "Complete a 1-hour high-intensity focus session without music." },
+];

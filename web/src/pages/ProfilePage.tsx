@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
@@ -371,6 +372,9 @@ export function ProfilePage() {
               <Zap size={16} /> ARISE
             </Button>
           )}
+          <Link to="/mode-selection" className="ds-glass" style={{ height: 44, display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', borderRadius: 12, fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 800, textDecoration: 'none', border: '1px solid rgba(168,168,255,0.3)', background: 'rgba(168,168,255,0.05)', transition: 'all 0.2s' }}>
+            <Activity size={16} /> Change Difficulty
+          </Link>
           <Button variant="secondary" onClick={() => setShowEdit(true)} style={{ height: 44, borderRadius: 12 }}>
             <Edit3 size={16} /> Re-Evaluate
           </Button>

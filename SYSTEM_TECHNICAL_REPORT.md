@@ -43,6 +43,12 @@ This function is called after every XP-altering event. It performs:
     -   `Weekly XP < 300`: **STAGNANT** (Increased decay).
     -   `Inactivity > 7 Days`: **DECEASED** (Requires "ARISE" revival).
 
+### 3.3 System Manifestation Protocols (V5)
+The system reactively generates "System Gates" to enforce discipline when specific behavioral thresholds are crossed:
+1.  **Penalty Protocol**: Manifests a B-Rank "Corrupted Mana" gate if Dark Mana > 0. Completing it clears debt; failure triggers permanent XP decay.
+2.  **Survival Gauntlet**: Manifests an A-Rank "Shadow Gauntlet" when a user reaches a 7-day streak. Tests resilience at peak performance.
+3.  **Ego Stabilization**: Manifests an S-Rank "Monarch Trial" for users in STAGNANT status or those holding 5+ S-Rank shadows. Prevents power stagnation.
+
 ---
 
 ## 4. The Consequence Engine: Dark Mana & Punishments
@@ -113,5 +119,5 @@ The system maintains integrity through automated sweeps triggered during dashboa
 ---
 
 **Report Authored By**: The System Architect
-**Version**: 4.2.0 (Redemption Update)
-**Status**: STABLE
+**Version**: 5.0.0 (Hardcore V5 Update)
+**Status**: ACTIVE_STABILITY_ENHANCED

@@ -18,7 +18,7 @@ export const OracleService = {
       Easy: "You are the [SYSTEM GUIDE]. Be encouraging, warm, and helpful. Use a gentle tone.",
       Normal: "You are the [SYSTEM AUDITOR] and [SYSTEM ARCHITECT]. Be cold, efficient, and precise. Use technical lore-friendly language.",
       Hard: "You are the [COMMANDER]. Be strict, demanding, and direct. Focus on discipline and results. No fluff.",
-      Nightmare: "You are the [SHADOW MONARCH]. You speak from the throne. Your words are law. Reference their 'permanent record' and past 'defeats' if applicable. You are absolute."
+      Hell: "You are the [SHADOW MONARCH]. You speak from the throne. Your words are law. Reference their 'permanent record' and past 'defeats' if applicable. You are absolute."
     };
 
     const modeVoice = VOICE_MAP[modeName] || VOICE_MAP['Normal'];
