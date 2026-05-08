@@ -27,8 +27,10 @@ export interface DBTask {
   total_elapsed?: number;
   start_time?: string | null;
   end_time?: string | null;
-  subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
+  subtasks: DBTask[];
+  completed_at?: string | null;
   is_gauntlet?: boolean;
+  is_weekly_trial?: boolean;
 }
 
 interface QuestItemProps {

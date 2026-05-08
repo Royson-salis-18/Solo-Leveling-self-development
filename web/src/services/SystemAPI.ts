@@ -57,6 +57,7 @@ export type GatePayload = {
   parent_id?: string | null;
   assigned_to?: string;
   is_gauntlet?: boolean;
+  is_weekly_trial?: boolean;
 };
 
 /* ═══════════════════════════════════════════════
@@ -248,19 +249,45 @@ export const SystemAPI = {
 
     if (existing && existing.length > 0) return;
 
-    const { error } = await s.from("tasks").insert({
+    // 1. Manifest the Core Trial Gate
+    const { data: trial, error } = await s.from("tasks").insert({
       user_id: userId,
       assigned_to: userId,
       title: `Weekly Trial: [SYSTEM_SURVIVAL_TEST]`,
       category: "General",
-      points: 500,
+      points: 100, // Reduced from 500 for Hard Mode
       xp_tier: "Legendary",
       priority: "URGENT",
       is_weekly_trial: true,
       deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      description: "The System demands a proof of growth. Conquer this S-Rank trial to maintain your standing. Failure will result in severe mana corruption."
-    });
+      description: "The System demands a proof of growth. You must manifest and conquer at least 3 Nested Objectives to unlock the Boss Chamber. Failure to provide proof of struggle will result in mana corruption."
+    }).select("id").single();
+
     if (error) throw error;
+
+    // 2. Auto-generate 3 Mandatory Phases (Hidden Dungeons)
+    if (trial) {
+      const phases = [
+        { title: "Phase 1: [IDENTIFY_WEAKNESS]", points: 15, desc: "Define the core obstacle you will overcome this week." },
+        { title: "Phase 2: [EXECUTION_CHAMBER]", points: 25, desc: "Perform the primary labor required for growth." },
+        { title: "Phase 3: [LIMIT_BREAK_PROTOCOL]", points: 50, desc: "Push beyond your comfort zone to finalize the trial." }
+      ];
+
+      const subtasks = phases.map(p => ({
+        user_id: userId,
+        assigned_to: userId,
+        parent_id: trial.id,
+        title: p.title,
+        description: p.desc,
+        category: "General",
+        points: p.points,
+        xp_tier: "High",
+        priority: "High",
+        is_active: false
+      }));
+
+      await s.from("tasks").insert(subtasks);
+    }
   },
 
   manifestMonarchsJudgment: async (userId: string, taskTitle: string) => {
@@ -371,6 +398,15 @@ export const SystemAPI = {
     const statColumn = CATEGORY_STAT_MAP[task.category];
     const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
     
+    // Update daily log for Weekly Activity Threshold
+    const today = new Date().toISOString().split("T")[0];
+    const { data: log } = await s.from("user_points").select("daily_points").eq("user_id", userId).eq("date", today).maybeSingle();
+    if (log) {
+      await s.from("user_points").update({ daily_points: (log.daily_points || 0) + pts }).eq("user_id", userId).eq("date", today);
+    } else {
+      await s.from("user_points").insert({ user_id: userId, date: today, daily_points: pts });
+    }
+
     // Ego score update (bl1)
     if (task.priority === "URGENT" || task.xp_tier === "High" || task.xp_tier === "Legendary") {
       updatePayload.ego_score = (prof?.ego_score || 0) + 1;

@@ -16,23 +16,31 @@ The system is built as a React-based web application with a Supabase (PostgreSQL
 ## 3. The Level Engine: XP & Progression
 The Level Engine (`levelEngine.ts`) is the system's "brain." It ensures that progression is meaningful and resistant to "grinding" low-effort tasks.
 
-### 3.1 XP Normalization
-XP is not awarded linearly. The `calculateEffectiveXp` function applies two layers of normalization:
+### 3.1 XP Normalization & Tiers
+XP is not awarded linearly and has been recalibrated for **Super Hard Mode**:
+-   **Base XP Tiers**:
+    -   *E-Rank (Low)*: 5 XP
+    -   *C-Rank (Mid)*: 15 XP
+    -   *B-Rank (High)*: 25 XP
+    -   *A-Rank (Super)*: 35 XP
+    -   *S-Rank (Legendary)*: 50 XP
 -   **Category Weights**: Different life areas have different multipliers:
     -   *Fitness*: 1.2 (High effort)
     -   *Learning/Academics*: 0.8 (Normalized for high volume)
     -   *Mindfulness/Social*: 1.1 (Mental well-being focus)
     -   *General/Errands*: 0.7 (Low complexity)
--   **Diminishing Returns**: Tasks with base XP > 100 are logarithmically dampened:
-    `Effective XP = 100 + log10(Base - 99) * 20`. This prevents single massive tasks from causing unrealistic level jumps.
+-   **Diminishing Returns**: Tasks with base XP > 50 are logarithmically dampened:
+    `Effective XP = 50 + log10(Base - 49) * 10`. This enforces a hard ceiling on power gains.
 
 ### 3.2 Progression Synchronization (`syncProgression`)
 This function is called after every XP-altering event. It performs:
 1.  **Decay Calculation**: 1% XP deduction for every day of inactivity beyond a 1-day grace period.
 2.  **Overdue Scans**: Cumulative penalties for overdue tasks (20% base, exponentially increasing with `daysLate`).
-3.  **Rank Evaluation**: Assigns ranks (E to S) based on Level (calculated as `floor(XP / 500) + 1`).
-4.  **Status Mapping**:
+3.  **Weekly Activity Threshold**: Users must earn **300-500 XP per week** to maintain "ACTIVE" status. Falling below this threshold triggers "STAGNANT" or "DECAYING" status effects.
+4.  **Rank Evaluation**: Assigns ranks (E to S) based on Level (calculated as `floor(XP / 500) + 1`).
+5.  **Status Mapping**:
     -   `XP < 0`: **PENALTY MODE** (Restricted features).
+    -   `Weekly XP < 300`: **STAGNANT** (Increased decay).
     -   `Inactivity > 7 Days`: **DECEASED** (Requires "ARISE" revival).
 
 ---

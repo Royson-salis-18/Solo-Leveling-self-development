@@ -218,12 +218,12 @@ export function QuestsPage() {
 
   const getXpByTier = (tier: string) => {
     switch (tier) {
-      case "Legendary": return 250;
-      case "Super": return 100;
-      case "High": return 50;
-      case "Mid": return 25;
-      case "Low": return 10;
-      default: return 10;
+      case "Legendary": return 50;
+      case "Super": return 35;
+      case "High": return 25;
+      case "Mid": return 15;
+      case "Low": return 5;
+      default: return 5;
     }
   };
 
@@ -694,11 +694,11 @@ export function QuestsPage() {
           <div className="form-group">
             <label className="form-label">XP Tier</label>
             <select className="form-select" value={formData.xp_tier} onChange={e => setFormData({ ...formData, xp_tier: e.target.value })}>
-              <option value="Low">Low (+10 XP)</option>
-              <option value="Mid">Mid (+25 XP)</option>
-              <option value="High">High (+50 XP)</option>
-              <option value="Super">Super (+100 XP)</option>
-              <option value="Legendary">Legendary (+250 XP)</option>
+              <option value="Low">E-Rank (+5 XP)</option>
+              <option value="Mid">C-Rank (+15 XP)</option>
+              <option value="High">B-Rank (+25 XP)</option>
+              <option value="Super">A-Rank (+35 XP)</option>
+              <option value="Legendary">S-Rank (+50 XP)</option>
             </select>
           </div>
         </div>

@@ -9,6 +9,7 @@ export interface ParsedTask {
   deadline?: string;
   subtasks?: string[];
   priority?: "high" | "medium" | "low";
+  xp_tier?: string;
 }
 
 export interface ParsedReward {

@@ -25,6 +25,7 @@ const EMPTY_FORM = {
   recurrence_day_of_month: 1,  
   recurrence_custom_label: "",
   is_gauntlet: false,
+  is_weekly_trial: false,
 };
 
 
@@ -163,12 +164,12 @@ export function DungeonGatePage() {
 
   const getXpByTier = (tier: string) => {
     switch (tier) {
-      case "Legendary": return 250;
-      case "Super": return 100;
-      case "High": return 50;
-      case "Mid": return 25;
-      case "Low": return 10;
-      default: return 10;
+      case "Legendary": return 50;  // S-Rank
+      case "Super": return 35;      // A-Rank
+      case "High": return 25;       // B-Rank
+      case "Mid": return 15;        // C-Rank
+      case "Low": return 5;         // E-Rank
+      default: return 5;
     }
   };
 
@@ -195,8 +196,9 @@ export function DungeonGatePage() {
         recurrence_days: JSON.stringify(formData.recurrence_days),
         recurrence_day_of_month: formData.recurrence_day_of_month,
         recurrence_custom_label: formData.recurrence_custom_label,
-        parent_id: formData.parentId,
+        parent_id: formData.parentId || null,
         is_gauntlet: formData.is_gauntlet,
+        is_weekly_trial: formData.is_weekly_trial,
       };
 
       if (editingId && originalDeadline && formData.deadline && formData.deadline > originalDeadline) {
@@ -247,7 +249,7 @@ export function DungeonGatePage() {
       end_time: gate.end_time || "",
       priority: gate.priority,
       xp_tier: gate.xp_tier || "Low",
-      parentId: gate.parent_id,
+      parentId: gate.parent_id || null,
       assignTo: gate.assigned_to || "",
       recurrence_type: gate.recurrence_type || (gate.is_recurring ? "daily" : "none"),
       recurrence_interval: gate.recurrence_interval || 1,
@@ -255,6 +257,7 @@ export function DungeonGatePage() {
       recurrence_day_of_month: gate.recurrence_day_of_month || 1,
       recurrence_custom_label: gate.recurrence_custom_label || "",
       is_gauntlet: !!gate.is_gauntlet,
+      is_weekly_trial: !!gate.is_weekly_trial,
     });
     setOriginalDeadline(gate.deadline || "");
     setShowModal(true);
@@ -388,6 +391,13 @@ export function DungeonGatePage() {
     if (!task) return;
 
     const completedSubtasks = task.subtasks.filter((s: any) => s.is_completed).length;
+    
+    // Enforcement: Weekly Trials require proof of struggle (3+ manifested objectives)
+    if (task.is_weekly_trial && (!task.subtasks || task.subtasks.length < 3)) {
+      alert("⚠️ SYSTEM RESTRICTION: S-Rank Weekly Trials require at least 3 Manifested Objectives to unlock the Boss Chamber. You must provide proof of your struggle before Conquest is permitted!");
+      return;
+    }
+
     if (task.subtasks.length > 0 && completedSubtasks < task.subtasks.length) {
       alert("⚠️ CRITICAL FAILURE: Internal dungeons are still active. Clear all sub-objectives to unlock Gate Conquest!");
       return;
@@ -955,6 +965,15 @@ export function DungeonGatePage() {
                               <Plus size={12} />
                             </Button>
                             <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              onClick={() => handleEdit(sub)}
+                              style={{ padding: '4px 8px' }}
+                              title="Reconfigure Objective"
+                            >
+                              <Edit3 size={12} />
+                            </Button>
+                            <Button 
                               variant="success" 
                               size="sm" 
                               onClick={() => handleComplete(sub.id)}
@@ -1078,11 +1097,11 @@ export function DungeonGatePage() {
           <div className="form-group">
             <label className="form-label">Mana Rank (XP Tier)</label>
             <select className="form-select" value={formData.xp_tier} onChange={e => setFormData({ ...formData, xp_tier: e.target.value })}>
-              <option value="Low">E-Rank (+10 XP)</option>
-              <option value="Mid">C-Rank (+25 XP)</option>
-              <option value="High">B-Rank (+50 XP)</option>
-              <option value="Super">A-Rank (+100 XP)</option>
-              <option value="Legendary">S-Rank (+250 XP)</option>
+              <option value="Low">E-Rank (+5 XP)</option>
+              <option value="Mid">C-Rank (+15 XP)</option>
+              <option value="High">B-Rank (+25 XP)</option>
+              <option value="Super">A-Rank (+35 XP)</option>
+              <option value="Legendary">S-Rank (+50 XP)</option>
             </select>
           </div>
         </div>

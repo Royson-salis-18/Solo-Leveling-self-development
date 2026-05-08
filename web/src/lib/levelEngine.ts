@@ -44,11 +44,11 @@ export const CATEGORY_WEIGHTS: Record<string, number> = {
 export function calculateEffectiveXp(baseXp: number, category: string, _totalPoints?: number): number {
   const weight = CATEGORY_WEIGHTS[category] ?? 1.0;
   
-  // Soft Cap/Normalization: Apply logarithmic dampening for very high base XP
-  // If baseXp > 100, we start dampening it to prevent huge jumps
+  // Super Hard Mode: Logarithmic dampening starts much earlier (at 50 XP)
+  // This ensures that even "S-Rank" tasks don't provide massive power-level jumps.
   let effective = baseXp;
-  if (baseXp > 100) {
-    effective = 100 + Math.log10(baseXp - 99) * 20; 
+  if (baseXp > 50) {
+    effective = 50 + Math.log10(baseXp - 49) * 10; 
   }
   
   // Apply category weight
@@ -277,10 +277,22 @@ export async function syncProgression(
 
   const finalXp = Math.max(-5000, adjustedTotalXp - totalOverduePenalty);
 
-  // Status Logic: Handle Negative XP
+  // Weekly Activity Threshold (300-500 XP per week required for Hard Mode)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const { data: weeklyPoints } = await supabase
+    .from("user_points")
+    .select("daily_points")
+    .eq("user_id", userId)
+    .gte("date", sevenDaysAgo);
+
+  const totalWeeklyXp = (weeklyPoints || []).reduce((sum: number, p: any) => sum + (p.daily_points || 0), 0);
+
+  // Status Logic: Priority Chain (DECEASED > PENALTY > STAGNANT > ACTIVE)
   let newStatus = 'ACTIVE';
   if (finalXp < 0) {
     newStatus = 'PENALTY';
+  } else if (totalWeeklyXp < 300) {
+    newStatus = 'STAGNANT';
   } else if (finalXp < 100) {
     newStatus = 'NEWBIE';
   }
