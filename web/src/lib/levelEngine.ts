@@ -328,6 +328,35 @@ export async function syncProgression(
     })
     .eq("user_id", userId);
 
+  // AUTO-NOTIFICATIONS FOR PROGRESSION
+  if (leveledUp) {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title: "LEVEL UP",
+      message: `Congratulations! You reached Level ${newLevel}. Your power grows...`,
+      type: "achievement",
+      link: "/profile"
+    });
+  }
+  if (rankedUp) {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title: "RANK UP",
+      message: `System Alert: You have ascended to ${newRank}-Rank.`,
+      type: "achievement",
+      link: "/profile"
+    });
+  }
+  if (newStatus === 'PENALTY' && prof.status !== 'PENALTY') {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title: "SYSTEM WARNING",
+      message: "MANA DEBT DETECTED! You have entered PENALTY MODE.",
+      type: "system",
+      link: "/rewards"
+    });
+  }
+
   return {
     totalXp: finalXp,
     level: newLevel,
@@ -366,16 +395,13 @@ export async function calculateCorruptionMultiplier(supabase: SupabaseClient, us
 }
 
 /* ═══════════════════════════════════════════════
-   HELPER: Show celebration toast/alert
+   HELPER: Show celebration effects (Rain, etc)
 ═══════════════════════════════════════════════ */
 
 export function showProgressionToast(result: ProgressionResult | null) {
   if (!result) return;
 
-  const msgs: string[] = [];
-
   if (result.leveledUp) {
-    msgs.push(`⚡ LEVEL UP! ${result.prevLevel} → ${result.level}`);
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("solo-leveling:level-up", {
@@ -387,32 +413,6 @@ export function showProgressionToast(result: ProgressionResult | null) {
         })
       );
     }
-  }
-  if (result.rankedUp) {
-    msgs.push(`🔥 RANK UP! ${result.prevRank}-Rank → ${result.rank}-Rank`);
-  }
-  if (result.titleChanged) {
-    msgs.push(`✨ New Title: "${result.title}"`);
-  }
-  
-  if (result.status === 'PENALTY') {
-    msgs.push(`⚠️ SYSTEM WARNING: MANA DEBT DETECTED! You have entered PENALTY MODE. Re-stabilize your mana (XP) immediately to unlock full potential.`);
-  }
-
-  if (result.totalXp < result.totalXp + 1) { // checking if there was a decay (conceptually)
-    // Actually we need to pass the decay amount to result to show it properly.
-    // For now, I'll just keep it simple.
-  }
-
-  if (msgs.length > 0) {
-    // Use a non-blocking notification
-    const msg = msgs.join("\n");
-    // Check if we can use custom notification or fall back to alert
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("Solo Leveling", { body: msg });
-    }
-    // Always show an in-page alert as well
-    setTimeout(() => alert(msg), 100);
   }
 }
 
