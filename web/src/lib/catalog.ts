@@ -32,6 +32,7 @@ export type Shadow = {
   glow?: string; 
   icon?: React.ReactNode | string; 
   sub?: string; 
+  is_corrupted?: boolean;
 };
 
 export type InventoryItem = { 

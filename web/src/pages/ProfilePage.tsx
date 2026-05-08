@@ -105,7 +105,6 @@ export function ProfilePage() {
   const draggingRef = useRef(false);
   const [licenseRevealed, setLicenseRevealed] = useState(false);
   const [licenseScanning, setLicenseScanning] = useState(false);
-  const [revealProgress, setRevealProgress] = useState(0);
   const [isHoveringLicense, setIsHoveringLicense] = useState(false);
   const [streamText] = useState(() => makeDataStreamText(300, 80)); // Generate once, larger
 
@@ -328,20 +327,17 @@ export function ProfilePage() {
   const runLicenseScan = () => {
     if (licenseScanning || licenseRevealed) return;
     setLicenseScanning(true);
-    setRevealProgress(0);
     const start = performance.now();
     const duration = 1050;
 
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
       const eased = 1 - Math.pow(1 - p, 2.8);
-      setRevealProgress(eased * 100);
       if (p < 1) {
         requestAnimationFrame(tick);
       } else {
         setLicenseScanning(false);
         setLicenseRevealed(true);
-        setRevealProgress(100);
       }
     };
     requestAnimationFrame(tick);
@@ -409,7 +405,6 @@ export function ProfilePage() {
               if (!licenseRevealed && !flipped) {
                 if (percent > 99.5) {
                   setLicenseRevealed(true);
-                  setRevealProgress(100);
                   el.style.setProperty("--scanPct", "100%");
                 }
               }

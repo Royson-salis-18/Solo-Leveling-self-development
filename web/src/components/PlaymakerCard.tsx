@@ -1,13 +1,14 @@
 import React from 'react';
-import { Trophy, Star, TrendingUp } from 'lucide-react';
+import { Star, TrendingUp } from 'lucide-react';
 
 interface PlaymakerCardProps {
   rating: number;
   topTasks: any[];
   streak: number;
+  onViewAnalytics?: () => void;
 }
 
-export const PlaymakerCard: React.FC<PlaymakerCardProps> = ({ rating, topTasks, streak }) => {
+export const PlaymakerCard: React.FC<PlaymakerCardProps> = ({ rating, topTasks, streak, onViewAnalytics }) => {
   const getRatingLabel = (val: number) => {
     if (val >= 90) return 'S-TIER PLAYMAKER';
     if (val >= 75) return 'A-TIER STRATEGIST';
@@ -69,7 +70,7 @@ export const PlaymakerCard: React.FC<PlaymakerCardProps> = ({ rating, topTasks, 
       </div>
 
       <div className="pm-footer">
-        <button className="pm-action-btn">
+        <button className="pm-action-btn" onClick={onViewAnalytics}>
           View Detailed Analytics
         </button>
       </div>

@@ -10,6 +10,7 @@ import { useAuth } from "../lib/authContext";
 import { Sparkles, Skull, Activity } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 import { AuraCard } from "../components/AuraCard";
+import { Modal } from "../components/Modal";
 
 import { SystemAPI, type DashboardData } from "../services/SystemAPI";
 import { ModeBadge } from "../components/ModeBadge";
@@ -75,6 +76,7 @@ export function DashboardPage() {
   const [shadows, setShadows] = useState<any[]>([]);
   const [showReawakening, setShowReawakening] = useState(false);
   const [redGateId, setRedGateId] = useState<string | null>(localStorage.getItem("redGateId"));
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   
   const [isZoneActive, setIsZoneActive] = useState(false);
   const [marketValue, setMarketValue] = useState(0);
@@ -664,6 +666,7 @@ export function DashboardPage() {
               rating={data.playmaker_rating || 0} 
               topTasks={weeklySelection} 
               streak={data.streak_count || 0} 
+              onViewAnalytics={() => setShowAnalyticsModal(true)}
             />
           </div>
         </div>
@@ -1027,6 +1030,109 @@ export function DashboardPage() {
           50% { box-shadow: 0 0 15px #ff4444; opacity: 1; }
         }
       `}</style>
+      {showAnalyticsModal && (
+        <Modal
+          isOpen={showAnalyticsModal}
+          onClose={() => setShowAnalyticsModal(false)}
+          title="DEEP DIVE: SYSTEM ANALYTICS"
+        >
+          <div className="analytics-deep-dive">
+            <div className="analytics-grid-detailed">
+              {/* Left Column: Factor Breakdown */}
+              <div className="analytics-factor-column">
+                <div className="section-label" style={{ marginBottom: 12 }}>Performance Decomposition</div>
+                <div className="radar-container-detailed ds-glass">
+                   <PerformanceRadar 
+                     data={[
+                       { category: "Consistency", value: Math.min(100, (data.streak_count || 0) * 5), fullMark: 100 },
+                       { category: "Complexity", value: Math.min(100, (data.total_points / 500) * 10), fullMark: 100 },
+                       { category: "Ego Sync", value: data.ego_score || 0, fullMark: 100 },
+                       { category: "Lethality", value: (data.completedCount / (data.activeCount + data.completedCount || 1)) * 100, fullMark: 100 },
+                       { category: "Volume", value: Math.min(100, data.completedCount * 10), fullMark: 100 }
+                     ]}
+                     height={250}
+                   />
+                </div>
+                
+                <div className="analytics-factor-list">
+                   <div className="factor-item">
+                     <span>Streak Multiplier</span>
+                     <strong>x{(1 + (data.streak_count || 0) * 0.05).toFixed(2)}</strong>
+                   </div>
+                   <div className="factor-item">
+                     <span>Market Credibility</span>
+                     <strong>{(data.playmaker_rating || 0) > 80 ? 'HIGH' : 'STABLE'}</strong>
+                   </div>
+                </div>
+              </div>
+
+              {/* Right Column: Growth & Projections */}
+              <div className="analytics-projection-column">
+                <div className="section-label" style={{ marginBottom: 12 }}>Growth Projections</div>
+                <div className="projection-card ds-glass">
+                   <h3>Contract Valuation</h3>
+                   <div className="valuation-val">₩{marketValue.toLocaleString()}</div>
+                   <p className="valuation-hint">Projected annual contract value based on current mana density and streak stability.</p>
+                </div>
+
+                <div className="milestone-tracker">
+                   <div className="section-label">Next Rank Evaluation</div>
+                   <div className="milestone-progress-bar">
+                      <div className="milestone-fill" style={{ width: `${(data.total_points % 500) / 5}%` }} />
+                   </div>
+                   <div className="milestone-meta">
+                      <span>{500 - (data.total_points % 500)} XP to Next Level</span>
+                      <span>{Math.round((data.total_points % 500) / 5)}%</span>
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="system-recommendation ds-glass">
+               <div className="rec-header">
+                 <Sparkles size={16} color="var(--accent-primary)" />
+                 <span>SYSTEM_RECOMMENDATION</span>
+               </div>
+               <p>
+                 {(data.playmaker_rating || 0) < 50 ? 
+                   "Your performance is inconsistent. Prioritize low-rank gates to rebuild your streak and stabilize your mana flow." :
+                   data.pendingCount > 0 ?
+                   "Awaiting resolution on overdue gates. Stagnation detected. Resolve pending missions to prevent further mana decay." :
+                   "Peak performance detected. Consider challenging a RED GATE to accelerate your growth and unlock advanced extractions."
+                 }
+               </p>
+            </div>
+          </div>
+          
+          <style>{`
+            .analytics-deep-dive { display: flex; flex-direction: column; gap: 24px; padding: 10px; }
+            .analytics-grid-detailed { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+            .radar-container-detailed { padding: 20px; border-radius: 12px; display: flex; justify-content: center; background: rgba(0,0,0,0.2); }
+            .analytics-factor-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+            .factor-item { display: flex; justify-content: space-between; font-size: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
+            .factor-item span { opacity: 0.6; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+            .factor-item strong { color: var(--accent-primary); font-weight: 900; }
+            
+            .projection-card { padding: 24px; border-radius: 12px; text-align: center; background: linear-gradient(135deg, rgba(168,168,255,0.05) 0%, transparent 100%); }
+            .projection-card h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5; margin-bottom: 12px; }
+            .valuation-val { font-size: 2.4rem; font-weight: 950; color: #fff; margin-bottom: 8px; letter-spacing: -1px; }
+            .valuation-hint { font-size: 0.65rem; opacity: 0.4; line-height: 1.4; }
+            
+            .milestone-tracker { margin-top: 24px; }
+            .milestone-progress-bar { height: 6px; background: rgba(255,255,255,0.05); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
+            .milestone-fill { height: 100%; background: var(--accent-primary); box-shadow: 0 0 10px var(--accent-glow); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+            .milestone-meta { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 700; opacity: 0.5; }
+            
+            .system-recommendation { padding: 20px; border-radius: 12px; border-left: 3px solid var(--accent-primary); background: rgba(168,168,255,0.02); }
+            .rec-header { display: flex; align-items: center; gap: 10px; font-size: 0.7rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 10px; opacity: 0.8; }
+            .system-recommendation p { font-size: 0.85rem; line-height: 1.6; opacity: 0.7; font-style: italic; }
+            
+            @media (max-width: 768px) {
+              .analytics-grid-detailed { grid-template-columns: 1fr; }
+            }
+          `}</style>
+        </Modal>
+      )}
     </section>
   );
 }

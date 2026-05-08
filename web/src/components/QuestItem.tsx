@@ -28,6 +28,7 @@ export interface DBTask {
   start_time?: string | null;
   end_time?: string | null;
   subtasks: DBTask[];             // always present (not optional) to avoid runtime crashes
+  is_gauntlet?: boolean;
 }
 
 interface QuestItemProps {

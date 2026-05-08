@@ -256,7 +256,6 @@ export async function syncProgression(
 
   let totalOverduePenalty = 0;
   if (overdueTasks && overdueTasks.length > 0) {
-    const redGateId = typeof window !== 'undefined' ? localStorage.getItem("redGateId") : null;
     
     for (const t of overdueTasks) {
       const deadlineDate = new Date(t.deadline);

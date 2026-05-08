@@ -7,7 +7,6 @@ interface ModeBadgeProps {
 }
 
 export const ModeBadge: React.FC<ModeBadgeProps> = ({ mode, darkMana }) => {
-  const config = MODE_CONFIGS[mode];
   const isNightmare = mode === 'Nightmare';
   const isDanger = isNightmare && darkMana > 70;
 

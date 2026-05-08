@@ -50,6 +50,7 @@ export type GatePayload = {
   points: number;
   is_recurring: boolean;
   parent_id?: string | null;
+  assigned_to?: string;
 };
 
 /* ═══════════════════════════════════════════════
