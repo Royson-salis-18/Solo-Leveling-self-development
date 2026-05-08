@@ -286,7 +286,7 @@ export function DashboardPage() {
         
         <div className="dashboard-action-group" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {data.status === 'PENALTY' && (
-            <div className="penalty-mini-badge ds-glass" style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 6, border: '1px solid #ef4444', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }} onClick={() => window.location.href='/dungeon-gate'}>
+            <div className="penalty-mini-badge ds-glass" style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 6, border: '1px solid #ef4444', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }} onClick={() => navigate('/dungeon-gate')}>
                <Skull size={14} className="animate-pulse" /> PENALTY ACTIVE
             </div>
           )}
