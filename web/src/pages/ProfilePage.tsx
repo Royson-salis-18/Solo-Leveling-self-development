@@ -332,7 +332,6 @@ export function ProfilePage() {
 
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 2.8);
       if (p < 1) {
         requestAnimationFrame(tick);
       } else {

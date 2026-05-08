@@ -1,5 +1,5 @@
 import React from 'react';
-import { MODE_CONFIGS, type ModeType } from '../lib/modeConfig';
+import { type ModeType } from '../lib/modeConfig';
 
 interface ModeBadgeProps {
   mode: ModeType;
