@@ -133,7 +133,6 @@ export const SystemAPI = {
 
     const weeklyHistory = pRes.data || [];
     const monthlyHistory = mRes.data || [];
-    const totalPointsFromTasks = (tRes.data || []).reduce((sum: number, t: any) => sum + (t.points || 0), 0);
     const catMap: Record<string, number> = {};
     (tRes.data || []).forEach((t: any) => {
       catMap[t.category] = (catMap[t.category] || 0) + (t.points || 0);

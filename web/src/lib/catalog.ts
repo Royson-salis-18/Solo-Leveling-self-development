@@ -40,6 +40,8 @@ export type InventoryItem = {
   item_type: string; item_category: string; 
   rarity: string; quantity?: number; image_url?: string;
   collected?: boolean;
+  durability?: number;
+  metadata?: any;
 };
 
 export const SHADOW_CATALOG: (Shadow & { effectType?: 'shadow'|'flame'|'smoke'|'lightning'; col?: number[][]; glow?: string; icon?: string; sub?: string })[] = [

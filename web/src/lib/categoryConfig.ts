@@ -260,7 +260,7 @@ export const getCategoryIcon = (name: string, customCategories: CategoryDef[] = 
   getCategoryDef(name, customCategories)?.icon ?? '🔧';
 
 export const getCategoryStat = (name: string, customCategories: CategoryDef[] = []): StatKey =>
-  getCategoryDef(name, customCategories)?.stat ?? 'stat_agility';
+  getCategoryDef(name, customCategories)?.stat ?? 'domain_execution';
 
 /** All category names for task creation dropdowns */
 export const getCategoryNames = (customCategories: CategoryDef[] = []): string[] =>
