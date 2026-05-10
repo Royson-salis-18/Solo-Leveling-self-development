@@ -15,7 +15,7 @@ type LBUser = {
   player_class: string; player_rank: string; player_title: string;
   guild_id: string | null;
   status?: string; last_heartbeat?: string;
-  strength?: number; agility?: number; intelligence?: number; vitality?: number;
+  domain_physical?: number; domain_mind?: number; domain_soul?: number; domain_execution?: number; domain_builder?: number;
   guild_logo?: string; guild_title?: string; guild_aura_card?: string;
 };
 type GuildLB = { id: string; name: string; total_xp: number; member_count: number };
@@ -44,12 +44,13 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
   const [friendStatus, setFriendStatus] = useState<"none" | "pending" | "accepted" | "loading">("loading");
   const [actionLoading, setActionLoading] = useState(false);
   const [areaStats, setAreaStats] = useState([
-    { category: "Work", value: 0, fullMark: 100 },
-    { category: "Fitness", value: 0, fullMark: 100 },
-    { category: "Learning", value: 0, fullMark: 100 },
-    { category: "Mind", value: 0, fullMark: 100 },
-    { category: "Social", value: 0, fullMark: 100 },
+    { category: "Work", value: 10, fullMark: 100 },
+    { category: "Fitness", value: 10, fullMark: 100 },
+    { category: "Learning", value: 10, fullMark: 100 },
+    { category: "Mind", value: 10, fullMark: 100 },
+    { category: "Social", value: 10, fullMark: 100 },
   ]);
+  const [recentConquests, setRecentConquests] = useState<any[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const isSelf = currentUser?.id === user.user_id;
 
@@ -57,7 +58,19 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
     checkFriendship();
     fetchHunterPotential();
     fetchHunterSkills();
+    fetchRecentConquests();
   }, [user.user_id]);
+
+  const fetchRecentConquests = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from("tasks")
+      .select("category, points, completed_at")
+      .eq("user_id", user.user_id)
+      .eq("is_completed", true)
+      .order("completed_at", { ascending: false })
+      .limit(3);
+    if (data) setRecentConquests(data);
+  };
 
   const checkFriendship = async () => {
     if (!supabase || isSelf || !currentUser) return setFriendStatus("none");
@@ -116,10 +129,11 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
   };
 
   const statsList = [
-    { label: "Strength", value: user.strength || 10, color: "#ff6b6b" },
-    { label: "Agility", value: user.agility || 10, color: "var(--frost-blue)" },
-    { label: "Intelligence", value: user.intelligence || 10, color: "var(--monarch-purple)" },
-    { label: "Vitality", value: user.vitality || 10, color: "#34d399" },
+    { label: "Physical",  value: user.domain_physical  || 10, color: "#ff6b6b" },
+    { label: "Mind",      value: user.domain_mind      || 10, color: "var(--monarch-purple)" },
+    { label: "Soul",      value: user.domain_soul      || 10, color: "var(--frost-blue)" },
+    { label: "Execution", value: user.domain_execution || 10, color: "#34d399" },
+    { label: "Builder",   value: user.domain_builder   || 10, color: "#ffd700" },
   ];
 
   return (
@@ -146,7 +160,7 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
               </div>
               <div className="pp-id-middle">
                 <div className={`pp-id-avatar ${user.status === 'DECEASED' ? 'pp-id-avatar--dead' : ''}`}>
-                  {user.status === 'DECEASED' ? <Skull size={32} /> : user.name.charAt(0).toUpperCase()}
+                  {user.status === 'DECEASED' ? <Skull size={32} /> : (user.name || 'H').charAt(0).toUpperCase()}
                 </div>
                 <div className="pp-id-info">
                   <div className="pp-field-label">NAME</div>
@@ -174,7 +188,7 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
 
             {/* Stats */}
             <div>
-              <div className="pp-section-label" style={{ marginBottom: 14 }}><Shield size={11} /> Combat Attributes</div>
+              <div className="pp-section-label" style={{ marginBottom: 14 }}><Shield size={11} /> Domain Mastery</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {statsList.map(s => (
                   <div key={s.label}>
@@ -211,57 +225,100 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
 
           {/* RIGHT CONTENT */}
           <div className="pp-content">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              {/* Radar */}
-              <div>
-                <div className="pp-section-label" style={{ marginBottom: 14 }}><Zap size={11} /> Resonance Potential</div>
-                <div style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: "16px 8px" }}>
-                  {/* Extra padding so radar labels don't clip */}
-                  <PerformanceRadar data={areaStats} height={230} />
-                </div>
-              </div>
-
-              {/* Skills */}
-              <div>
-                <div className="pp-section-label" style={{ marginBottom: 14 }}><Swords size={11} /> Active Skills</div>
-                {skills.length === 0 ? (
-                  <div style={{
-                    fontSize: "0.78rem", color: "rgba(255,255,255,0.25)",
-                    border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 14,
-                    padding: 24, textAlign: "center", fontWeight: 600,
-                  }}>
-                    No skills detected.
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, flex: 1 }}>
+              {/* Left Column: Resonance & Guild */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <div>
+                  <div className="pp-section-label" style={{ marginBottom: 14 }}><Zap size={11} /> Resonance Potential</div>
+                  <div style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: "16px 8px" }}>
+                    <PerformanceRadar data={areaStats} height={230} />
                   </div>
-                ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    {skills.slice(0, 4).map(skill => (
-                      <AuraCard
-                        key={skill.id} name={skill.name} rankLabel={`LV.${skill.level}`}
-                        rarityColor="#a8a8ff" isCollected={true} effectType="shadow"
-                        icon={<Skull size={13} />} sub={skill.description}
-                        label="SKILL" style={{ height: 110 }}
-                      />
-                    ))}
+                </div>
+
+                {user.guild_id && (
+                  <div>
+                    <div className="pp-section-label" style={{ marginBottom: 14 }}><Medal size={11} /> Guild Affiliation</div>
+                    <AuraCard
+                      name={user.guild_title || "Hunter"} rankLabel="GUILD MEMBER"
+                      rarityColor="#ffcc00" isCollected={true}
+                      effectType={(user.guild_aura_card as any) || "shadow"}
+                      icon={<div style={{ fontSize: "1.4rem" }}>{user.guild_logo || "⚜️"}</div>}
+                      sub="Verified Association Member" label="GUILD"
+                    />
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Guild */}
-            {user.guild_id && (
-              <div style={{ marginTop: 24 }}>
-                <div className="pp-section-label" style={{ marginBottom: 14 }}><Medal size={11} /> Guild Affiliation</div>
-                <div style={{ maxWidth: 360 }}>
-                  <AuraCard
-                    name={user.guild_title || "Hunter"} rankLabel="GUILD"
-                    rarityColor="#ffcc00" isCollected={true}
-                    effectType={(user.guild_aura_card as any) || "shadow"}
-                    icon={<div style={{ fontSize: "1.4rem" }}>{user.guild_logo || "⚜️"}</div>}
-                    sub="Verified Association Member" label="GUILD"
-                  />
+              {/* Right Column: Skills & Chronicles */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <div>
+                  <div className="pp-section-label" style={{ marginBottom: 14 }}><Swords size={11} /> Active Skills</div>
+                  {skills.length === 0 ? (
+                    <div style={{
+                      fontSize: "0.78rem", color: "rgba(255,255,255,0.25)",
+                      border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 14,
+                      padding: 24, textAlign: "center", fontWeight: 600, minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      No skills detected.
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                      {skills.slice(0, 2).map(skill => (
+                        <AuraCard
+                          key={skill?.id || Math.random()} 
+                          name={skill?.name || "Secret Skill"} 
+                          rankLabel={`LV.${skill?.level || 1}`}
+                          rarityColor={skill?.rarity === 'LEGENDARY' ? '#ffd700' : '#a8a8ff'} 
+                          isCollected={true} 
+                          effectType="shadow"
+                          icon={<Skull size={13} />} 
+                          sub={skill?.description || "A hidden power yet to be revealed."}
+                          label="SKILL" style={{ height: 100 }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="pp-section-label" style={{ marginBottom: 14 }}><Trophy size={11} /> Hunter Chronicles</div>
+                  <div style={{ 
+                    background: "rgba(168, 168, 255, 0.03)", 
+                    border: "1px solid rgba(255,255,255,0.06)", 
+                    borderRadius: 18, 
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 14,
+                    flex: 1
+                  }}>
+                    {recentConquests.length === 0 ? (
+                      <span style={{ fontSize: '0.75rem', opacity: 0.3, fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No recorded conquests in current cycle.</span>
+                    ) : (
+                      recentConquests.map((c, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Shield size={10} color="var(--accent-primary)" />
+                              <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {c?.category || "Unknown Domain"}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '0.6rem', opacity: 0.4, textTransform: 'uppercase', letterSpacing: '1px', marginTop: 2 }}>
+                              Conquered on {c?.completed_at ? new Date(c.completed_at).toLocaleDateString() : 'RECENT'}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent-primary)' }}>+{c?.points || 0} XP</span>
+                        </div>
+                      ))
+                    )}
+                    <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '0.55rem', opacity: 0.3, letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'center' }}>
+                      Verified by Shadow System Architect
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -286,16 +343,33 @@ export function LeaderboardPage() {
     if (!supabase) { setLoading(false); return; }
     (async () => {
       try {
-        const [hRes, gRes, cRes] = await Promise.all([
-          supabase.from("user_profiles")
-            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, strength, agility, intelligence, vitality, guild_logo, guild_title, guild_aura_card, status, last_heartbeat")
-            .order("total_points", { ascending: false }).limit(100),
+        // 1. Fetch Hunters (with Domain data)
+        let hData: LBUser[] = [];
+        const { data: hFull, error: hErr } = await supabase.from("user_profiles")
+          .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, domain_physical, domain_mind, domain_soul, domain_execution, domain_builder, guild_logo, guild_title, guild_aura_card, status, last_heartbeat")
+          .order("total_points", { ascending: false }).limit(100);
+
+        if (!hErr && hFull) {
+          hData = hFull as LBUser[];
+        } else {
+          console.warn("Domain fetch failed, falling back to basic profile data:", hErr);
+          const { data: hBasic, error: hBasicErr } = await supabase.from("user_profiles")
+            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, guild_logo, guild_title, guild_aura_card, status, last_heartbeat")
+            .order("total_points", { ascending: false }).limit(100);
+          
+          if (!hBasicErr && hBasic) {
+            hData = hBasic as LBUser[];
+          } else if (hBasicErr) {
+            console.error("Critical Leaderboard Fetch Error:", hBasicErr);
+          }
+        }
+        
+        setHunters(hData);
+
+        const [gRes, cRes] = await Promise.all([
           supabase.from("guilds").select("id, name"),
           supabase.from("clans").select("id, name"),
         ]);
-
-        if (hRes.error) console.error("Hunter Fetch Error:", hRes.error);
-        setHunters(hRes.data ?? []);
 
         // System Sweep: Flag hunters as DECEASED after 14 days of inactivity
         const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -324,6 +398,8 @@ export function LeaderboardPage() {
           })).sort((a, b) => b.total_xp - a.total_xp));
         }
 
+
+        
         if (cRes.data?.length) {
           const { data: cms } = await supabase.from("clan_members").select("clan_id, user_id");
           const cXP = new Map<string, { xp: number; count: number }>();
@@ -351,7 +427,7 @@ export function LeaderboardPage() {
   const currentData: any[] = useMemo(() => {
     let base: any[] = tab === "Hunters" ? hunters : tab === "Guilds" ? guilds : clans;
     if (searchQuery.trim()) {
-      base = base.filter((u: any) => u.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      base = base.filter((u: any) => (u.name || "").toLowerCase().includes(searchQuery.toLowerCase()));
     }
     return base;
   }, [tab, hunters, guilds, clans, searchQuery]);
@@ -375,7 +451,7 @@ export function LeaderboardPage() {
     if (!u) return null;
     const ri = getRealIdx(u);
     const uid = u.user_id || u.id;
-    const name = u.name as string;
+    const name = (u.name || "Unknown") as string;
     const pts = getPoints(u);
     const col = RANK_COLOR[ri] ?? "rgba(255,255,255,0.3)";
     const isFirst = ri === 0;
@@ -391,7 +467,7 @@ export function LeaderboardPage() {
         onClick={() => { if (tab === "Hunters") setSelectedUser(u as LBUser); }}
       >
         {isFirst && <div className="pod-crown">👑</div>}
-        <div className="pod-avatar" style={{ borderColor: col }}>{name.charAt(0).toUpperCase()}</div>
+        <div className="pod-avatar" style={{ borderColor: col }}>{(name || 'H').charAt(0).toUpperCase()}</div>
         <div className="pod-medal">{MEDALLION[ri] ?? `#${ri + 1}`}</div>
         <div className="pod-name">{tab === "Hunters" && isMe(uid) ? "You" : name}</div>
         <div className="pod-sub" style={{ color: col }}>
@@ -410,7 +486,7 @@ export function LeaderboardPage() {
   const renderRow = (u: any, i: number) => {
     const realIdx = i + podiumOrder.length;
     const uid = u.user_id || u.id;
-    const name = u.name as string;
+    const name = (u.name || "Unknown") as string;
     const pts = getPoints(u);
 
     return (
@@ -427,7 +503,7 @@ export function LeaderboardPage() {
 
         <div className="lb-row-header">
           <div className="lb-avatar">
-            {tab === "Hunters" ? name.charAt(0).toUpperCase() : <Shield size={18} />}
+            {tab === "Hunters" ? (name || 'H').charAt(0).toUpperCase() : <Shield size={18} />}
           </div>
           <div className="lb-info">
             <div className="lb-name">

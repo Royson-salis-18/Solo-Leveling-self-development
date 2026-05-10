@@ -92,7 +92,12 @@ export function DashboardPage() {
     shadows: [],
     dark_mana: 0,
     current_mode: "Normal",
-    ego_score: 0
+    ego_score: 0,
+    domain_physical: 10,
+    domain_mind: 14,
+    domain_soul: 10,
+    domain_execution: 12,
+    domain_builder: 13,
   });
 
   useEffect(() => {
@@ -100,7 +105,22 @@ export function DashboardPage() {
     const userId = user.id;
     (async () => {
       try {
+        // ── FLOW SYSTEM: Clean up duplicate system gates first ───────────────
+        // This runs on every dashboard load but is idempotent and fast.
+        await SystemAPI.cleanupDuplicateSystemGates(userId);
+
         await SystemAPI.manifestWeeklyTrial(userId);
+
+        // ── FLOW SYSTEM: Category Nudge check (runs at most once per week) ──
+        // Uses localStorage to avoid re-checking on every page load.
+        const NUDGE_KEY = `last_nudge_check_${userId}`;
+        const lastNudge = localStorage.getItem(NUDGE_KEY);
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        if (!lastNudge || Date.now() - parseInt(lastNudge) > sevenDaysMs) {
+          await SystemAPI.checkCategoryNudges(userId);
+          localStorage.setItem(NUDGE_KEY, Date.now().toString());
+        }
+
         const dashboardData = await SystemAPI.fetchDashboardData(userId);
         
         // Mode Check (m1)
@@ -126,6 +146,7 @@ export function DashboardPage() {
         }
 
         if (currentStatus === 'DECEASED') setShowReawakening(true);
+
 
         // Task system sweep: recurring reset + overdue → pending
         const todayStr = now.toISOString().split("T")[0];
@@ -199,9 +220,25 @@ export function DashboardPage() {
             setRedGateId(picked);
           }
         }
-        // Market Value Logic (Bid System)
-        const bid = (dashboardData.level * 1000000) + (dashboardData.total_points * 10000) + ((dashboardData.streak_count || 0) * 500000);
-        setMarketValue(bid);
+        // Rigid Market Value Logic (Beginners start at 0)
+        const getRankBase = (rank: string) => {
+          switch (rank) {
+            case "S": return 500000000;  // ₩500M
+            case "A": return 100000000;  // ₩100M
+            case "B": return 25000000;   // ₩25M
+            case "C": return 5000000;    // ₩5M
+            case "D": return 500000;     // ₩0.5M
+            case "E": return 0;          // Beginners have 0 base value
+            default: return 0;
+          }
+        };
+
+        const base = getRankBase(dashboardData.player_rank || "E");
+        const levelBonus = Math.max(0, (dashboardData.level || 1) - 1) * 100000; // ₩100k per level above 1
+        const xpBonus = (dashboardData.total_points || 0) * 1000;               // ₩1k per XP
+        const streakBonus = (dashboardData.streak_count || 0) * 50000;         // ₩50k per streak day
+        
+        setMarketValue(base + levelBonus + xpBonus + streakBonus);
 
         // Zone State (Flow State) check: 5 tasks in 90 min (bl2)
         const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
@@ -294,7 +331,7 @@ export function DashboardPage() {
             LVL {data.level}
           </div>
           <div className="badge" style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', borderRadius: 6, border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', background: 'rgba(168,168,255,0.05)', fontSize: '0.65rem', fontWeight: 800 }}>
-            {data.totalXp.toLocaleString()} MANA
+            {data.totalXp.toLocaleString()} XP
           </div>
         </div>
       </div>
@@ -492,7 +529,7 @@ export function DashboardPage() {
               <span className="q-card-lbl">Failed Today</span>
               <span className="q-card-val">{data.failedCount}</span>
               <div className="q-card-footer">
-                <span className="q-card-trend" style={{ color: '#ff4444' }}>MANA DECAY</span>
+                <span className="q-card-trend" style={{ color: '#ff4444' }}>XP LOSS</span>
               </div>
             </div>
             <Skull size={32} className="q-card-icon" />
@@ -582,7 +619,7 @@ export function DashboardPage() {
             {/* Weekly XP: High-Fidelity Wave */}
             <div className="glass-panel purple-aura analytic-card" style={{ minHeight: 320 }}>
               <div className="chart-header">
-                <div className="chart-title">Weekly Mana Tide</div>
+                <div className="chart-title">Weekly XP Tide</div>
                 <div className="chart-val">{weeklyTotal} Total XP</div>
               </div>
               <ResponsiveContainer width="100%" height={220}>
@@ -639,16 +676,11 @@ export function DashboardPage() {
                 <PerformanceRadar
                   title=""
                   data={[
-                    { category:"Work",        value: data.categoryDistribution.find(c=>c.category==="Work")?.points||0,    fullMark:100 },
-                    { category:"Fitness",     value: data.categoryDistribution.find(c=>c.category==="Fitness")?.points||0,  fullMark:100 },
-                    { category:"Learning",    value: data.categoryDistribution.find(c=>c.category==="Learning")?.points||0,fullMark:100 },
-                    { category:"Mind",        value: data.categoryDistribution.find(c=>c.category==="Mindfulness")?.points||0,fullMark:100 },
-                    { category:"Finance",     value: data.categoryDistribution.find(c=>c.category==="Finance")?.points||0,fullMark:100 },
-                    { category:"Social",      value: data.categoryDistribution.find(c=>c.category==="Social")?.points||0,fullMark:100 },
-                    { category:"Creative",    value: data.categoryDistribution.find(c=>c.category==="Creative")?.points||0,fullMark:100 },
-                    { category:"Academics",   value: data.categoryDistribution.find(c=>c.category==="Academics")?.points||0,fullMark:100 },
-                    { category:"Errands",     value: data.categoryDistribution.find(c=>c.category==="Errands")?.points||0,fullMark:100 },
-                    { category:"General",     value: data.categoryDistribution.find(c=>c.category==="General")?.points||0,fullMark:100 },
+                    { category: "Physical",  value: data.domain_physical,  pending: data.categoryDistribution.find(c => c.category === "Fitness")?.points    || 0, fullMark: 100 },
+                    { category: "Mind",      value: data.domain_mind,      pending: data.categoryDistribution.find(c => c.category === "Learning")?.points   || 0, fullMark: 100 },
+                    { category: "Soul",      value: data.domain_soul,      pending: data.categoryDistribution.find(c => c.category === "Mindfulness")?.points || 0, fullMark: 100 },
+                    { category: "Execution", value: data.domain_execution, pending: data.categoryDistribution.find(c => c.category === "Errands")?.points    || 0, fullMark: 100 },
+                    { category: "Builder",   value: data.domain_builder,   pending: data.categoryDistribution.find(c => c.category === "Side Projects")?.points || 0, fullMark: 100 },
                   ]}
                   height={240}
                 />
@@ -1232,13 +1264,14 @@ export function DashboardPage() {
           isOpen={showAnalyticsModal}
           onClose={() => setShowAnalyticsModal(false)}
           title="DEEP DIVE: SYSTEM ANALYTICS"
+          maxWidth="900px"
         >
           <div className="analytics-deep-dive">
             <div className="analytics-grid-detailed">
               {/* Left Column: Factor Breakdown */}
-              <div className="analytics-factor-column">
-                <div className="section-label" style={{ marginBottom: 12 }}>Performance Decomposition</div>
-                <div className="radar-container-detailed ds-glass">
+              <div className="analytics-factor-column ds-glass">
+                 <div className="section-label" style={{ marginBottom: 20, color: 'var(--accent-primary)', fontSize: '0.75rem' }}>Performance Decomposition</div>
+                 <div className="radar-container-detailed">
                    <PerformanceRadar 
                      data={[
                        { category: "Consistency", value: Math.min(100, (data.streak_count || 0) * 5), fullMark: 100 },
@@ -1247,9 +1280,9 @@ export function DashboardPage() {
                        { category: "Lethality", value: (data.completedCount / (data.activeCount + data.completedCount || 1)) * 100, fullMark: 100 },
                        { category: "Volume", value: Math.min(100, data.completedCount * 10), fullMark: 100 }
                      ]}
-                     height={250}
+                     height={260}
                    />
-                </div>
+                 </div>
                 
                 <div className="analytics-factor-list">
                    <div className="factor-item">
@@ -1265,7 +1298,7 @@ export function DashboardPage() {
 
               {/* Right Column: Growth & Projections */}
               <div className="analytics-projection-column">
-                <div className="section-label" style={{ marginBottom: 12 }}>Growth Projections</div>
+                <div className="section-label" style={{ marginBottom: 20, color: 'var(--accent-primary)', fontSize: '0.75rem' }}>Growth Projections</div>
                 <div className="projection-card ds-glass">
                    <h3>Contract Valuation</h3>
                    <div className="valuation-val">₩{marketValue.toLocaleString()}</div>
@@ -1302,27 +1335,29 @@ export function DashboardPage() {
           </div>
           
           <style>{`
-            .analytics-deep-dive { display: flex; flex-direction: column; gap: 24px; padding: 10px; }
-            .analytics-grid-detailed { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
-            .radar-container-detailed { padding: 20px; border-radius: 12px; display: flex; justify-content: center; background: rgba(0,0,0,0.2); }
-            .analytics-factor-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
-            .factor-item { display: flex; justify-content: space-between; font-size: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
-            .factor-item span { opacity: 0.6; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-            .factor-item strong { color: var(--accent-primary); font-weight: 900; }
+            .analytics-deep-dive { display: flex; flex-direction: column; gap: 16px; padding: 0 10px; height: 100%; justify-content: center; }
+            .analytics-grid-detailed { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+            .analytics-factor-column { padding: 20px 24px; border-radius: 16px; background: rgba(5,5,12,0.6); border: 1px solid rgba(168,168,255,0.1); }
+            .radar-container-detailed { padding: 0; display: flex; justify-content: center; margin-bottom: 20px; }
+            .analytics-factor-list { display: flex; flex-direction: column; gap: 8px; }
+            .factor-item { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.02); }
+            .factor-item span { opacity: 0.6; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+            .factor-item strong { color: var(--accent-primary); font-size: 1.1rem; font-weight: 900; text-shadow: 0 0 10px rgba(168,168,255,0.3); }
             
-            .projection-card { padding: 24px; border-radius: 12px; text-align: center; background: linear-gradient(135deg, rgba(168,168,255,0.05) 0%, transparent 100%); }
-            .projection-card h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5; margin-bottom: 12px; }
-            .valuation-val { font-size: 2.4rem; font-weight: 950; color: #fff; margin-bottom: 8px; letter-spacing: -1px; }
-            .valuation-hint { font-size: 0.65rem; opacity: 0.4; line-height: 1.4; }
+            .analytics-projection-column { display: flex; flex-direction: column; gap: 16px; }
+            .projection-card { padding: 24px; border-radius: 16px; text-align: center; background: linear-gradient(135deg, rgba(168,168,255,0.08) 0%, rgba(0,0,0,0.4) 100%); border: 1px solid rgba(168,168,255,0.15); box-shadow: inset 0 0 30px rgba(168,168,255,0.05); flex: 1; display: flex; flex-direction: column; justify-content: center; }
+            .projection-card h3 { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: var(--accent-primary); margin-bottom: 12px; }
+            .valuation-val { font-size: 2.8rem; font-weight: 900; color: #fff; margin-bottom: 12px; letter-spacing: -2px; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+            .valuation-hint { font-size: 0.7rem; opacity: 0.5; line-height: 1.5; max-width: 280px; margin: 0 auto; }
             
-            .milestone-tracker { margin-top: 24px; }
-            .milestone-progress-bar { height: 6px; background: rgba(255,255,255,0.05); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
-            .milestone-fill { height: 100%; background: var(--accent-primary); box-shadow: 0 0 10px var(--accent-glow); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
-            .milestone-meta { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 700; opacity: 0.5; }
+            .milestone-tracker { padding: 20px 24px; border-radius: 16px; background: rgba(5,5,12,0.6); border: 1px solid rgba(255,255,255,0.05); }
+            .milestone-progress-bar { height: 8px; background: rgba(0,0,0,0.5); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+            .milestone-fill { height: 100%; background: linear-gradient(90deg, var(--frost-blue), var(--accent-primary)); box-shadow: 0 0 15px var(--accent-glow); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+            .milestone-meta { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 800; color: rgba(255,255,255,0.6); }
             
-            .system-recommendation { padding: 20px; border-radius: 12px; border-left: 3px solid var(--accent-primary); background: rgba(168,168,255,0.02); }
-            .rec-header { display: flex; align-items: center; gap: 10px; font-size: 0.7rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 10px; opacity: 0.8; }
-            .system-recommendation p { font-size: 0.85rem; line-height: 1.6; opacity: 0.7; font-style: italic; }
+            .system-recommendation { padding: 16px 24px; border-radius: 16px; border-left: 4px solid var(--accent-primary); background: linear-gradient(90deg, rgba(168,168,255,0.08) 0%, rgba(0,0,0,0.2) 100%); }
+            .rec-header { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; color: var(--accent-primary); }
+            .system-recommendation p { font-size: 0.85rem; line-height: 1.5; color: rgba(255,255,255,0.8); font-style: italic; margin: 0; }
             
             @media (max-width: 768px) {
               .analytics-grid-detailed { grid-template-columns: 1fr; }

@@ -58,6 +58,7 @@ const COMMANDMENTS: Commandment[] = [
     content: (
       <>
         <p>Every objective is a Quest. Once accepted, it must be conquered. Failure results in immediate Mana deduction.</p>
+        <p>The System now automatically sorts Gates by <strong style={{ color: "var(--accent-primary)" }}>Urgency</strong>. URGENT and High-Priority portals manifest at the top of your visual feed to prevent mission failure.</p>
         <ul className="lore-list">
           <li><strong>Active</strong> — Missions currently in the field.</li>
           <li><strong>Pending</strong> — Missions that have breached their window.</li>
@@ -125,7 +126,11 @@ const COMMANDMENTS: Commandment[] = [
     content: (
       <>
         <p>Your progress grants you access to the System's <strong>Arsenal</strong>. Discover legendary daggers, longswords, and ancient artifacts like the <em>Rulers' Authority</em>.</p>
-        <p>Each item has a rank (E to S). The more you complete, the more likely the System is to grant you a Gift.</p>
+        <p><strong>Mana Durability</strong>: Armaments are maintained by your mana resonance. Every 24 hours, weapons lose <strong>20% durability</strong>. If durability hits 0%, the item is reclaimed by the System, requiring you to manifest a new gift.</p>
+        <div className="lore-callout tip">
+          <ShieldAlert size={20} color="var(--accent-primary)" />
+          <span>Monitor the Durability Bar in your Arsenal. Reclaim your gear daily to maintain peak lethality.</span>
+        </div>
       </>
     )
   },
@@ -169,8 +174,8 @@ const COMMANDMENTS: Commandment[] = [
     content: (
       <>
         <p>You are no longer an independent agent. You are a commodity in the global Hunter Market.</p>
-        <p>Your <strong style={{ color: "var(--accent-primary)" }}>Market Value (BID)</strong> tracks your projected contract price in Won (₩). It increases dynamically based on your Level, total Mana, and active Streaks.</p>
-        <p>A higher bid attracts better shadows and prestige. Prove your value to the System.</p>
+        <p><strong>Rigid Valuation</strong>: Beginners start with <strong style={{ color: "var(--accent-primary)" }}>₩0.0M market value</strong>. Only by increasing your Rank and Level will the System assign you a professional contract value.</p>
+        <p>Your bid increases dynamically based on Rank (E-S), Level mastery, and your daily consistency streak. A higher bid attracts prestigious shadows.</p>
       </>
     )
   },
@@ -223,7 +228,7 @@ export function GuidePage() {
         <div className="temple-header">
            <div className="ancient-script">תמשחלאמרי</div>
            <h2 className="temple-title">RULES OF THE SYSTEM</h2>
-           <p className="temple-subtitle">Cartenon Temple • Hunter's Manual v4.2</p>
+           <p className="temple-subtitle">Cartenon Temple • Hunter's Manual v5.0</p>
         </div>
 
         <div className="tablet-layout">

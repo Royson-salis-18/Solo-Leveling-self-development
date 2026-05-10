@@ -54,23 +54,43 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     avatar_url     TEXT,
     bio            TEXT DEFAULT '',
     level          INTEGER DEFAULT 1,
+    -- XP (Experience Points): grows with completions, decays with inactivity.
+    -- Display everywhere as "{n} XP". Used for level/rank calc. Can go negative (floor -5000).
     total_points   INTEGER DEFAULT 0,
     player_class   TEXT DEFAULT 'Warrior',
     player_rank    TEXT DEFAULT 'E',
     player_title   TEXT DEFAULT 'Newcomer',
-    status         TEXT DEFAULT 'ACTIVE',
+    player_job     TEXT DEFAULT '',
+    monarch_allegiance TEXT DEFAULT 'Ashborn',
+    status         TEXT DEFAULT 'ACTIVE', -- ACTIVE | STAGNANT | PENALTY | DECEASED
     last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     guild_id       UUID REFERENCES guilds(id) ON DELETE SET NULL,
+    guild_title    TEXT DEFAULT '',
+    guild_aura_card TEXT DEFAULT '',
+    guild_logo     TEXT DEFAULT '',
     clan_id        UUID REFERENCES clans(id) ON DELETE SET NULL,
     is_boosted     BOOLEAN DEFAULT FALSE,
     age            INTEGER DEFAULT 18,
     weapon_of_choice TEXT DEFAULT 'Starter Blade',
     gear_style     TEXT DEFAULT 'Hybrid',
-    stat_strength  INTEGER DEFAULT 10,
-    stat_agility   INTEGER DEFAULT 10,
-    stat_intelligence INTEGER DEFAULT 10,
-    stat_vitality  INTEGER DEFAULT 10,
-    stat_sense     INTEGER DEFAULT 10,
+    -- Hunter Life Domains (proficiency radar graph).
+    -- Each domain is incremented by completing tasks in corresponding categories.
+    domain_physical INTEGER DEFAULT 10,
+    domain_mind     INTEGER DEFAULT 14,
+    domain_soul     INTEGER DEFAULT 10,
+    domain_execution INTEGER DEFAULT 12,
+    domain_builder  INTEGER DEFAULT 13,
+    ego_score      INTEGER DEFAULT 0,  -- Confident task streak multiplier
+    playmaker_rating FLOAT DEFAULT 0,  -- Composite performance score
+    streak_count   INTEGER DEFAULT 0,
+    last_active_date DATE,
+    -- Dark Mana (Corruption Debt): SEPARATE from XP, always >= 0.
+    dark_mana      INTEGER DEFAULT 0,
+    dark_mana_started_at TIMESTAMP WITH TIME ZONE,
+    current_mode   TEXT DEFAULT 'Normal',
+    season_end_date TIMESTAMP WITH TIME ZONE,
+    last_mode_switch TIMESTAMP WITH TIME ZONE,
+    reawakened_at  TIMESTAMP WITH TIME ZONE,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -83,11 +103,18 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS is_boosted       BOOLEAN DEFA
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS age              INTEGER DEFAULT 18;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS weapon_of_choice TEXT DEFAULT 'Starter Blade';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS gear_style       TEXT DEFAULT 'Hybrid';
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_strength    INTEGER DEFAULT 10;
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_agility     INTEGER DEFAULT 10;
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_intelligence INTEGER DEFAULT 10;
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_vitality    INTEGER DEFAULT 10;
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS stat_sense       INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS domain_physical  INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS domain_mind      INTEGER DEFAULT 14;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS domain_soul      INTEGER DEFAULT 10;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS domain_execution INTEGER DEFAULT 12;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS domain_builder   INTEGER DEFAULT 13;
+
+-- Drop Legacy Stat Columns
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS stat_strength;
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS stat_agility;
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS stat_intelligence;
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS stat_vitality;
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS stat_sense;
 
 -- ==========================================
 -- SYSTEM REAPER (Inactivity Monitor)
@@ -118,20 +145,37 @@ CREATE TABLE IF NOT EXISTS tasks (
     title          TEXT NOT NULL,
     description    TEXT DEFAULT '',
     category       TEXT DEFAULT 'General',
+    -- XP reward for completing this gate
     points         INTEGER DEFAULT 10,
     is_completed   BOOLEAN DEFAULT FALSE,
     is_pending     BOOLEAN DEFAULT FALSE,
     is_failed      BOOLEAN DEFAULT FALSE,
     is_active      BOOLEAN DEFAULT FALSE,
     is_recurring   BOOLEAN DEFAULT FALSE,
+    is_gauntlet    BOOLEAN DEFAULT FALSE,
+    is_weekly_trial BOOLEAN DEFAULT FALSE,
+    -- TRUE for tasks auto-created by the System (triggerSystemGates, manifestWeeklyTrial).
+    -- Used to prevent duplicate notifications and filter in certain UI views.
+    is_system_generated BOOLEAN DEFAULT FALSE,
     priority       TEXT DEFAULT 'Normal',
+    -- XP tier: Low(E) Mid(D) High(B) Super(A) Legendary(S)
+    xp_tier        TEXT DEFAULT 'Low',
     area           TEXT,
     deadline       DATE,
     time           TEXT,
+    started_at     TIMESTAMP WITH TIME ZONE,
     completed_at   TIMESTAMP WITH TIME ZONE,
+    is_paused      BOOLEAN DEFAULT FALSE,
+    paused_at      TIMESTAMP WITH TIME ZONE,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     parent_id      UUID REFERENCES tasks(id) ON DELETE CASCADE,
-    assigned_to    UUID REFERENCES auth.users(id) ON DELETE SET NULL
+    assigned_to    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    recurrence_type TEXT DEFAULT 'none',
+    recurrence_interval INTEGER DEFAULT 1,
+    recurrence_days TEXT,
+    recurrence_day_of_month INTEGER DEFAULT 1,
+    recurrence_custom_label TEXT,
+    gate_type      TEXT DEFAULT 'Gate'
 );
 
 -- Add any missing columns to existing tasks table

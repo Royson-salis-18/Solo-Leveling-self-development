@@ -54,44 +54,79 @@ export function CollectionPage() {
   }, [user]);
 
   const fetchCollection = async () => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     setLoading(true);
-    const [sRes, iRes] = await Promise.all([
-      supabase.from("shadows").select("*").eq("user_id", user?.id),
-      supabase.from("inventory").select("*").eq("user_id", user?.id)
-    ]);
     
-    const mergedShadows = SHADOW_CATALOG.map(cat => {
-      const found = sRes.data?.find(s => s.name === cat.name);
-      return found ? { ...found, collected: true } : { ...cat, collected: false };
-    });
-    setShadows(mergedShadows);
+    try {
+      const [sRes, iRes] = await Promise.all([
+        supabase.from("shadows").select("*").eq("user_id", user.id),
+        supabase.from("inventory").select("*").eq("user_id", user.id)
+      ]);
+      
+      const mergedShadows = SHADOW_CATALOG.map(cat => {
+        const found = sRes.data?.find(s => s.name === cat.name);
+        return found ? { ...found, collected: true } : { ...cat, collected: false };
+      });
+      setShadows(mergedShadows);
 
-    const mergedItems = ITEM_CATALOG.map(cat => {
-      const found = iRes.data?.find(i => i.name === cat.name);
-      return found ? { ...found, collected: true } : { ...cat, collected: false };
-    });
-    setItems(mergedItems);
-    
-    setLoading(false);
+      // Weapon Degradation Logic: 20% decay per 24h
+      const now = Date.now();
+      const dayMs = 24 * 60 * 60 * 1000;
+
+      const processedItems = (iRes.data || []).map(item => {
+        const metadata = item.metadata || {};
+        const acquiredAt = new Date(item.acquired_at || item.created_at).getTime();
+        const ageInDays = (now - acquiredAt) / dayMs;
+        
+        // Weapons degrade, others are stable for now
+        let durability = metadata.durability ?? 100;
+        if (item.item_category === "Weapon") {
+           durability = Math.max(0, 100 - Math.floor(ageInDays * 20));
+        }
+
+        return { ...item, durability };
+      });
+
+      // Filter out broken items (durability 0) - they "no longer belong to the user"
+      const activeItems = processedItems.filter(i => i.durability > 0);
+
+      const mergedItems = ITEM_CATALOG.map(cat => {
+        const found = activeItems.find(i => i.name === cat.name);
+        if (found) {
+          return { ...cat, ...found, collected: true };
+        }
+        return { ...cat, collected: false, durability: 0 };
+      });
+
+      setItems(mergedItems);
+    } catch (err) {
+      console.error("System Sync Error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sweepExpiredGifts = async () => {
+    // This is now partially handled by the 'durability > 0' filter in fetchCollection,
+    // but we still want to clean up the DB eventually.
     if (!user || !supabase) return;
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     
-    // Find items marked as rental and created > 24h ago
-    const { data: expired } = await supabase
-      .from("inventory")
-      .select("id")
-      .eq("user_id", user.id)
-      .ilike("description", "%[SYSTEM_RENTAL]%")
-      .lt("created_at", yesterday);
+    const { data: allItems } = await supabase.from("inventory").select("id, item_category, acquired_at, metadata").eq("user_id", user.id);
+    if (!allItems) return;
 
-    if (expired && expired.length > 0) {
-      await supabase.from("inventory").delete().in("id", expired.map(e => e.id));
-      console.log(`System reclaimed ${expired.length} expired items.`);
-      fetchCollection();
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const toDelete = allItems.filter(item => {
+      if (item.item_category !== "Weapon") return false;
+      const acquiredAt = new Date(item.acquired_at).getTime();
+      const ageInDays = (now - acquiredAt) / dayMs;
+      const durability = Math.max(0, (item.metadata?.durability ?? 100) - Math.floor(ageInDays * 20));
+      return durability <= 0;
+    }).map(i => i.id);
+
+    if (toDelete.length > 0) {
+      await supabase.from("inventory").delete().in("id", toDelete);
+      console.log(`System reclaimed ${toDelete.length} broken armaments.`);
     }
   };
 
@@ -116,22 +151,29 @@ export function CollectionPage() {
       return;
     }
 
-    const weapons = ITEM_CATALOG.filter(i => i.rarity !== 'Legendary' && i.rarity !== 'S-Rank');
+    const weapons = ITEM_CATALOG.filter(i => i.item_category === 'Weapon' && i.rarity !== 'Legendary' && i.rarity !== 'S-Rank');
     const picked = weapons[Math.floor(Math.random() * weapons.length)];
     
-    await supabase.from("inventory").insert({
+    const { error } = await supabase.from("inventory").insert({
       user_id: user.id,
       name: picked.name,
       description: `${picked.description} [SYSTEM_RENTAL]`,
       item_type: picked.item_type,
       item_category: picked.item_category,
       rarity: picked.rarity,
-      quantity: 1
+      quantity: 1,
+      metadata: { durability: 100, is_rental: true }
     });
+
+    if (error) {
+      console.error("Manifestation Failed:", error);
+      setAlertInfo({ show: true, title: "System Error", message: "Failed to manifest gift. The mana flow is unstable. Please try again." });
+      return;
+    }
     
     localStorage.setItem("lastGiftDate", today);
-    fetchCollection();
-    setAlertInfo({ show: true, title: "Reward Acquired", message: `System Gift: You received [${picked.name}]!` });
+    await fetchCollection();
+    setAlertInfo({ show: true, title: "Reward Acquired", message: `System Gift: You received [${picked.name}]! It has been added to your Arsenal with 100% Mana Durability.` });
   };
 
   const filteredShadows = showAll ? shadows : shadows.filter(s => s.collected);
@@ -355,14 +397,26 @@ export function CollectionPage() {
                     glow={glowStr}
                     icon={<Icon size={24} />}
                     sub={isCollected ? (
-                      <>
-                        {item.description}
-                        {item.description.includes("[SYSTEM_RENTAL]") && (
-                          <div style={{ color: 'var(--destruction-red)', fontSize: '0.65rem', fontWeight: 900, marginTop: 4, letterSpacing: '1px' }}>
-                            ⚠ SYSTEM RENTAL: EXPIRES SOON
+                      <div className="item-details-v5">
+                        <p>{item.description}</p>
+                        {item.item_category === "Weapon" && (
+                          <div className="durability-box">
+                             <div className="dur-label">
+                               MANA_DURABILITY
+                               <span>{item.durability || 0}%</span>
+                             </div>
+                             <div className="dur-bar-bg">
+                                <div className="dur-bar-fill" style={{ 
+                                  width: `${item.durability || 0}%`,
+                                  background: (item.durability || 0) < 30 ? 'var(--destruction-red)' : 'var(--accent-primary)'
+                                }} />
+                             </div>
+                             <p style={{ fontSize: '0.6rem', opacity: 0.5, marginTop: 4 }}>
+                               { (item.durability || 0) <= 20 ? "⚠ SYSTEM RECLAMATION IMMINENT" : "Stable mana resonance detected." }
+                             </p>
                           </div>
                         )}
-                      </>
+                      </div>
                     ) : "Information encrypted by the System."}
                     label={item.item_category.toUpperCase()}
                   />
@@ -503,6 +557,33 @@ export function CollectionPage() {
           font-weight: 900;
           letter-spacing: 1px;
           text-transform: uppercase;
+        }
+
+        .durability-box {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .dur-label {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.6rem;
+          font-weight: 950;
+          letter-spacing: 1px;
+          color: rgba(255,255,255,0.4);
+          margin-bottom: 4px;
+        }
+        .dur-label span { color: #fff; }
+        .dur-bar-bg {
+          height: 4px;
+          background: rgba(0,0,0,0.5);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        .dur-bar-fill {
+          height: 100%;
+          transition: width 0.5s ease;
+          box-shadow: 0 0 10px currentColor;
         }
       `}</style>
     </section>

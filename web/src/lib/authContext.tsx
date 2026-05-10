@@ -25,6 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -368,6 +369,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     updateProfile,
+    refreshProfile: () => user ? fetchProfile(user.id) : Promise.resolve(),
     clearError,
   };
 

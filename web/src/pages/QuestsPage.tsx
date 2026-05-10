@@ -8,8 +8,7 @@ import { Calendar }       from "../components/Calendar";
 import { Plus, Download, CalendarDays, Users, Skull, RotateCcw } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
-import { syncProgression, showProgressionToast, applyXpBoost, calculateEffectiveXp, getRandomPunishment, CATEGORY_STAT_MAP } from "../lib/levelEngine";
-import { SHADOW_CATALOG } from "../lib/catalog";
+import { syncProgression, getRandomPunishment } from "../lib/levelEngine";
 import { calculateNextDeadline, findNextValidDeadline } from "../lib/taskUtils";
 import { SystemAPI, type GatePayload } from "../services/SystemAPI";
 
@@ -26,7 +25,7 @@ const EMPTY_FORM = {
 };
 
 export function QuestsPage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [tasks,        setTasks]        = useState<DBTask[]>([]);
   const [assignedTasks,setAssignedTasks]= useState<DBTask[]>([]);  // tasks assigned TO me by a leader
   const [loading,      setLoading]      = useState(true);
@@ -175,7 +174,7 @@ export function QuestsPage() {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
+    let list = tasks.filter(t => {
       let matchStatus = false;
       if (activeTab === "completed") matchStatus = !!(t.is_completed || t.is_failed);
       else if (activeTab === "pending") matchStatus = !t.is_completed && !t.is_failed && !!t.is_pending;
@@ -184,6 +183,36 @@ export function QuestsPage() {
       const matchDate = !selectedDate || t.deadline === selectedDate;
       return matchStatus && matchDate;
     });
+
+    if (activeTab === "completed") {
+      list = [...list].sort((a, b) => {
+        const da = new Date(a.completed_at || 0).getTime();
+        const db = new Date(b.completed_at || 0).getTime();
+        return db - da; // most recent first
+      });
+    } else if (activeTab === "active") {
+      // PRIORITY WEIGHTS
+      const P_MAP: Record<string, number> = { URGENT: 100, High: 50, Normal: 10, Low: 0 };
+      
+      list = [...list].sort((a, b) => {
+        // 1. Sort by Priority
+        const pa = P_MAP[a.priority] || 0;
+        const pb = P_MAP[b.priority] || 0;
+        if (pb !== pa) return pb - pa;
+
+        // 2. Sort by Deadline Date
+        const da = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+        const db = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+        if (da !== db) return da - db;
+
+        // 3. Sort by Start Time
+        const ta = a.start_time || "23:59:59";
+        const tb = b.start_time || "23:59:59";
+        return ta.localeCompare(tb);
+      });
+    }
+
+    return list;
   }, [tasks, activeTab, selectedDate]);
 
   /* ─── handlers ─── */
@@ -265,88 +294,34 @@ export function QuestsPage() {
 
   const handleComplete = async (id: string, isDone: boolean) => {
     if (!supabase || !user) return;
-    const completed_at = !isDone ? new Date().toISOString() : null;
-    await supabase.from("tasks").update({ is_completed: !isDone, is_failed: false, completed_at }).eq("id", id);
+    
+    // Find the task in local state to pass to SystemAPI
+    const task = findTaskById(tasks, id) || findTaskById(assignedTasks, id);
+    if (!task) return;
 
-    if (!isDone) {
-      // Search full tree recursively so nested subtasks are found at any depth
-      const task = findTaskById(tasks, id) || findTaskById(assignedTasks, id);
-      if (task) {
-        const basePts = task.points;
-        // Normalize XP for learning tasks and apply category weights
-        const normalizedPts = calculateEffectiveXp(basePts, task.category, totalXp);
+    try {
+      if (!isDone) {
+        // Conquering the gate
+        const result = await SystemAPI.completeGate(user.id, task, totalXp, userStatus);
         
-        // Apply XP_BOOST if available (2x multiplier)
-        const pts = await applyXpBoost(supabase, user.id, normalizedPts);
-
-        // Credit XP to the completing user (me)
-        const { data: prof } = await supabase.from("user_profiles").select("total_points, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense").eq("user_id", user.id).single();
+        if (result.extractedShadow) {
+          alert(`✨ ARISE! You have extracted a [${result.extractedShadow.rarity}] grade shadow: ${result.extractedShadow.name}!`);
+        }
         
-        // --- Stat Progression ---
-        const statColumn = CATEGORY_STAT_MAP[task.category];
-        const updatePayload: any = { total_points: (prof?.total_points ?? 0) + pts };
-        if (statColumn && prof) {
-          updatePayload[statColumn] = (prof as any)[statColumn] + 1; // +1 to the mapped stat
-        }
-        await supabase.from("user_profiles").update(updatePayload).eq("user_id", user.id);
-
-        const today = new Date().toISOString().split("T")[0];
-        const { data: log } = await supabase.from("user_points").select("daily_points").eq("user_id", user.id).eq("date", today).maybeSingle();
-        if (log) {
-          await supabase.from("user_points").update({ daily_points: log.daily_points + pts }).eq("user_id", user.id).eq("date", today);
-        } else {
-          await supabase.from("user_points").insert({ user_id: user.id, date: today, daily_points: pts });
-        }
-
-        // Auto-sync level / rank / title after XP gain
-        const progression = await syncProgression(supabase, user.id);
-        showProgressionToast(progression);
-
-        // --- NEW: Randomized Shadow Extraction (Arise!) ---
-        const tier = task.xp_tier || "Low";
-        const chances: Record<string, number> = { Legendary: 1.0, Super: 0.4, High: 0.15, Mid: 0.05, Low: 0.02 };
-        const roll = Math.random();
-
-        if (roll <= chances[tier]) {
-          const pool = SHADOW_CATALOG.filter(s => {
-            if (tier === "Legendary") return s.rarity === "Legendary" || s.rarity === "Mythic";
-            if (tier === "Super") return s.rarity === "Epic";
-            if (tier === "High") return s.rarity === "Rare";
-            return s.rarity === "Common";
-          });
-          const shadow = pool[Math.floor(Math.random() * pool.length)];
-          
-          const { error } = await supabase.from("shadows").insert({
-            user_id: user.id,
-            name: shadow.name,
-            rarity: shadow.rarity,
-            bonus_type: "xp_boost",
-            bonus_value: (shadow as any).bonus || (shadow.rarity === "Legendary" ? 0.1 : 0.05)
-          });
-
-          if (!error) {
-            alert(`✨ ARISE! You have extracted a [${shadow.rarity}] grade shadow: ${shadow.name}! Check your army on the Dashboard.`);
-          } else {
-            console.error("Shadow extraction error:", error);
-          }
-        } else if (tier === "Super" || tier === "Legendary") {
-          alert("⚠️ Shadow Extraction Failed: The shadow has dissipated into the void...");
-        }
-
-        // --- Recurring Logic (Clever Alternative: Update Existing Row) ---
         if (task.is_recurring) {
-          const nextDeadline = calculateNextDeadline(task);
-
-          await supabase.from("tasks").update({ 
-            is_completed: false, 
-            is_active: false,
-            completed_at: null,
-            deadline: nextDeadline
-          }).eq("id", id);
+          alert(`🔄 RECURRING GATE RESET: This gate has been rescheduled for its next cycle.`);
         }
+      } else {
+        // Reactivating a completed gate
+        await SystemAPI.reactivateGate(id);
       }
+      
+      await refreshProfile();
+      fetchQuests();
+    } catch (err: any) {
+      console.error("Error completing gate:", err);
+      alert(`⚠️ SYSTEM ERROR: ${err.message || "Failed to update gate status."}`);
     }
-    fetchQuests();
   };
 
   /** User explicitly marks a task as FAILED → deduct XP penalty */

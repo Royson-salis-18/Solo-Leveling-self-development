@@ -67,6 +67,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     if (!supabase) return;
 
+    // Notifications that should appear in the bell but NOT pop up as a toast.
+    // System-gate-spawned events are informational — showing them as toasts on
+    // every page load is what was "bombarding" the user.
+    const SILENT_TOAST_TITLES = new Set([
+      "WEEKLY TRIAL",
+      "SYSTEM GATE",
+      "PENALTY ZONE",
+      "SURVIVAL TEST",
+      "EGO STABILIZATION",
+    ]);
+
+    const shouldToast = (title: string) => {
+      const upper = title.toUpperCase();
+      return !Array.from(SILENT_TOAST_TITLES).some(s => upper.includes(s));
+    };
+
     // Realtime subscription
     const channel = supabase
       .channel(`notifications-${user.id}`)
@@ -78,7 +94,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }, (payload) => {
         const newNotif = payload.new as Notification;
         setNotifications(prev => [newNotif, ...prev]);
-        triggerToast(newNotif);
+        // Only show toast for meaningful player events (LEVEL UP, RANK UP, DMs, etc.)
+        if (shouldToast(newNotif.title)) {
+          triggerToast(newNotif);
+        }
       })
       .subscribe();
 

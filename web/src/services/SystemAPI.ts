@@ -35,6 +35,12 @@ export type DashboardData = {
   ego_score?: number;
   season_end_date?: string;
   playmaker_rating?: number;
+  // ── Hunter Stat Proficiency (for Radar) ──
+  domain_physical: number;
+  domain_mind: number;
+  domain_soul: number;
+  domain_execution: number;
+  domain_builder: number;
 };
 
 export type GatePayload = {
@@ -138,8 +144,8 @@ export const SystemAPI = {
       completedCount: cc || 0,
       failedCount: fc || 0,
       pendingCount: pc || 0,
-      totalXp: uData?.total_points ?? totalPointsFromTasks,
-      total_points: uData?.total_points ?? totalPointsFromTasks,
+      totalXp: uData?.total_points ?? 0,
+      total_points: uData?.total_points ?? 0,
       level: uData?.level || 1,
       streak_count: uData?.streak_count || 0,
       player_rank: uData?.player_rank || "E",
@@ -160,6 +166,12 @@ export const SystemAPI = {
       ego_score: uData?.ego_score || 0,
       season_end_date: uData?.season_end_date,
       playmaker_rating: uData?.playmaker_rating || 0,
+      // ── Hunter Stat Proficiency (real skill from DB) ──
+      domain_physical:   uData?.domain_physical   || 10,
+      domain_mind:       uData?.domain_mind       || 10,
+      domain_soul:       uData?.domain_soul       || 10,
+      domain_execution:  uData?.domain_execution  || 10,
+      domain_builder:    uData?.domain_builder    || 10,
     };
   },
 
@@ -184,18 +196,24 @@ export const SystemAPI = {
     const { data: prof } = await s.from("user_profiles").select("*").eq("user_id", userId).single();
     if (!prof) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Helper to check if gate already exists today
-    const checkExists = async (title: string) => {
-      const { data } = await s.from("tasks").select("id").eq("user_id", userId).eq("title", title).gte("created_at", today);
+    // ── ROBUST DEDUP: check for any ACTIVE (non-completed, non-failed) instance ──
+    // Old bug: `.gte("created_at", today)` only checked if it was created TODAY.
+    // If you didn't complete it yesterday, it would spawn again today.
+    const hasActiveGate = async (title: string) => {
+      const { data } = await s.from("tasks")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("title", title)
+        .eq("is_completed", false)
+        .eq("is_failed", false);
       return (data || []).length > 0;
     };
 
     // 1. Clause: Penalty Zone (Dark Mana + Penalty Status)
+    // Only spawn ONE at a time. If one is active, the System is already watching.
     if (prof.dark_mana > 0 && prof.status === 'PENALTY') {
       const title = "🚨 PENALTY: Penalty Zone: Physical Trial";
-      if (!await checkExists(title)) {
+      if (!await hasActiveGate(title)) {
         await s.from("tasks").insert({
           user_id: userId,
           title,
@@ -203,16 +221,25 @@ export const SystemAPI = {
           points: 25,
           xp_tier: "High",
           priority: "URGENT",
-          description: "SYSTEM: Clear your mana debt through physical discipline. 100 Pushups, 100 Situps, 100 Squats, 10km Run.",
+          is_system_generated: true,
+          description: "SYSTEM: Clear your Dark Mana debt through physical discipline. 100 Pushups, 100 Situps, 100 Squats, 10km Run.",
           deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         });
       }
     }
 
     // 2. Clause: Survival Test (7-Day Streak Milestone)
+    // Only spawn if NO trial (active OR completed) exists from the last 7 days.
     if (prof.streak_count > 0 && prof.streak_count % 7 === 0) {
-      const title = `🛡️ Weekly Trial: [SYSTEM_SURVIVAL_TEST] - Day ${prof.streak_count}`;
-      if (!await checkExists(title)) {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentTrials } = await s.from("tasks")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("is_weekly_trial", true)
+        .gte("created_at", sevenDaysAgo);
+        
+      if ((recentTrials || []).length === 0) {
+        const title = `🛡️ Weekly Trial: [SYSTEM_SURVIVAL_TEST] - Day ${prof.streak_count}`;
         await s.from("tasks").insert({
           user_id: userId,
           title,
@@ -220,9 +247,10 @@ export const SystemAPI = {
           points: 50,
           xp_tier: "Legendary",
           priority: "High",
-          description: "SYSTEM: You have survived for a week. Prove your worth in this survival gauntlet.",
+          is_system_generated: true,
+          is_weekly_trial: true,
           is_gauntlet: true,
-          is_weekly_trial: true
+          description: "SYSTEM: You have survived for a week. Prove your worth in this survival gauntlet.",
         });
       }
     }
@@ -230,7 +258,7 @@ export const SystemAPI = {
     // 3. Clause: Ego Stabilization (S-Rank + Stagnant Status)
     if (prof.player_rank === 'S' && prof.status === 'STAGNANT') {
       const title = "🌀 Monarch's Trial: [EGO_STABILIZATION]";
-      if (!await checkExists(title)) {
+      if (!await hasActiveGate(title)) {
         await s.from("tasks").insert({
           user_id: userId,
           title,
@@ -238,10 +266,160 @@ export const SystemAPI = {
           points: 40,
           xp_tier: "Super",
           priority: "High",
-          description: "SYSTEM: Your S-Rank ego is destabilizing. Realign your focus through deep work or meditation."
+          is_system_generated: true,
+        description: "SYSTEM: Your S-Rank ego is destabilizing. Realign your focus through deep work or meditation."
         });
       }
     }
+  },
+
+  /* ─── FLOW SYSTEM: Cleanup Duplicate Gates ──── */
+  // Call this ONCE to clean up the existing mess.
+  // Keeps the OLDEST active instance of each system gate title, deletes the rest.
+
+  cleanupDuplicateSystemGates: async (userId: string) => {
+    const s = db();
+    
+    // Get all active (non-completed, non-failed) system-generated gates
+    const { data: systemGates } = await s.from("tasks")
+      .select("id, title, created_at")
+      .eq("user_id", userId)
+      .eq("is_completed", false)
+      .eq("is_failed", false)
+      .eq("is_system_generated", true)
+      .order("created_at", { ascending: true }); // oldest first
+
+    if (!systemGates || systemGates.length === 0) return { removed: 0 };
+
+    // Group by title → keep first (oldest), delete the rest
+    const seen = new Map<string, string>(); // title → id to keep
+    const toDelete: string[] = [];
+
+    for (const gate of systemGates) {
+      if (seen.has(gate.title)) {
+        toDelete.push(gate.id); // duplicate — mark for deletion
+      } else {
+        seen.set(gate.title, gate.id); // first seen — keep it
+      }
+    }
+
+    // Also remove weekly trials that are duplicates (match by is_weekly_trial)
+    const { data: weeklyGates } = await s.from("tasks")
+      .select("id, created_at")
+      .eq("user_id", userId)
+      .eq("is_completed", false)
+      .eq("is_failed", false)
+      .eq("is_weekly_trial", true)
+      .order("created_at", { ascending: true });
+
+    if (weeklyGates && weeklyGates.length > 1) {
+      // Keep oldest weekly trial, delete the rest
+      weeklyGates.slice(1).forEach(g => {
+        if (!toDelete.includes(g.id)) toDelete.push(g.id);
+      });
+    }
+
+    if (toDelete.length > 0) {
+      await s.from("tasks").delete().in("id", toDelete);
+    }
+
+    return { removed: toDelete.length };
+  },
+
+  /* ─── FLOW SYSTEM: Category Nudge (Psychology) ─ */
+  // Sends a soft notification if any stat hasn't been trained in 7+ days.
+  // NEVER creates forced gates. Uses the Habit Loop: Cue → Routine → Reward.
+
+  checkCategoryNudges: async (userId: string) => {
+    const s = db();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const STAT_CATEGORIES: Array<{ stat: string; categories: string[]; emoji: string }> = [
+      { stat: "Strength",     categories: ["Fitness"],             emoji: "💪" },
+      { stat: "Intelligence", categories: ["Learning", "Work", "Academics"], emoji: "🧠" },
+      { stat: "Vitality",     categories: ["Wellness", "Health"],  emoji: "❤️" },
+      { stat: "Agility",      categories: ["Errands", "General"],  emoji: "⚡" },
+      { stat: "Sense",        categories: ["Mindfulness", "Social"], emoji: "🌊" },
+    ];
+
+    const nudgesSent: string[] = [];
+
+    for (const { stat, categories, emoji } of STAT_CATEGORIES) {
+      // Check if any task in these categories was completed in the last 7 days
+      const { data: recentTasks } = await s.from("tasks")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("is_completed", true)
+        .in("category", categories)
+        .gte("completed_at", sevenDaysAgo)
+        .limit(1);
+
+      if (!recentTasks || recentTasks.length === 0) {
+        // Check if we already sent this nudge recently (avoid spamming)
+        const { data: recentNudge } = await s.from("notifications")
+          .select("id")
+          .eq("user_id", userId)
+          .ilike("title", `%${stat}%`)
+          .gte("created_at", sevenDaysAgo)
+          .limit(1);
+
+        if (!recentNudge || recentNudge.length === 0) {
+          await s.from("notifications").insert({
+            user_id: userId,
+            title: `${emoji} ${stat.toUpperCase()} FADING`,
+            message: `Your ${stat} stat hasn't been trained in 7+ days. The System recommends a ${categories[0]} task today. Even 20 minutes will maintain your growth.`,
+            type: "system",
+            is_read: false,
+          });
+          nudgesSent.push(stat);
+        }
+      }
+    }
+
+    return { nudgesSent };
+  },
+
+  /* ─── FLOW SYSTEM: Resonance Burst (Variable Reward) ─ */
+  // After completing tasks, rolls for a bonus XP burst.
+  // Variable reward schedule (Skinner) creates the same engagement loop as games.
+  // Call this from completeGate after the base XP is awarded.
+
+  awardResonanceBurst: async (userId: string, consecutiveCompletions: number, baseXp: number) => {
+    const s = db();
+    const { data: prof } = await s.from("user_profiles")
+      .select("current_mode, total_points")
+      .eq("user_id", userId).single();
+
+    const mode = (prof?.current_mode as ModeType) || "Normal";
+    const config = MODE_CONFIGS[mode];
+
+    // Only roll if user has 3+ consecutive completions (momentum required)
+    if (consecutiveCompletions < 3) return null;
+
+    const roll = Math.random();
+    if (roll > config.resonanceBurstChance) return null;
+
+    // Burst scales with consecutive completions (more momentum → bigger burst)
+    const burstMultiplier = Math.min(2.0, 1.0 + (consecutiveCompletions - 3) * 0.15);
+    const burstXp = Math.round(baseXp * burstMultiplier * 0.5);
+
+    if (burstXp <= 0) return null;
+
+    // Award the burst
+    await s.from("user_profiles").update({
+      total_points: (prof?.total_points ?? 0) + burstXp
+    }).eq("user_id", userId);
+
+    // Notify the user (this IS a toast-worthy event)
+    await s.from("notifications").insert({
+      user_id: userId,
+      title: "⚡ RESONANCE BURST",
+      message: `${consecutiveCompletions}-gate momentum! Bonus +${burstXp} XP has been awarded by the System.`,
+      type: "achievement",
+      is_read: false,
+    });
+
+    return { burstXp, consecutiveCompletions };
   },
 
   /* ─── GATE: Recurring Sweep ────────────────── */
@@ -266,11 +444,23 @@ export const SystemAPI = {
   saveGate: async (payload: GatePayload, editingId: string | null) => {
     const s = db();
     
-    // V5: Max 20 simultaneous active gates
-    if (!editingId) {
-      const { count } = await s.from("tasks").select("*", { count: "exact", head: true }).eq("user_id", payload.user_id).eq("is_completed", false).eq("is_failed", false);
-      if ((count || 0) >= 20) {
-        throw new Error("⚠️ SYSTEM LIMIT: You cannot manage more than 20 active gates simultaneously. Clear your current missions first!");
+    // V5: Smart Daily Capacity (Max 20 active tasks PER DAY)
+    if (!editingId && payload.deadline) {
+      const targetDeadline = payload.deadline;
+      const deadlineDate = new Date(targetDeadline);
+      const isWeekend = deadlineDate.getDay() === 0 || deadlineDate.getDay() === 6; // 0=Sun, 6=Sat
+
+      const { count } = await s.from("tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", payload.user_id)
+        .eq("is_completed", false)
+        .eq("is_failed", false)
+        .eq("deadline", targetDeadline);
+
+      const dailyLimit = isWeekend ? 30 : 20; // Weekends have higher capacity for "Shadow Raids"
+
+      if ((count || 0) >= dailyLimit) {
+        throw new Error(`⚠️ TEMPORAL OVERLOAD: You already have ${count} active gates for ${targetDeadline}. ${!isWeekend ? "The System recommends shifting some tasks to the weekend ('Weekend tasks will wait') to prevent mana burnout." : "Even a Monarch must rest; this day is at maximum capacity."}`);
       }
     }
 
@@ -370,17 +560,16 @@ export const SystemAPI = {
 
   manifestWeeklyTrial: async (userId: string) => {
     const s = db();
-    const today = new Date();
-    const weekStart = new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
-    
-    // Check if trial already exists for this week
-    const { data: existing } = await s.from("tasks")
+
+    // ── ROBUST DEDUP: never spawn if ANY trial (active OR completed) exists from the last 7 days.
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: existingTrials } = await s.from("tasks")
       .select("id")
       .eq("user_id", userId)
       .eq("is_weekly_trial", true)
-      .gte("created_at", weekStart + "T00:00:00");
+      .gte("created_at", sevenDaysAgo);
 
-    if (existing && existing.length > 0) return;
+    if (existingTrials && existingTrials.length > 0) return; // Already exists or completed this week, don't stack
 
     // 1. Manifest the Core Trial Gate
     const { data: trial, error } = await s.from("tasks").insert({
@@ -388,10 +577,11 @@ export const SystemAPI = {
       assigned_to: userId,
       title: `Weekly Trial: [SYSTEM_SURVIVAL_TEST]`,
       category: "General",
-      points: 100, // Reduced from 500 for Hard Mode
+      points: 100,
       xp_tier: "Legendary",
       priority: "URGENT",
       is_weekly_trial: true,
+      is_system_generated: true,
       deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       description: "The System demands a proof of growth. You must manifest and conquer at least 3 Nested Objectives to unlock the Boss Chamber. Failure to provide proof of struggle will result in mana corruption."
     }).select("id").single();
@@ -416,7 +606,8 @@ export const SystemAPI = {
         points: p.points,
         xp_tier: "High",
         priority: "High",
-        is_active: false
+        is_active: false,
+        is_system_generated: true,
       }));
 
       await s.from("tasks").insert(subtasks);
@@ -526,7 +717,7 @@ export const SystemAPI = {
 
     // 2. Calculate & award XP
     const { data: prof } = await s.from("user_profiles")
-      .select("total_points, current_mode, ego_score, status, stat_strength, stat_agility, stat_intelligence, stat_vitality, stat_sense, dark_mana")
+      .select("total_points, current_mode, ego_score, status, domain_physical, domain_mind, domain_soul, domain_execution, domain_builder, dark_mana")
       .eq("user_id", userId).single();
 
     const modeName = (prof?.current_mode as ModeType) || "Normal";
@@ -613,10 +804,29 @@ export const SystemAPI = {
       }
     }
 
-    // 5. Recurring reset
+    // 5. Recurring reset (V5: Preservation Logic — Create a history record)
     if (task.is_recurring) {
+      // 5a. Create a static completion record for the history/leaderboard
+      await s.from("tasks").insert({
+        user_id: userId,
+        title: `${task.title} (Cycle Conquered)`,
+        category: task.category,
+        points: task.points,
+        xp_tier: task.xp_tier,
+        is_completed: true,
+        completed_at,
+        is_recurring: false,
+        is_system_generated: true, // Mark as system generated history
+      });
+
+      // 5b. Reset the original recurring task
       const nextDeadline = calculateNextDeadline(task);
-      await s.from("tasks").update({ is_completed: false, is_active: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
+      await s.from("tasks").update({ 
+        is_completed: false, 
+        is_active: false, 
+        completed_at: null, 
+        deadline: nextDeadline 
+      }).eq("id", task.id);
     }
 
     return { completed_at, extractedShadow, progression };
@@ -638,17 +848,15 @@ export const SystemAPI = {
     const { calculateCorruptionMultiplier } = await import("../lib/levelEngine");
     const corruptionMult = await calculateCorruptionMultiplier(s, userId);
 
-    // V5: Red Gate Penalty (A or S Rank failure = 50% of rank-level XP cost)
-    let penalty = task.points || 10;
-    if (task.xp_tier === "Super" || task.xp_tier === "Legendary") {
-      // 50% of total XP at rank level? The bible says "50% of the gate's XP" in Section 2.2 
-      // but "50% of total XP at rank level" in Section 2.4. 
-      // I'll go with 50% of total points as a high-stakes penalty.
-      penalty = Math.floor(prof?.total_points ? prof.total_points * 0.5 : task.points * 5);
-      alert("⚠️ RED GATE FAILURE: You have failed a high-stakes mission. The System has extracted 50% of your total power as recompense.");
-    }
-
-    const finalPenalty = Math.floor(penalty * corruptionMult);
+    // ── PSYCHOLOGICALLY HEALTHY PENALTY FORMULA ──────────────────
+    // Old: 50% of TOTAL XP for a Legendary failure → catastrophic, causes quit
+    // New: config.failXpPenaltyRate × task.points only
+    //   • Proportional to the gate, not your entire career
+    //   • Corruption multiplier can increase it if Dark Mana debt lingers
+    //   • Capped at 200 XP max so a single failure can't wipe weeks of progress
+    const baseGateXp = task.points || 10;
+    const rawPenalty = Math.floor(baseGateXp * (config.failXpPenaltyRate ?? 0.2) * corruptionMult);
+    const finalPenalty = Math.min(rawPenalty, 200); // Hard cap: never more than 200 XP lost per failure
 
     // 2. Mark as failed
     const { error } = await s.from("tasks").update({
@@ -656,14 +864,15 @@ export const SystemAPI = {
     }).eq("id", task.id);
     if (error) throw error;
 
-    // Dark Mana Accumulation
-    const newDM = (prof?.dark_mana || 0) + config.dmOnFail;
+    // Dark Mana Accumulation (capped at dmCap)
+    const currentDM = prof?.dark_mana || 0;
+    const newDM = Math.min(config.dmCap, currentDM + config.dmOnFail);
     const dmUpdate: any = { dark_mana: newDM };
-    if (!prof?.dark_mana || prof.dark_mana === 0) {
+    if (currentDM === 0 && newDM > 0) {
       dmUpdate.dark_mana_started_at = new Date().toISOString();
     }
 
-    // 3. Deduct XP
+    // 3. Deduct XP (proportional, not catastrophic)
     const newPoints = Math.max(-5000, (prof?.total_points ?? 0) - finalPenalty);
     await s.from("user_profiles").update({ ...dmUpdate, total_points: newPoints }).eq("user_id", userId);
 
@@ -679,13 +888,29 @@ export const SystemAPI = {
     // 5. Sync progression
     const progression = await syncProgression(s, userId);
 
-    // 6. Generate punishment quest
-    const punishment = getRandomPunishment();
-    await s.from("tasks").insert({
-      user_id: userId, title: `🚨 PENALTY: ${punishment.title}`, description: punishment.desc,
-      points: punishment.points, category: "PUNISHMENT", priority: "URGENT",
-      is_active: true, deadline: today, xp_tier: "High",
-    });
+    // 6. Punishment quest — only if user isn't already overwhelmed (< 10 active gates)
+    // Spawning punishment into an already full dashboard is what kills flow state
+    const { count: activeGateCount } = await s.from("tasks")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_completed", false)
+      .eq("is_failed", false);
+
+    if ((activeGateCount || 0) < 10) {
+      const punishment = getRandomPunishment();
+      await s.from("tasks").insert({
+        user_id: userId,
+        title: `🔥 REDEMPTION: ${punishment.title}`,
+        description: `${punishment.desc}\n\nThe System offers you a path back. Complete this to restore your momentum.`,
+        points: punishment.points,
+        category: "Punishment",
+        priority: "High", // Not URGENT — it's a path forward, not a panic alarm
+        is_active: false,
+        is_system_generated: true,
+        deadline: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // 48h window, not 24h
+        xp_tier: "High",
+      });
+    }
 
     // 7. Recurring reset
     if (task.is_recurring) {
@@ -726,7 +951,7 @@ export const SystemAPI = {
     if (rankIdx < rule.minRankIdx) throw new Error(`⚠️ RANK LOCK: This tier requires ${rankOrder[rule.minRankIdx]}-Rank standing.`);
     if (rule.dmBlock && (prof.dark_mana || 0) > 0) throw new Error("⚠️ MANA CORRUPTION: Clear your Dark Mana debt to unlock high-tier rewards.");
     if (rule.trigger && !triggerGateId) throw new Error("⚠️ TRIGGER REQUIRED: This tier requires a recently conquered gate to activate.");
-    if (prof.total_points < reward.xp_cost) throw new Error("⚠️ INSUFFICIENT MANA: You do not have enough XP to manifest this reward.");
+    if (prof.total_points < reward.xp_cost) throw new Error("⚠️ INSUFFICIENT XP: You do not have enough Experience to manifest this reward.");
 
     // 1. Mark as claimed with claim window
     const claimed_at = new Date().toISOString();

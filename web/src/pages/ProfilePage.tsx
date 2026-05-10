@@ -5,10 +5,11 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
-import { Edit3, Shield, Swords, Zap, Brain, Activity, Fingerprint, RefreshCw, QrCode, Crosshair, Wind, Flame, Droplet, Skull, Sparkles, Star } from "lucide-react";
+import { Edit3, Shield, Swords, Zap, Brain, Activity, Fingerprint, RefreshCw, QrCode, Crosshair, Wind, Flame, Droplet, Skull, Sparkles, Star, Sword, Hammer } from "lucide-react";
 import { calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
 import { AuraCard } from "../components/AuraCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
+import { DomainRadar } from "../components/DomainRadar";
 import { PLAYER_CLASSES, PLAYER_JOBS, MONARCHS, SKILL_CATALOG, ITEM_CATALOG } from "../lib/catalog";
 
 const STREAM_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}()<>|/\\:;.,-_+=*#@$%";
@@ -41,11 +42,12 @@ type Profile = {
   weapon_of_choice?: string;
   gear_style?: string;
   created_at?: string;
-  stat_strength: number;
-  stat_agility: number;
-  stat_intelligence: number;
-  stat_vitality: number;
-  stat_sense: number;
+  domain_physical: number;
+  domain_mind: number;
+  domain_soul: number;
+  domain_execution: number;
+  domain_builder: number;
+  ego_score: number;
   guild_aura_card?: string;
   guild_title?: string;
   guild_logo?: string;
@@ -53,6 +55,7 @@ type Profile = {
   monarch_allegiance?: string;
   status?: string;
   dark_mana?: number;
+  avatar_url?: string;
 };
 
 
@@ -76,25 +79,13 @@ export function ProfilePage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
     name: "", bio: "", player_class: "Warrior", player_title: "Rookie",
-    age: 0, weapon_of_choice: "Starter Blade", gear_style: "Modern",
-    strength: 10, agility: 10, intelligence: 10, vitality: 10, sense: 10,
+    age: 0, weapon: "Starter Blade", style: "Hybrid",
     guild_aura_card: "shadow", guild_title: "", guild_logo: "",
-    player_job: "Berserker", monarch_allegiance: "None"
+    player_job: "Berserker", monarch_allegiance: "None",
+    avatar_url: ""
   });
-  const [hunterStats, setHunterStats] = useState([
-    { category: "Strength", value: 10, fullMark: 100 },
-    { category: "Agility", value: 10, fullMark: 100 },
-    { category: "Sense", value: 10, fullMark: 100 },
-    { category: "Intelligence", value: 10, fullMark: 100 },
-    { category: "Vitality", value: 10, fullMark: 100 },
-  ]);
-  const [areaStats, setAreaStats] = useState([
-    { category: "Work", value: 0, fullMark: 100 },
-    { category: "Fitness", value: 0, fullMark: 100 },
-    { category: "Learning", value: 0, fullMark: 100 },
-    { category: "Mind", value: 0, fullMark: 100 },
-    { category: "Social", value: 0, fullMark: 100 },
-  ]);
+  const [hunterStats, setHunterStats] = useState<{category: string; value: number; fullMark: number}[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [flipped, setFlipped] = useState(false);
@@ -118,11 +109,8 @@ export function ProfilePage() {
     
     if (profRes.data) {
       const prof = profRes.data;
-      const [taskRes, rankRes] = await Promise.all([
-        supabase.from("tasks").select("category").eq("assigned_to", user.id).eq("is_completed", true),
-        supabase.from("user_profiles").select("user_id", { count: "exact", head: true }).gt("total_points", prof.total_points || 0)
-      ]);
-      
+      const rankRes = await supabase.from("user_profiles").select("user_id", { count: "exact", head: true }).gt("total_points", prof.total_points || 0);
+
       // Local System Sweep: Check if this profile should be DECEASED (7 Days Inactivity)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const heartbeat = prof.last_heartbeat ? new Date(prof.last_heartbeat) : null;
@@ -138,51 +126,27 @@ export function ProfilePage() {
         name: prof.name, bio: prof.bio,
         player_class: prof.player_class, player_title: prof.player_title,
         age: prof.age || 18,
-        weapon_of_choice: prof.weapon_of_choice || "Starter Blade",
-        gear_style: prof.gear_style || "Modern",
-        strength: prof.stat_strength || 10,
-        agility: prof.stat_agility || 10,
-        intelligence: prof.stat_intelligence || 10,
-        vitality: prof.stat_vitality || 10,
-        sense: prof.stat_sense || 10,
+        weapon: prof.weapon_of_choice || "Starter Blade",
+        style: prof.gear_style || "Hybrid",
         guild_aura_card: prof.guild_aura_card || "shadow",
         guild_title: prof.guild_title || "",
         guild_logo: prof.guild_logo || "",
         player_job: prof.player_job || (PLAYER_JOBS[prof.player_class]?.[0] || ""),
-        monarch_allegiance: prof.monarch_allegiance || "None"
+        monarch_allegiance: prof.monarch_allegiance || "None",
+        avatar_url: prof.avatar_url || ""
       });
 
+      // Domain Mastery: Derived from physical stats and mental proficiency
       setHunterStats([
-        { category: "Strength", value: prof.stat_strength || 10, fullMark: 100 },
-        { category: "Agility", value: prof.stat_agility || 10, fullMark: 100 },
-        { category: "Sense", value: prof.stat_sense || 10, fullMark: 100 },
-        { category: "Intelligence", value: prof.stat_intelligence || 10, fullMark: 100 },
-        { category: "Vitality", value: prof.stat_vitality || 10, fullMark: 100 },
+        { category: "Physical",  value: prof.domain_physical || 10,  fullMark: 100 },
+        { category: "Mind",      value: prof.domain_mind     || 10,  fullMark: 100 },
+        { category: "Soul",      value: prof.domain_soul     || 10,  fullMark: 100 },
+        { category: "Execution", value: prof.domain_execution || 10, fullMark: 100 },
+        { category: "Builder",   value: prof.domain_builder   || 10, fullMark: 100 },
       ]);
 
-      const tasks = taskRes.data || [];
-      const counts: Record<string, number> = { Work: 0, Fitness: 0, Learning: 0, Mind: 0, Social: 0 };
-      tasks.forEach(t => {
-        if (counts[t.category] !== undefined) counts[t.category] += 1;
-        if (t.category === "Academics") counts.Learning += 1;
-        if (t.category === "Mindfulness") counts.Mind += 1;
-      });
 
-      const cls = prof.player_class?.toLowerCase() || "";
-      const weights = { Work: 1.0, Fitness: 1.0, Learning: 1.0, Mind: 1.0, Social: 1.0 };
-      if (cls.includes("warrior")) { weights.Fitness = 1.2; weights.Work = 1.1; }
-      if (cls.includes("mage")) { weights.Mind = 1.2; weights.Learning = 1.1; }
-      if (cls.includes("tank")) { weights.Fitness = 1.3; weights.Social = 1.1; }
-      if (cls.includes("assassin")) { weights.Fitness = 1.1; weights.Mind = 1.2; }
-      if (cls.includes("healer")) { weights.Social = 1.2; weights.Mind = 1.1; }
-
-      setAreaStats([
-        { category: "Work", value: Math.min(100, Math.floor((counts.Work * 5 + 10) * weights.Work)), fullMark: 100 },
-        { category: "Fitness", value: Math.min(100, Math.floor((counts.Fitness * 5 + 10) * weights.Fitness)), fullMark: 100 },
-        { category: "Learning", value: Math.min(100, Math.floor((counts.Learning * 5 + 10) * weights.Learning)), fullMark: 100 },
-        { category: "Mind", value: Math.min(100, Math.floor((counts.Mind * 5 + 10) * weights.Mind)), fullMark: 100 },
-        { category: "Social", value: Math.min(100, Math.floor((counts.Social * 5 + 10) * weights.Social)), fullMark: 100 },
-      ]);
+      // (areaStats removed — hunterStats from stat_* is the single source of truth)
 
       // Calculate Real Global Rank using count of users with more points
       setGlobalRank((rankRes.count ?? 0) + 1);
@@ -244,15 +208,12 @@ export function ProfilePage() {
         player_title: newTitle,
         player_rank: newRank,
         level: newLevel,
+        avatar_url: editData.avatar_url,
         age: editData.age,
-        weapon_of_choice: editData.weapon_of_choice,
-        gear_style: editData.gear_style,
-        stat_strength: editData.strength,
-        stat_agility: editData.agility,
-        stat_intelligence: editData.intelligence,
-        stat_vitality: editData.vitality,
-        stat_sense: (editData as any).sense || 10,
+        weapon_of_choice: editData.weapon,
+        gear_style: editData.style,
         guild_aura_card: editData.guild_aura_card,
+
         guild_title: editData.guild_title,
         guild_logo: editData.guild_logo,
         player_job: editData.player_job,
@@ -291,13 +252,7 @@ export function ProfilePage() {
   const initial = profile.name.charAt(0).toUpperCase();
   const nextRank = nextRankInfo(profile.player_rank);
 
-  const stats = [
-    { label: "Strength", icon: Swords, value: profile.stat_strength, color: "#ff6b6b" },
-    { label: "Agility", icon: Zap, value: profile.stat_agility, color: "var(--frost-blue)" },
-    { label: "Intelligence", icon: Brain, value: profile.stat_intelligence, color: "var(--monarch-purple)" },
-    { label: "Vitality", icon: Activity, value: profile.stat_vitality, color: "#34d399" },
-    { label: "Sense", icon: Crosshair, value: profile.stat_sense, color: "#ffd700" },
-  ];
+
 
   const WEAPONS = ITEM_CATALOG.filter(i => i.item_type === "WEAPON").map(i => ({
     name: i.name,
@@ -311,12 +266,12 @@ export function ProfilePage() {
   const weaponScore = weaponRankScore[String(currentWeapon.rank || "").toUpperCase()] ?? 55;
   const typeKey = String(currentWeapon.type || "shadow").toLowerCase();
   const affinityStat =
-    typeKey.includes("lightning") ? profile.stat_agility :
-    typeKey.includes("flame") || typeKey.includes("fire") ? profile.stat_strength :
-    typeKey.includes("smoke") ? profile.stat_sense :
-    profile.stat_intelligence;
+    typeKey.includes("lightning") ? profile.domain_execution :
+    typeKey.includes("flame") || typeKey.includes("fire") ? profile.domain_physical :
+    typeKey.includes("smoke") ? profile.domain_soul :
+    profile.domain_mind;
   const armDps = Math.round(weaponScore * 8 + profile.level * 2.5 + affinityStat * 0.8);
-  const armCrit = Math.min(75, Math.round(8 + profile.stat_agility * 0.35));
+  const armCrit = Math.min(75, Math.round(8 + profile.domain_execution * 0.35));
   const armSync = Math.min(100, Math.round(40 + affinityStat * 0.6));
 
   const userSkills = SKILL_CATALOG.filter(s => 
@@ -329,10 +284,16 @@ export function ProfilePage() {
     if (licenseScanning || licenseRevealed) return;
     setLicenseScanning(true);
     const start = performance.now();
-    const duration = 1050;
+    const duration = 1100;
 
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
+      
+      const el = licenseTiltRef.current;
+      if (el) {
+        el.style.setProperty("--scanPct", `${(p * 100).toFixed(2)}%`);
+      }
+
       if (p < 1) {
         requestAnimationFrame(tick);
       } else {
@@ -402,17 +363,13 @@ export function ProfilePage() {
               const dy = (e.clientY - rect.top) / rect.height - 0.5;
               
               // Direct DOM update for CSS variables (Buttery Smooth, No React Lag)
-              const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-              el.style.setProperty("--scanPct", `${percent}%`);
-              
-              if (!licenseRevealed && !flipped) {
-                if (percent > 99.5) {
-                  setLicenseRevealed(true);
-                  el.style.setProperty("--scanPct", "100%");
-                }
+              if (licenseRevealed) {
+                el.style.setProperty("--scanPct", "100%");
+              } else if (!licenseScanning) {
+                const px = (e.clientX - rect.left) / rect.width;
+                el.style.setProperty("--scanPct", `${(px * 100).toFixed(2)}%`);
               }
 
-              draggingRef.current = true;
               tiltTargetRef.current = { x: dy * -14, y: dx * 18 };
               if (tiltRafRef.current != null) return;
               tiltRafRef.current = window.requestAnimationFrame(() => {
@@ -438,7 +395,6 @@ export function ProfilePage() {
               el.style.setProperty("--tiltY", `0deg`);
             }}
             onClick={() => {
-              if (draggingRef.current) return;
               if (!flipped && !licenseRevealed) {
                 runLicenseScan();
                 return;
@@ -486,7 +442,7 @@ export function ProfilePage() {
                           <div className="pf-val" style={{ fontSize: "0.78rem", opacity: 0.75 }}>{profile.player_title}</div>
                         </div>
                         <div className="pf-field">
-                          <span className="pf-lbl">MANA</span>
+                          <span className="pf-lbl">XP</span>
                           <div className="pf-val" style={{ fontSize: "0.8rem" }}>{profile.total_points.toLocaleString()} XP</div>
                         </div>
                         <div className="pf-field">
@@ -535,11 +491,11 @@ export function ProfilePage() {
                     Sync Serial: SRN-{profile.user_id.slice(0, 10).toUpperCase()}
                   </p>
                   <div className="pf-back-stats">
-                    <div className="pf-bs"><span>STR</span>{profile.stat_strength}</div>
-                    <div className="pf-bs"><span>AGI</span>{profile.stat_agility}</div>
-                    <div className="pf-bs"><span>INT</span>{profile.stat_intelligence}</div>
-                    <div className="pf-bs"><span>VIT</span>{profile.stat_vitality}</div>
-                    <div className="pf-bs"><span>SNS</span>{profile.stat_sense}</div>
+                    <div className="pf-bs"><span>PHY</span>{profile.domain_physical}</div>
+                    <div className="pf-bs"><span>MND</span>{profile.domain_mind}</div>
+                    <div className="pf-bs"><span>SOL</span>{profile.domain_soul}</div>
+                    <div className="pf-bs"><span>EXE</span>{profile.domain_execution}</div>
+                    <div className="pf-bs"><span>BLD</span>{profile.domain_builder}</div>
                   </div>
                   <div className="pf-qr-row">
                     <QrCode size={44} strokeWidth={1.2} color="#fff" style={{ opacity: 0.35 }} />
@@ -590,62 +546,109 @@ export function ProfilePage() {
       {/* ── TIER 2: ANALYTICS ROW ── */}
       <div className="pf-tier2">
 
-        {/* COMBAT ATTRIBUTES */}
-        <div className="panel ds-glass pf-panel">
-          <h3 className="pf-panel-title"><Shield size={14} /> Combat Attributes</h3>
-          <div className="pf-stat-list">
-            {stats.map(s => (
-              <div key={s.label} className="pf-stat-row">
-                <div className="pf-stat-icon" style={{ background: `${s.color}18`, color: s.color }}>
-                   <s.icon size={17} />
+
+        {/* SOVEREIGN DOMAIN MASTERY — Derived from core attributes */}
+        <div className="panel ds-glass pf-panel pf-panel-center">
+          <h3 className="pf-panel-title" style={{ alignSelf: "flex-start" }}>
+            <Activity size={14} /> Sovereign Domain Mastery
+          </h3>
+
+
+          {/* Radar + Legend side by side */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, width: '100%', alignItems: 'center' }}>
+            {/* Radar */}
+            <PerformanceRadar data={hunterStats} height={220} title="" />
+
+            {/* Domain detail list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {([
+                { key: 'Physical',  label: 'Physical',  icon: Sword, color: '#ff6b6b', desc: 'Fitness & Vitality',    tip: 'Strength / Recovery balance' },
+                { key: 'Mind',      label: 'Mind',      icon: Brain, color: '#a78bfa', desc: 'Work & Learning',      tip: 'Intellectual throughput' },
+                { key: 'Soul',      label: 'Soul',      icon: Sparkles, color: '#60a5fa', desc: 'Social & Spirit',      tip: 'Emotional intelligence' },
+                { key: 'Execution', label: 'Execution', icon: Zap, color: '#38bdf8', desc: 'Practical Output',      tip: 'Daily task agility' },
+                { key: 'Builder',   label: 'Builder',   icon: Hammer, color: '#ffd700', desc: 'Projects & Wealth',    tip: 'System creation capacity' },
+              ] as const).map(({ key, label, icon: Icon, color, desc, tip }) => {
+                const statObj = hunterStats.find(s => s.category === key);
+                const val = statObj?.value ?? 10;
+                const pct = Math.min(100, val);
+                const tier = val >= 80 ? 'SOVEREIGN' : val >= 55 ? 'AWAKENED' : val >= 30 ? 'INITIATED' : 'DORMANT';
+                const tierColor = val >= 80 ? '#ffd700' : val >= 55 ? color : val >= 30 ? '#34d399' : '#64748b';
+                return (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Icon size={12} /> {label}
+                      </span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 700, color: tierColor, opacity: 0.8 }}>{tier}</span>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 900, color }}>{val}</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99, transition: 'width 0.8s cubic-bezier(0.34,1.56,0.64,1)', opacity: 0.85 }} />
+                    </div>
+                    <span style={{ fontSize: '0.58rem', opacity: 0.4, letterSpacing: '0.05em' }}>{desc} · {tip}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+
+          {/* Development Balance + XP Progress */}
+          {(() => {
+            const domainVals = hunterStats.map(s => s.value);
+            const avg = domainVals.length ? domainVals.reduce((a, b) => a + b, 0) / domainVals.length : 10;
+            const maxDev = Math.max(...domainVals, 1);
+            // Balance score: how close each domain is to the average
+            const variance = domainVals.reduce((sum, v) => sum + Math.abs(v - avg), 0) / Math.max(1, domainVals.length);
+            const balanceScore = Math.max(0, Math.round(100 - (variance / Math.max(avg, 1)) * 50));
+            const balanceLabel = balanceScore >= 85 ? 'SOVEREIGN SYNC' : balanceScore >= 65 ? 'BALANCED' : balanceScore >= 40 ? 'LOPSIDED' : 'CRITICAL IMBALANCE';
+            const balanceColor = balanceScore >= 85 ? '#ffd700' : balanceScore >= 65 ? 'var(--accent-primary)' : balanceScore >= 40 ? '#fb923c' : '#ff4444';
+            const weakestDomain = hunterStats[domainVals.indexOf(Math.min(...domainVals))]?.category || 'None';
+
+            return (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Development Balance</span>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 900, color: balanceColor }}>{balanceLabel}</span>
+                  </div>
+                  <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
+                    <div style={{ width: `${balanceScore}%`, height: '100%', background: balanceColor, borderRadius: 99, transition: 'width 1s ease' }} />
+                  </div>
+                  <div style={{ fontSize: '0.6rem', opacity: 0.4 }}>Weakest: {weakestDomain} — focus here to improve sync</div>
+
                 </div>
-                <div className="pf-stat-body">
-                  <div className="pf-stat-meta">
-                    <span className="pf-stat-lbl">{s.label}</span>
-                    <span className="pf-stat-val">{s.value}</span>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>XP to Next Level</span>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--accent-primary)' }}>{xpPct}%</span>
                   </div>
-                  <div className="pf-track">
-                    <div className="pf-fill" style={{ width: `${Math.min(100, s.value)}%`, background: s.color }} />
+                  <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
+                    <div style={{ width: `${xpPct}%`, height: '100%', background: 'linear-gradient(90deg, #34d399, #ffd700)', borderRadius: 99, transition: 'width 1s ease' }} />
                   </div>
+                  <div style={{ fontSize: '0.6rem', opacity: 0.4 }}>Avg stat: {Math.round(avg)} · Peak: {maxDev}</div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            );
+          })()}
 
-        {/* RESONANCE RADAR + SYNC */}
-        <div className="panel ds-glass pf-panel pf-panel-center" style={{ minWidth: 400 }}>
-          <h3 className="pf-panel-title" style={{ alignSelf: "flex-start" }}>Resonance Matrix</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, width: '100%' }}>
-            <PerformanceRadar data={areaStats} height={200} title="MISSION RESONANCE" />
-            <PerformanceRadar data={hunterStats} height={200} title="HUNTER POTENTIAL" />
-          </div>
-          <div className="pf-sync-row" style={{ marginTop: 24 }}>
+          {/* Level orb */}
+          <div className="pf-sync-row" style={{ marginTop: 16, justifyContent: 'center', background: 'none', padding: 0 }}>
             <div className="pf-lvl-circle">
+              <div className="pf-lvl-glow" />
               <div className="orbit-energy orbit-1" />
-              <span className="pf-lvl-val">{profile.level}</span>
-              <span className="pf-lvl-lbl">LVL</span>
-            </div>
-            <div className="pf-sync-bar-wrap">
-              <div className="pf-sync-header">
-                <span>Sync Rate</span>
-                <span style={{ color: "var(--accent-primary)", fontWeight: 900 }}>94.2%</span>
-              </div>
-              <div className="pf-mana-track">
-                <div className="pf-mana-fill" style={{ width: "94.2%" }} />
-              </div>
-              <div className="pf-xp-header">
-                <span>XP Progress</span>
-                <span style={{ opacity: 0.6, fontWeight: 700 }}>{xpPct}%</span>
-              </div>
-              <div className="pf-mana-track">
-                <div className="pf-mana-fill" style={{ width: `${xpPct}%`, background: "linear-gradient(90deg, #34d399, #ffd700)" }} />
+              <div className="orbit-energy orbit-2" />
+              <div className="orbit-energy orbit-3" />
+              <div className="pf-lvl-val-wrap">
+                <span className="pf-lvl-val">{profile.level}</span>
+                <span className="pf-lvl-lbl">LEVEL</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* SYSTEM RECORDS */}
         <div className="panel ds-glass pf-panel">
           <h3 className="pf-panel-title"><Zap size={14} /> System Records</h3>
           <div className="pf-records">
@@ -656,8 +659,8 @@ export function ProfilePage() {
               </strong>
             </div>
             <div className="pf-record-item">
-              <span>MANA TOTAL</span>
-              <strong>{profile.total_points.toLocaleString()}</strong>
+              <span>TOTAL XP</span>
+              <strong>{profile.total_points.toLocaleString()} XP</strong>
             </div>
             <div className="pf-record-item">
               <span>HUNTER TITLE</span>
@@ -679,13 +682,40 @@ export function ProfilePage() {
             </div>
             <div className="pf-record-item" style={{ borderBottom: "none" }}>
               <span>SERIAL NO.</span>
-              <strong style={{ fontSize: "0.7rem", fontFamily: "monospace" }}>
+              <strong style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>
                 SRN-{profile.user_id.slice(0, 8).toUpperCase()}
               </strong>
             </div>
           </div>
         </div>
       </div>
+
+      <div className="panel ds-glass" style={{ margin: '0 0 24px', padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em', opacity: 0.9, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Activity size={16} /> System Category Proficiency
+            </h3>
+            <p style={{ margin: '4px 0 0', fontSize: '0.62rem', opacity: 0.4, maxWidth: 500 }}>
+              Individual proficiency across all system categories. Scores represent consistency and 
+              completion rates for gates in each specific field. Higher scores indicate mastery in that discipline.
+            </p>
+
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {(['Physical','Mind','Soul','Execution','Builder'] as const).map(d => (
+              <div key={d} title={d} style={{
+                width: 8, height: 8, borderRadius: 99,
+                background: d === 'Physical' ? '#ff6b6b' : d === 'Mind' ? '#a78bfa' : d === 'Soul' ? '#60a5fa' : d === 'Execution' ? '#38bdf8' : '#ffd700',
+                opacity: 0.7,
+              }} />
+            ))}
+          </div>
+        </div>
+        <DomainRadar />
+      </div>
+
+
 
       {/* ── SKILLS SECTION ── */}
       <div className="pf-collection" style={{ marginTop: 60 }}>
@@ -698,7 +728,7 @@ export function ProfilePage() {
         <div className="skills-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
           {userSkills.map(s => {
             const isS = s.rank === 'S';
-            const color = isS ? "#ffd700" : s.rank === 'A' ? "#ff4040" : s.rank === 'B' ? "#ff69b4" : "var(--accent-primary)";
+            const color = isS ? "#ffd700" : s.rank === 'A' ? "#6d28d9" : s.rank === 'B' ? "#4c1d95" : "#020617";
             const effect = s.type.toLowerCase().includes('shadow') ? 'shadow' :
                            s.type.toLowerCase().includes('flame') || s.type.toLowerCase().includes('fire') ? 'flame' :
                            s.type.toLowerCase().includes('lightning') ? 'lightning' : 'smoke';
@@ -710,6 +740,7 @@ export function ProfilePage() {
                 rarityColor={color}
                 isCollected={true}
                 effectType={effect}
+                glow={!isS ? '50,15,100' : undefined}
                 label={s.type}
                 sub={s.description + (s.required_monarch ? ` (Req: ${s.required_monarch})` : "")}
                 icon={getSkillIcon(s.type, isS, color)}
@@ -775,42 +806,18 @@ export function ProfilePage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group">
             <label className="form-label">Primary Armament</label>
-            <select className="form-select" value={editData.weapon_of_choice} onChange={e => setEditData({ ...editData, weapon_of_choice: e.target.value })}>
+            <select className="form-select" value={editData.weapon} onChange={e => setEditData({ ...editData, weapon: e.target.value })}>
               {ITEM_CATALOG.filter(i => i.item_category === "Weapon").map(w => <option key={w.name}>{w.name}</option>)}
             </select>
           </div>
           <div className="form-group">
             <label className="form-label">Gear Style</label>
-            <select className="form-select" value={editData.gear_style} onChange={e => setEditData({ ...editData, gear_style: e.target.value })}>
+            <select className="form-select" value={editData.style} onChange={e => setEditData({ ...editData, style: e.target.value })}>
               {["Modern", "Heavy", "Light", "Stealth", "Magic-Enhanced"].map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div className="form-group">
-            <label className="form-label">Strength</label>
-            <input type="number" className="form-input" value={editData.strength} onChange={e => setEditData({ ...editData, strength: parseInt(e.target.value) || 0 })} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Agility</label>
-            <input type="number" className="form-input" value={editData.agility} onChange={e => setEditData({ ...editData, agility: parseInt(e.target.value) || 0 })} />
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div className="form-group">
-            <label className="form-label">Intelligence</label>
-            <input type="number" className="form-input" value={editData.intelligence} onChange={e => setEditData({ ...editData, intelligence: parseInt(e.target.value) || 0 })} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Vitality</label>
-            <input type="number" className="form-input" value={editData.vitality} onChange={e => setEditData({ ...editData, vitality: parseInt(e.target.value) || 0 })} />
-          </div>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Sense (Perception)</label>
-          <input type="number" className="form-input" value={(editData as any).sense} onChange={e => setEditData({ ...editData, sense: parseInt(e.target.value) || 0 } as any)} />
-        </div>
         <div className="form-group mt-16">
           <label className="form-label">Personal Directive (Bio)</label>
           <textarea className="form-textarea" rows={3} value={editData.bio} onChange={e => setEditData({ ...editData, bio: e.target.value })} />
@@ -1238,11 +1245,12 @@ export function ProfilePage() {
         /* ── TIER 2 ── */
         .pf-tier2 {
           display: grid;
-          grid-template-columns: 320px 1fr 320px;
+          grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
           gap: 28px;
           margin-bottom: 56px;
           align-items: start;
         }
+
         .pf-panel {
           padding: 26px;
           border-radius: var(--r-xl);
@@ -1301,17 +1309,43 @@ export function ProfilePage() {
           box-sizing: border-box;
         }
         .pf-lvl-circle {
-          width: 60px; height: 60px;
+          width: 80px; height: 80px;
           border-radius: 50%;
-          border: 2.5px solid rgba(168,168,255,0.15);
+          border: 1px solid rgba(168,168,255,0.1);
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
           position: relative;
-          background: rgba(0,0,0,0.3);
+          background: radial-gradient(circle at 30% 30%, rgba(30, 30, 40, 0.9), rgba(10, 10, 15, 0.95));
           flex-shrink: 0;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 15px rgba(168,168,255,0.05);
+          animation: pf-mana-pulse 4s ease-in-out infinite;
         }
-        .pf-lvl-val { font-size: 1.5rem; font-weight: 900; line-height: 1; z-index: 2; }
-        .pf-lvl-lbl { font-size: 0.55rem; font-weight: 900; color: var(--accent-primary); z-index: 2; letter-spacing: 1px; }
+        .pf-lvl-glow {
+          position: absolute; inset: -2px; border-radius: 50%;
+          background: radial-gradient(circle at center, var(--accent-primary) 0%, transparent 70%);
+          opacity: 0.15; z-index: 0;
+          filter: blur(8px);
+        }
+        .pf-lvl-val-wrap {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          z-index: 5;
+        }
+        .pf-lvl-val { 
+          font-size: 2.2rem; font-weight: 950; line-height: 0.9; 
+          background: linear-gradient(to bottom, #fff, #a78bfa);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+          font-family: "Outfit", sans-serif;
+        }
+        .pf-lvl-lbl { 
+          font-size: 0.5rem; font-weight: 900; color: var(--accent-primary); 
+          letter-spacing: 3px; margin-top: 2px; opacity: 0.8;
+          text-transform: uppercase;
+        }
+        @keyframes pf-mana-pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+          50% { transform: scale(1.03); box-shadow: 0 15px 45px rgba(124, 58, 237, 0.2); }
+        }
         .pf-sync-bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 8px; }
         .pf-sync-header, .pf-xp-header {
           display: flex;
@@ -1365,15 +1399,30 @@ export function ProfilePage() {
         .orbit-energy {
           position: absolute;
           border-radius: 50%;
-          border: 2.5px solid transparent;
+          border: 2px solid transparent;
           pointer-events: none;
+          z-index: 1;
         }
         .orbit-1 {
-          inset: -7px;
+          inset: -10px;
           border-top-color: var(--accent-primary);
-          animation: orbit-spin 2.5s linear infinite;
-          opacity: 0.7;
-          filter: drop-shadow(0 0 7px var(--accent-primary));
+          animation: orbit-spin 3s linear infinite;
+          opacity: 0.6;
+          filter: drop-shadow(0 0 10px var(--accent-primary));
+        }
+        .orbit-2 {
+          inset: -6px;
+          border-right-color: #ffd700;
+          animation: orbit-spin 4.5s linear infinite reverse;
+          opacity: 0.4;
+          filter: drop-shadow(0 0 8px #ffd700);
+        }
+        .orbit-3 {
+          inset: -14px;
+          border-bottom-color: #a78bfa;
+          animation: orbit-spin 6s linear infinite;
+          opacity: 0.3;
+          filter: drop-shadow(0 0 12px #a78bfa);
         }
         @keyframes orbit-spin {
           from { transform: rotate(0deg); }

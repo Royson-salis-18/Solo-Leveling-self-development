@@ -12,10 +12,12 @@ import { Calendar }  from "../components/Calendar";
 
 import { SystemAPI, type GatePayload } from "../services/SystemAPI";
 
+import { SYSTEM_CATEGORIES } from '../lib/categoryConfig';
+
 const WEEKDAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 const EMPTY_FORM = {
-  title: "", category: "General", description: "",
+  title: "", category: SYSTEM_CATEGORIES[0].name, description: "",
   deadline: "", start_time: "", end_time: "", priority: "Normal", xp_tier: "Low", parentId: null as string | null,
   assignTo: "" as string,
   // Recurrence (UI only for now, DB migration pending)
@@ -101,14 +103,21 @@ export function DungeonGatePage() {
 
   useEffect(() => { fetchQuests(); }, [user]);
 
+  const PRIORITY_WEIGHT: Record<string, number> = {
+    "URGENT": 4,
+    "High": 3,
+    "Normal": 2,
+    "Low": 1
+  };
+
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
+    const filtered = tasks.filter(t => {
       // Tab Filter
       let matchTab = false;
       if (activeTab === "completed") matchTab = !!t.is_completed || !!t.is_failed;
       else if (activeTab === "pending") matchTab = !!t.is_pending && !t.is_completed;
       else if (activeTab === "calendar") {
-        if (!selectedCalendarDate) return true; // Show all if no date selected? Or show nothing? Let's show gates for the selected date.
+        if (!selectedCalendarDate) return true;
         const taskDate = t.deadline?.split("T")[0];
         return taskDate === selectedCalendarDate;
       }
@@ -123,6 +132,30 @@ export function DungeonGatePage() {
       if (prioFilter !== "All" && t.priority !== prioFilter) return false;
 
       return true;
+    });
+
+    // Advanced Sorting: Priority Weight -> Temporal Proximity (Deadline -> Start Time)
+    return [...filtered].sort((a, b) => {
+      // 1. Priority Weight
+      const weightA = PRIORITY_WEIGHT[a.priority] || 2;
+      const weightB = PRIORITY_WEIGHT[b.priority] || 2;
+      if (weightA !== weightB) return weightB - weightA;
+
+      // 2. Deadline (Urgency)
+      if (a.deadline && b.deadline) {
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      }
+      if (a.deadline) return -1;
+      if (b.deadline) return 1;
+
+      // 3. Start Time
+      if (a.start_time && b.start_time) {
+        return a.start_time.localeCompare(b.start_time);
+      }
+      if (a.start_time) return -1;
+      if (b.start_time) return 1;
+
+      return 0;
     });
   }, [tasks, activeTab, catFilter, prioFilter, selectedCalendarDate]);
 
@@ -435,7 +468,7 @@ export function DungeonGatePage() {
     }
   };
 
-  const categories = ["All", "General", "Work", "Fitness", "Learning", "Academics", "Mindfulness", "Finance", "Social", "Creative", "Errands"];
+  const categories = ["All", ...SYSTEM_CATEGORIES.map(c => c.name)];
   const priorities = ["All", "Low", "Normal", "High", "URGENT"];
 
   return (

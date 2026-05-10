@@ -6,6 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MODE_CONFIGS, type ModeType } from "./modeConfig";
+import { CATEGORY_STAT_LOOKUP } from "./categoryConfig";
 
 /* ═══════════════════════════════════════════════
    CONSTANTS
@@ -121,25 +122,10 @@ export function getRandomPunishment() {
 }
 
 /** 
- * STAT MAPPING: 
- * Fitness     -> Strength
- * Errands     -> Agility
- * Mindfulness -> Sense
- * Learning    -> Intelligence
- * Wellness    -> Vitality
+ * All category → stat mappings come from categoryConfig.ts (canonical registry).
+ * Import CATEGORY_STAT_LOOKUP from there instead of duplicating here.
  */
-export const CATEGORY_STAT_MAP: Record<string, string> = {
-  Fitness:     "stat_strength",
-  Errands:     "stat_agility",
-  General:     "stat_agility",
-  Mindfulness: "stat_sense",
-  Social:      "stat_sense",
-  Learning:    "stat_intelligence",
-  Academics:   "stat_intelligence",
-  Work:        "stat_intelligence",
-  Wellness:    "stat_vitality",
-  Health:      "stat_vitality",
-};
+export const CATEGORY_STAT_MAP: Record<string, string> = CATEGORY_STAT_LOOKUP;
 
 
 export const calcTitle = (playerClass: string, totalXp: number): string => {
@@ -172,6 +158,9 @@ export type ProgressionResult = {
 /**
  * Recalculate and write level, rank, and title based on current total_points.
  * Returns what changed so the caller can show celebrations.
+ *
+ * ALL thresholds and penalties are driven by the user's active ModeConfig.
+ * Nothing here is hardcoded — the difficulty selection is the single source of truth.
  */
 export async function syncProgression(
   supabase: SupabaseClient,
@@ -194,35 +183,57 @@ export async function syncProgression(
   const prevTitle = prof.player_title ?? "Newcomer";
   const cls       = prof.player_class ?? "Warrior";
 
-  // Streak & Stagnation Logic
+  // ── STREAK & DECAY (fully mode-driven) ──────────────────────────────────
   const today = new Date().toISOString().split("T")[0];
   let newStreak = prof.streak_count ?? 0;
   const lastActive = prof.last_active_date;
   let decayPenalty = 0;
 
   if (lastActive !== today) {
-    const lastActiveDate = new Date(lastActive || Date.now());
-    const todayDate = new Date(today);
-    const diffDays = Math.floor((todayDate.getTime() - lastActiveDate.getTime()) / (1000 * 3600 * 24));
+    const lastActiveDate  = new Date(lastActive || Date.now());
+    const todayDate       = new Date(today);
+    const diffDays        = Math.floor((todayDate.getTime() - lastActiveDate.getTime()) / (1000 * 3600 * 24));
 
     if (diffDays === 1) {
+      // Consecutive day — grow streak
       newStreak += 1;
     } else if (diffDays > 1) {
+      // ── Streak Grace (config.streakGraceDays) ─────────────────────────
+      // Easy: 2-day grace. Normal: 1-day grace. Hard/Hell: 0 days.
+      // Missing ≤ graceDays does NOT break the streak, just pauses it.
+      if (diffDays - 1 <= config.streakGraceDays) {
+        // Within grace — streak is preserved, shows "Final Warning" in UI
+        // (no streak increment — you didn't earn it, but you didn't lose it)
+      } else {
+        // Beyond grace — streak breaks
+        newStreak = 1;
+      }
+
+      // ── Inactivity Decay (config.decayRate + gracePeriod + softDecayCapXp) ─
       const decayDays = Math.max(0, diffDays - config.gracePeriod);
-      
-      if (decayDays > 0) {
+
+      if (decayDays > 0 && config.decayRate > 0) {
+        let rawDecay: number;
+
         if (config.compoundingDecay) {
-          // Hell: Each day multiplies prior balance by 0.97
-          let tempXp = totalXp;
-          for(let i=0; i<decayDays; i++) {
+          // Hell: compound interest in reverse — each day multiplies by (1 - decayRate)
+          let tempXp = Math.max(0, totalXp);
+          for (let i = 0; i < decayDays; i++) {
             tempXp *= (1 - config.decayRate);
           }
-          decayPenalty = Math.floor(totalXp - tempXp);
+          rawDecay = Math.floor(Math.max(0, totalXp) - tempXp);
         } else {
-          decayPenalty = Math.floor(totalXp * config.decayRate * decayDays);
+          // Normal/Hard: linear decay
+          rawDecay = Math.floor(Math.max(0, totalXp) * config.decayRate * decayDays);
         }
+
+        // ── Soft Decay Cap (prevents wipeouts) ──────────────────────────
+        // Even Hell mode can't remove more than softDecayCapXp per cycle.
+        // This is the key psychological protection — a bad week ≠ losing months.
+        decayPenalty = config.softDecayCapXp > 0
+          ? Math.min(rawDecay, config.softDecayCapXp)
+          : rawDecay;
       }
-      newStreak = 1; 
     }
   }
 
@@ -231,14 +242,11 @@ export async function syncProgression(
   // Mode-aware XP calculation
   const newLevel = calcLevel(adjustedTotalXp < 0 ? 0 : adjustedTotalXp);
   let newRank = calcRank(newLevel);
-  
-  // Rank-down logic (Hard/Nightmare only)
-  if (config.rankDownEnabled && RANKS.indexOf(newRank as any) < RANKS.indexOf(prevRank as any)) {
-    // Rank has naturally dropped due to XP decay/penalties
-  } else if (!config.rankDownEnabled) {
-    // Prevent rank drop in Easy/Normal
+
+  // Rank-down only in Hard/Hell
+  if (!config.rankDownEnabled) {
     if (RANKS.indexOf(newRank as any) < RANKS.indexOf(prevRank as any)) {
-      newRank = prevRank;
+      newRank = prevRank; // Protect rank in Easy/Normal
     }
   }
 
@@ -248,127 +256,122 @@ export async function syncProgression(
   const rankedUp     = RANKS.indexOf(newRank as any) > RANKS.indexOf(prevRank as any);
   const titleChanged = newTitle !== prevTitle;
 
-  // OVERDUE PENALTY SCAN
-  // Find tasks where deadline < today and not completed/failed
-  const { data: overdueTasks } = await supabase
-    .from("tasks")
-    .select("id, points, deadline, title")
-    .eq("user_id", userId)
-    .eq("is_completed", false)
-    .eq("is_failed", false)
-    .lt("deadline", today);
+  const finalXp = adjustedTotalXp;
 
-  let totalOverduePenalty = 0;
-  if (overdueTasks && overdueTasks.length > 0) {
-    
-    for (const t of overdueTasks) {
-      const deadlineDate = new Date(t.deadline);
-      const todayDate = new Date(today);
-      const daysLate = Math.floor((todayDate.getTime() - deadlineDate.getTime()) / (1000 * 3600 * 24));
-      
-      if (daysLate > 0) {
-        // Mode-aware Overdue Penalty: use exponential formula from TODO (e6)
-        // overduePenalty = 0.2 × XP × (1 + daysLate)^0.5
-        const xpPoints = t.points || 10;
-        const expPenalty = Math.floor(0.2 * xpPoints * Math.pow(1 + daysLate, 0.5));
-        
-        // Cap at 80% to avoid instant wipe
-        const cappedPenalty = Math.min(expPenalty, Math.floor(xpPoints * 0.8));
-        totalOverduePenalty += cappedPenalty;
-      }
-    }
-  }
+  // ── STATUS LOGIC (all thresholds from mode config) ──────────────────────
+  //
+  // Priority chain: DECEASED > PENALTY > STAGNANT > ACTIVE
+  //
+  // DECEASED threshold:     config.deceasedThreshold days (Easy=14, Normal=10, Hard=5, Hell=3)
+  // PENALTY trigger:        finalXp < 0
+  // STAGNANT threshold:     weekly XP target from config (Easy=no stagnant, Normal=150, Hard=300, Hell=500)
 
-  const finalXp = Math.max(-5000, adjustedTotalXp - totalOverduePenalty);
+  // Mode-specific weekly XP threshold for STAGNANT
+  const STAGNANT_THRESHOLD: Record<ModeType, number | null> = {
+    Easy:   null,  // Easy never goes STAGNANT — designed for low-pressure growth
+    Normal: 150,   // Light activity expected
+    Hard:   300,   // Real effort expected
+    Hell:   500,   // Relentless — every week must count
+  };
+  const weeklyTarget = STAGNANT_THRESHOLD[currentModeName];
 
-  // Weekly Activity Threshold (300 XP per week required for Hard Mode)
-  // V5 Rule: Only C-Rank and above (xp_tier != 'Low') count toward threshold.
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: weeklyTasks } = await supabase
-    .from("tasks")
-    .select("points, xp_tier")
-    .eq("user_id", userId)
-    .eq("is_completed", true)
-    .neq("xp_tier", "Low")
-    .gte("completed_at", sevenDaysAgo);
+  let totalWeeklyXp = 0;
 
-  const totalWeeklyXp = (weeklyTasks || []).reduce((sum: number, t: any) => sum + (t.points || 0), 0);
-
-  // Status Logic: Priority Chain (DECEASED > PENALTY > STAGNANT > ACTIVE)
-  let newStatus = 'ACTIVE';
-  
-  // 1. Check for DECEASED (7+ days inactive)
-  const heartbeat = prof.last_heartbeat ? new Date(prof.last_heartbeat) : null;
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  if (heartbeat && heartbeat < oneWeekAgo) {
-    newStatus = 'DECEASED';
-  } 
-  // 2. Check for PENALTY (Negative XP)
-  else if (finalXp < 0) {
-    newStatus = 'PENALTY';
-  } 
-  // 3. Check for STAGNANT (< 300 XP/week from C-Rank+)
-  else if (totalWeeklyXp < 300) {
-    newStatus = 'STAGNANT';
+  if (weeklyTarget !== null) {
+    const { data: weeklyTasks } = await supabase
+      .from("tasks")
+      .select("points")
+      .eq("user_id", userId)
+      .eq("is_completed", true)
+      .neq("xp_tier", "Low")  // Low tier tasks don't count toward stagnancy check
+      .gte("completed_at", sevenDaysAgo);
+    totalWeeklyXp = (weeklyTasks || []).reduce((sum: number, t: any) => sum + (t.points || 0), 0);
   }
 
-  // Only write if something actually changed (or just always update heartbeat)
+  let newStatus = "ACTIVE";
+
+  // 1. DECEASED — uses config.deceasedThreshold
+  const heartbeat       = prof.last_heartbeat ? new Date(prof.last_heartbeat) : null;
+  const deceasedCutoff  = new Date(Date.now() - config.deceasedThreshold * 24 * 60 * 60 * 1000);
+  if (heartbeat && heartbeat < deceasedCutoff) {
+    newStatus = "DECEASED";
+  }
+  // 2. PENALTY — XP in debt
+  else if (finalXp < 0) {
+    newStatus = "PENALTY";
+  }
+  // 3. STAGNANT — weekly threshold missed (only if mode has one)
+  else if (weeklyTarget !== null && totalWeeklyXp < weeklyTarget) {
+    newStatus = "STAGNANT";
+  }
+
+  // ── WRITE BACK ──────────────────────────────────────────────────────────
   await supabase
     .from("user_profiles")
     .update({
-      total_points: finalXp,
-      level: newLevel,
-      player_rank: newRank,
-      player_title: newTitle,
-      streak_count: newStreak,
+      total_points:  finalXp,
+      level:         newLevel,
+      player_rank:   newRank,
+      player_title:  newTitle,
+      streak_count:  newStreak,
       last_active_date: today,
       last_heartbeat: new Date().toISOString(),
-      status: newStatus,
-      dark_mana: prof.dark_mana ?? 0
+      status:        newStatus,
+      dark_mana:     prof.dark_mana ?? 0
     })
     .eq("user_id", userId);
 
-  // AUTO-NOTIFICATIONS FOR PROGRESSION
+  // ── PROGRESSION NOTIFICATIONS ────────────────────────────────────────────
   if (leveledUp) {
     await supabase.from("notifications").insert({
       user_id: userId,
-      title: "LEVEL UP",
-      message: `Congratulations! You reached Level ${newLevel}. Your power grows...`,
-      type: "achievement",
-      link: "/profile"
+      title:   "⚡ LEVEL UP",
+      message: `You reached Level ${newLevel}. The System acknowledges your growth.`,
+      type:    "achievement",
+      link:    "/profile"
     });
   }
   if (rankedUp) {
     await supabase.from("notifications").insert({
       user_id: userId,
-      title: "RANK UP",
-      message: `System Alert: You have ascended to ${newRank}-Rank.`,
-      type: "achievement",
-      link: "/profile"
+      title:   "🏆 RANK UP",
+      message: `You have ascended to ${newRank}-Rank. New gates will open.`,
+      type:    "achievement",
+      link:    "/profile"
     });
   }
-  if (newStatus === 'PENALTY' && prof.status !== 'PENALTY') {
+  if (newStatus === "PENALTY" && prof.status !== "PENALTY") {
     await supabase.from("notifications").insert({
       user_id: userId,
-      title: "SYSTEM WARNING",
-      message: "MANA DEBT DETECTED! You have entered PENALTY MODE.",
-      type: "system",
-      link: "/rewards"
+      title:   "⚠️ XP DEBT DETECTED",
+      message: "Your XP has fallen below zero. Complete tasks to restore your standing. Dark Mana is accumulating.",
+      type:    "system",
+      link:    "/rewards"
+    });
+  }
+  if (newStatus === "STAGNANT" && prof.status !== "STAGNANT") {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title:   "📉 STAGNATION WARNING",
+      message: `The System detects insufficient activity this week. ${currentModeName} mode requires ${weeklyTarget} XP/week from meaningful gates.`,
+      type:    "system",
+      link:    "/dungeon-gate"
     });
   }
 
   return {
     totalXp: finalXp,
-    level: newLevel,
-    rank: newRank,
-    title: newTitle,
+    level:   newLevel,
+    rank:    newRank,
+    title:   newTitle,
     leveledUp,
     rankedUp,
     titleChanged,
     prevLevel,
     prevRank,
     prevTitle,
-    status: newStatus
+    status:  newStatus
   };
 }
 
