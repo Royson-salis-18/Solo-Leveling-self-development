@@ -227,16 +227,17 @@ export function DungeonGatePage() {
         is_recurring: isRecurring,
         recurrence_type: formData.recurrence_type,
         recurrence_interval: formData.recurrence_interval,
-        recurrence_days: JSON.stringify(formData.recurrence_days),
+        is_gauntlet: formData.is_gauntlet,
+        is_weekly_trial: formData.is_weekly_trial,
+        recurrence_days: formData.recurrence_days, 
         recurrence_day_of_month: formData.recurrence_day_of_month,
         recurrence_custom_label: formData.recurrence_custom_label,
         parent_id: formData.parentId || null,
-        is_gauntlet: formData.is_gauntlet,
-        is_weekly_trial: formData.is_weekly_trial,
       };
 
-      if (editingId && originalDeadline && formData.deadline && formData.deadline > originalDeadline) {
-        SystemAPI.increaseDarkMana(user.id, 5); // Penalty for postponing
+      if (editingId && originalDeadline && formData.deadline && originalDeadline !== "" && formData.deadline > originalDeadline) {
+        // Penalty ONLY if moving an EXISTING deadline further into the future
+        SystemAPI.increaseDarkMana(user.id, 5); 
         if (supabase) {
           // Deduct XP for postponing
           const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
@@ -272,13 +273,23 @@ export function DungeonGatePage() {
 
   const handleEdit = (gate: any) => {
     setEditingId(gate.id);
+    
+    // Robustly handle recurrence_days (might be JSON string or actual array from Supabase)
     let rdays: number[] = [];
-    try { rdays = gate.recurrence_days ? JSON.parse(gate.recurrence_days) : []; } catch { rdays = []; }
+    if (Array.isArray(gate.recurrence_days)) {
+      rdays = gate.recurrence_days;
+    } else if (typeof gate.recurrence_days === 'string') {
+      try { rdays = JSON.parse(gate.recurrence_days); } catch { rdays = []; }
+    }
+
+    // Format deadline for the HTML date input (expects YYYY-MM-DD)
+    const formattedDeadline = gate.deadline ? gate.deadline.split('T')[0] : "";
+
     setFormData({
       title: gate.title,
       category: gate.category,
       description: gate.description || "",
-      deadline: gate.deadline || "",
+      deadline: formattedDeadline,
       start_time: gate.start_time || "",
       end_time: gate.end_time || "",
       priority: gate.priority,
@@ -1214,14 +1225,12 @@ export function DungeonGatePage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group">
             <label className="form-label">
-              Expiration Date {editingId && <span style={{ color: '#ff4444', fontSize: '0.6rem' }}>(IMMUTABLE)</span>}
+              Expiration Date {editingId && <span style={{ color: 'var(--accent-primary)', fontSize: '0.6rem' }}>(ALTERATION PERMITTED WITH PENALTY)</span>}
             </label>
             <input 
               type="date" 
               className="form-input" 
               value={formData.deadline}
-              disabled={!!editingId}
-              style={editingId ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
               onChange={e => setFormData({ ...formData, deadline: e.target.value })} 
             />
           </div>

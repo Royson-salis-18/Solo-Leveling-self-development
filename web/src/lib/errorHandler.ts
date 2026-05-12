@@ -98,6 +98,15 @@ export class ErrorHandler {
       );
     }
 
+    if (err?.code === "over_email_send_rate_limit" || err?.status === 429) {
+      return this.logError(
+        "AUTH_RATE_LIMIT",
+        "Email rate limit exceeded. Please wait a few minutes before trying again.",
+        { operation, code: err?.code },
+        error
+      );
+    }
+
     // Handle RLS policy errors
     if (err?.code === "42501" || err?.message?.includes("permission")) {
       return this.logError(
@@ -159,6 +168,8 @@ export class ErrorHandler {
         "Your email hasn't been confirmed yet. Check your inbox for a confirmation link.",
       AUTH_USER_EXISTS:
         "This email is already registered. Try logging in instead.",
+      AUTH_RATE_LIMIT:
+        "Too many requests. Please wait a moment before trying again (Supabase email limit).",
       AUTH_NOT_AUTHENTICATED:
         "You need to be logged in to access this feature.",
       RLS_POLICY_ERROR:

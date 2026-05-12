@@ -57,7 +57,7 @@ export type GatePayload = {
   is_recurring: boolean;
   recurrence_type?: string;
   recurrence_interval?: number;
-  recurrence_days?: string; // JSON string
+  recurrence_days?: string | number[]; 
   recurrence_day_of_month?: number;
   recurrence_custom_label?: string;
   parent_id?: string | null;
@@ -467,11 +467,13 @@ export const SystemAPI = {
     const now = new Date();
     let finalPayload = { ...payload };
     
-    if (!payload.deadline) {
-      // No deadline = Auto E-Rank
+    if (!payload.deadline && !editingId) {
+      // For NEW gates, no deadline = Auto E-Rank. 
+      // For EDITS, we respect the user's choice as they might be upgrading or adding a deadline.
       finalPayload.xp_tier = "Low";
       finalPayload.points = 5;
-    } else {
+    } else if (!editingId && payload.deadline) {
+      // Deadline validation ONLY for new gates to prevent locking existing ones
       // Deadline must be >= current + (rank * 30 mins)
       const rankMinutes: Record<string, number> = { "Low": 30, "Mid": 60, "High": 120, "Super": 240, "Legendary": 480 };
       const minBuffer = rankMinutes[payload.xp_tier] || 30;
@@ -484,7 +486,10 @@ export const SystemAPI = {
     }
 
     if (editingId) {
-      const { error } = await s.from("tasks").update(finalPayload).eq("id", editingId);
+      // For updates, we often want to exclude the user_id from the payload to avoid RLS issues,
+      // and we only validate the deadline if it has actually changed.
+      const { user_id, ...updatePayload } = finalPayload;
+      const { error } = await s.from("tasks").update(updatePayload).eq("id", editingId);
       if (error) throw error;
     } else {
       const { data: newGate, error } = await s.from("tasks").insert({ ...finalPayload, is_active: false, is_completed: false }).select("id").single();
