@@ -7,7 +7,7 @@ import {
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-import { Sparkles, Skull, Activity, CheckCircle } from "lucide-react";
+import { Sparkles, Skull, Activity, CheckCircle, Brain, Dumbbell, Zap, Hammer } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 import { AuraCard } from "../components/AuraCard";
 import { Modal } from "../components/Modal";
@@ -100,19 +100,15 @@ export function DashboardPage() {
     domain_builder: 13,
   });
 
-  useEffect(() => {
+  const loadData = async () => {
     if (!supabase || !user?.id) return;
     const userId = user.id;
-    (async () => {
+    try {
+      // -- FLOW SYSTEM: Maintenance Operations --
       try {
-        // ── FLOW SYSTEM: Clean up duplicate system gates first ───────────────
-        // This runs on every dashboard load but is idempotent and fast.
         await SystemAPI.cleanupDuplicateSystemGates(userId);
-
         await SystemAPI.manifestWeeklyTrial(userId);
 
-        // ── FLOW SYSTEM: Category Nudge check (runs at most once per week) ──
-        // Uses localStorage to avoid re-checking on every page load.
         const NUDGE_KEY = `last_nudge_check_${userId}`;
         const lastNudge = localStorage.getItem(NUDGE_KEY);
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -120,143 +116,347 @@ export function DashboardPage() {
           await SystemAPI.checkCategoryNudges(userId);
           localStorage.setItem(NUDGE_KEY, Date.now().toString());
         }
-
-        const dashboardData = await SystemAPI.fetchDashboardData(userId);
-        
-        // Mode Check (m1)
-        if (!dashboardData.current_mode) {
-          navigate('/mode-selection');
-          return;
-        }
-        
-        // Status / Heartbeat sweep
-        let currentStatus = dashboardData.status || 'ACTIVE';
-        const lastHeartbeat = dashboardData.last_heartbeat;
-        const now = new Date();
-        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-        const heartbeatDate = lastHeartbeat ? new Date(lastHeartbeat) : null;
-
-        if (currentStatus === 'ACTIVE') {
-          if (heartbeatDate && heartbeatDate < fourteenDaysAgo) {
-            currentStatus = 'DECEASED';
-            await supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", userId);
-          } else {
-            await supabase.from("user_profiles").update({ last_heartbeat: now.toISOString() }).eq("user_id", userId);
-          }
-        }
-
-        if (currentStatus === 'DECEASED') setShowReawakening(true);
-
-
-        // Task system sweep: recurring reset + overdue → pending
-        const todayStr = now.toISOString().split("T")[0];
-        const { data: allUserTasks } = await supabase.from("tasks").select("*").eq("user_id", userId);
-        if (allUserTasks) {
-          const expiredRecur = allUserTasks.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < todayStr);
-          if (expiredRecur.length > 0) {
-            const { findNextValidDeadline } = await import("../lib/taskUtils");
-            for (const task of expiredRecur) {
-              const nextDeadline = findNextValidDeadline(task);
-              await supabase.from("tasks").update({ is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
-            }
-          }
-
-          const overdue = allUserTasks.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < todayStr);
-          if (overdue.length > 0) {
-            await supabase.from("tasks").update({ is_pending: true, is_completed: false, is_active: false }).in("id", overdue.map(t => t.id));
-          }
-        }
-
-        // Build affiliations from SystemAPI data
-        const affils: AffiliationRow[] = dashboardData.clanMembers.map((cm: any) => ({
-          id: cm.clan_id,
-          name: cm.clans?.name || "Unknown Clan",
-          role: cm.role,
-          type: "clan" as const,
-        }));
-        if (dashboardData.guild) {
-          affils.push({
-            id: dashboardData.guild.id,
-            name: dashboardData.guild.name,
-            role: dashboardData.guild_title || "Member",
-            type: "guild",
-          });
-        }
-
-        // Commit all state
-        setData(dashboardData);
-        setTasks(dashboardData.activeTasks as TaskRow[]);
-        setRecentActivity(dashboardData.completedTasks as RecentActivityRow[]);
-        setAffiliations(affils);
-        setShadows(dashboardData.shadows);
-
-        // Weekly Selection Calculation (bl4)
-        const weeklyTop = evaluateWeeklySelection(dashboardData.completedTasks);
-        setWeeklySelection(weeklyTop);
-
-        // Playmaker Rating On-the-fly (bl6)
-        if (dashboardData.playmaker_rating === 0 && dashboardData.completedCount > 0) {
-          const avgXp = weeklyTop.reduce((acc, t) => acc + (t.points || 0), 0) / (weeklyTop.length || 1);
-          const rating = calculatePlaymakerRating(dashboardData.completedCount, dashboardData.activeCount + dashboardData.completedCount, avgXp, dashboardData.streak_count || 0, dashboardData.ego_score || 0);
-          setData(prev => ({ ...prev, playmaker_rating: rating }));
-        }
-
-        // Red Gate Auto-Selection (B-Rank or higher: High, Super, Legendary)
-        const today = new Date().toDateString();
-        const storedDate = localStorage.getItem("redGateDate");
-        if (storedDate !== today) {
-          localStorage.removeItem("redGateId");
-          setRedGateId(null);
-        }
-
-        if (!localStorage.getItem("redGateId")) {
-          const bPlusTasks = (dashboardData.activeTasks as TaskRow[]).filter(t => 
-            ['High', 'Super', 'Legendary'].includes(t.xp_tier || '')
-          );
-          if (bPlusTasks.length > 0) {
-            const picked = bPlusTasks[0].id;
-            localStorage.setItem("redGateId", picked);
-            localStorage.setItem("redGateDate", today);
-            setRedGateId(picked);
-          }
-        }
-        // Rigid Market Value Logic (Beginners start at 0)
-        const getRankBase = (rank: string) => {
-          switch (rank) {
-            case "S": return 500000000;  // ₩500M
-            case "A": return 100000000;  // ₩100M
-            case "B": return 25000000;   // ₩25M
-            case "C": return 5000000;    // ₩5M
-            case "D": return 500000;     // ₩0.5M
-            case "E": return 0;          // Beginners have 0 base value
-            default: return 0;
-          }
-        };
-
-        const base = getRankBase(dashboardData.player_rank || "E");
-        const levelBonus = Math.max(0, (dashboardData.level || 1) - 1) * 100000; // ₩100k per level above 1
-        const xpBonus = (dashboardData.total_points || 0) * 1000;               // ₩1k per XP
-        const streakBonus = (dashboardData.streak_count || 0) * 50000;         // ₩50k per streak day
-        
-        setMarketValue(base + levelBonus + xpBonus + streakBonus);
-
-        // Zone State (Flow State) check: 5 tasks in 90 min (bl2)
-        const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
-        if (lastCompletions.length >= 5) {
-          const nowTime = Date.now();
-          const fiveTasksAgo = lastCompletions[0];
-          if (nowTime - fiveTasksAgo < 90 * 60 * 1000) {
-            setIsZoneActive(true);
-          } else {
-            setIsZoneActive(false);
-          }
-        }
-
-      } catch (err) {
-        console.error("Dashboard fetch error:", err);
+      } catch (maintenanceErr) {
+        console.warn("System maintenance non-fatal error:", maintenanceErr);
       }
-    })();
+
+      const dashboardData = await SystemAPI.fetchDashboardData(userId);
+      
+      // Mode Check (m1)
+      if (!dashboardData.current_mode) {
+        navigate('/mode-selection');
+        return;
+      }
+      
+      // Status / Heartbeat sweep
+      let currentStatus = dashboardData.status || 'ACTIVE';
+      const lastHeartbeat = dashboardData.last_heartbeat;
+      const now = new Date();
+      const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      const heartbeatDate = lastHeartbeat ? new Date(lastHeartbeat) : null;
+
+      if (currentStatus === 'ACTIVE') {
+        if (heartbeatDate && heartbeatDate < fourteenDaysAgo) {
+          currentStatus = 'DECEASED';
+          await supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", userId);
+        } else {
+          await supabase.from("user_profiles").update({ last_heartbeat: now.toISOString() }).eq("user_id", userId);
+        }
+      }
+
+      if (currentStatus === 'DECEASED') setShowReawakening(true);
+
+      // Task system sweep: recurring reset + overdue → pending
+      const todayStr = now.toISOString().split("T")[0];
+      const { data: allUserTasks } = await supabase.from("tasks").select("*").eq("user_id", userId);
+      if (allUserTasks) {
+        const expiredRecur = allUserTasks.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < todayStr);
+        if (expiredRecur.length > 0) {
+          const { findNextValidDeadline } = await import("../lib/taskUtils");
+          for (const task of expiredRecur) {
+            const nextDeadline = findNextValidDeadline(task);
+            await supabase.from("tasks").update({ is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
+          }
+        }
+
+        const overdue = allUserTasks.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < todayStr);
+        if (overdue.length > 0) {
+          await supabase.from("tasks").update({ is_pending: true, is_completed: false, is_active: false }).in("id", overdue.map(t => t.id));
+        }
+      }
+
+      // Build affiliations from SystemAPI data
+      const affils: AffiliationRow[] = dashboardData.clanMembers.map((cm: any) => ({
+        id: cm.clan_id,
+        name: cm.clans?.name || "Unknown Clan",
+        role: cm.role,
+        type: "clan" as const,
+      }));
+      if (dashboardData.guild) {
+        affils.push({
+          id: dashboardData.guild.id,
+          name: dashboardData.guild.name,
+          role: dashboardData.guild_title || "Member",
+          type: "guild",
+        });
+      }
+
+      // Commit all state
+      setData(dashboardData);
+      setTasks(dashboardData.activeTasks as TaskRow[]);
+      setRecentActivity(dashboardData.completedTasks as RecentActivityRow[]);
+      setAffiliations(affils);
+      setShadows(dashboardData.shadows);
+
+      // Weekly Selection Calculation (bl4)
+      const weeklyTop = evaluateWeeklySelection(dashboardData.completedTasks);
+      setWeeklySelection(weeklyTop);
+
+      // Playmaker Rating On-the-fly (bl6)
+      if (dashboardData.playmaker_rating === 0 && dashboardData.completedCount > 0) {
+        const avgXp = weeklyTop.reduce((acc, t) => acc + (t.points || 0), 0) / (weeklyTop.length || 1);
+        const rating = calculatePlaymakerRating(dashboardData.completedCount, dashboardData.activeCount + dashboardData.completedCount, avgXp, dashboardData.streak_count || 0, dashboardData.ego_score || 0);
+        setData(prev => ({ ...prev, playmaker_rating: rating }));
+      }
+
+      // Red Gate Auto-Selection (B-Rank or higher: High, Super, Legendary)
+      const today = new Date().toDateString();
+      const storedDate = localStorage.getItem("redGateDate");
+      if (storedDate !== today) {
+        localStorage.removeItem("redGateId");
+        setRedGateId(null);
+      }
+
+      if (!localStorage.getItem("redGateId")) {
+        const bPlusTasks = (dashboardData.activeTasks as TaskRow[]).filter(t => 
+          ['High', 'Super', 'Legendary'].includes(t.xp_tier || '')
+        );
+        if (bPlusTasks.length > 0) {
+          const picked = bPlusTasks[0].id;
+          localStorage.setItem("redGateId", picked);
+          localStorage.setItem("redGateDate", today);
+          setRedGateId(picked);
+        }
+      }
+      // Rigid Market Value Logic (Beginners start at 0)
+      const getRankBase = (rank: string) => {
+        switch (rank) {
+          case "S": return 500000000;  // ₩500M
+          case "A": return 100000000;  // ₩100M
+          case "B": return 25000000;   // ₩25M
+          case "C": return 5000000;    // ₩5M
+          case "D": return 500000;     // ₩0.5M
+          case "E": return 0;          // Beginners have 0 base value
+          default: return 0;
+        }
+      };
+
+      const base = getRankBase(dashboardData.player_rank || "E");
+      const levelBonus = Math.max(0, (dashboardData.level || 1) - 1) * 100000; // ₩100k per level above 1
+      const xpBonus = (dashboardData.total_points || 0) * 1000;               // ₩1k per XP
+      const streakBonus = (dashboardData.streak_count || 0) * 50000;         // ₩50k per streak day
+      
+      setMarketValue(base + levelBonus + xpBonus + streakBonus);
+
+      // Zone State (Flow State) check: 5 tasks in 90 min (bl2)
+      const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
+      if (lastCompletions.length >= 5) {
+        const nowTime = Date.now();
+        const fiveTasksAgo = lastCompletions[0];
+        if (nowTime - fiveTasksAgo < 90 * 60 * 1000) {
+          setIsZoneActive(true);
+        } else {
+          setIsZoneActive(false);
+        }
+      }
+
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [user]);
+
+  const [ariseLoadingId, setAriseLoadingId] = useState<string | null>(null);
+
+  const systemDirectives = useMemo(() => {
+    return {
+      Physical: [
+        {
+          title: "🏋️ Gravity Chamber: High-Intensity Interval Training",
+          category: "Fitness",
+          xp_tier: "Mid",
+          points: 15,
+          priority: "High",
+          description: "Perform a 20-minute bodyweight circuit (pushups, squats, planks) to forge your vessel's strength."
+        },
+        {
+          title: "🥗 Elixir of Life: Metabolic Restoration",
+          category: "Health",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Prep a nutrient-dense, high-protein meal and hydrate with 1L of water. Stabilize your cellular integrity."
+        },
+        {
+          title: "❄️ Monarch's Vigil: Awakening Habit",
+          category: "Personal Development",
+          xp_tier: "Mid",
+          points: 20,
+          priority: "High",
+          description: "Commit to a cold exposure challenge or complete a crucial difficult task early tomorrow."
+        }
+      ],
+      Mind: [
+        {
+          title: "📖 Arcane Archives: Deep Study Phase",
+          category: "Learning",
+          xp_tier: "Mid",
+          points: 20,
+          priority: "High",
+          description: "Dedicate 45 minutes of uninterrupted focus to learning a complex skill, programming concept, or research paper."
+        },
+        {
+          title: "💰 Tactical Assessment: Financial Ledger Audit",
+          category: "Finance",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Map out your monthly budget, audit recent expenses, and check long-term investment resonance."
+        },
+        {
+          title: "💼 Monarch's Strategy: High-Priority Sprint",
+          category: "Work",
+          xp_tier: "Mid",
+          points: 15,
+          priority: "High",
+          description: "Execute a 60-minute deep-work session focusing solely on your highest-impact professional task."
+        }
+      ],
+      Soul: [
+        {
+          title: "🧘 Cartenon Meditation: Inner Mana Stabilization",
+          category: "Mindfulness",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Unplug from all devices for 15 minutes. Practice deep rhythmic breathing and write in your journal."
+        },
+        {
+          title: "🤝 Diplomatic Alliance: Connection Protocol",
+          category: "Social",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Initiate a meaningful conversation or call a key ally, friend, or mentor to align your frequencies."
+        },
+        {
+          title: "🏠 Monarch's Hearth: Kinship Ritual",
+          category: "Family",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Spend 30 minutes of fully present, screen-free quality time with family or a loved one."
+        }
+      ],
+      Execution: [
+        {
+          title: "🧹 Clearing the Perimeter: Environmental Cleanse",
+          category: "General",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Declutter and sanitize your immediate workspace or room. A clear environment accelerates execution speed."
+        },
+        {
+          title: "📨 Settle the Ledger: Administrative Strike",
+          category: "Errands",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Clear 3 overdue micro-tasks, respond to outstanding emails, or pay pending utility bills immediately."
+        },
+        {
+          title: "⚡ Monarch's Quick-Step: Task Blitz",
+          category: "General",
+          xp_tier: "Low",
+          points: 10,
+          priority: "Normal",
+          description: "Complete one annoying chore you've been putting off for more than 48 hours."
+        }
+      ],
+      Builder: [
+        {
+          title: "🚀 Construct Chimera: Side Project Sprint",
+          category: "Side Projects",
+          xp_tier: "Mid",
+          points: 20,
+          priority: "High",
+          description: "Code a new feature, draft a system design, or ship a crucial update for your independent product/business."
+        },
+        {
+          title: "🎨 Forge Soul-Weapon: Creative Outpouring",
+          category: "Creative",
+          xp_tier: "Mid",
+          points: 15,
+          priority: "Normal",
+          description: "Spend 45 minutes on creative output (writing, design, UI prototyping, music, drawing) with zero constraints."
+        },
+        {
+          title: "📐 Monarch's Blueprint: Launch Architecture",
+          category: "Side Projects",
+          xp_tier: "Mid",
+          points: 15,
+          priority: "High",
+          description: "Outline the launch strategy, draft copy, or detail the MVP features of your next great venture."
+        }
+      ]
+    };
+  }, []);
+
+  const laggingDomainInfo = useMemo(() => {
+    if (!data) return null;
+    const stats = [
+      { name: "Physical" as const, value: data.domain_physical ?? 10, label: "Physical (Strength & Vitality)", icon: "⚔️", color: "#ff6b6b", categories: ["Fitness", "Health", "Wellness", "Personal Development"] },
+      { name: "Mind" as const, value: data.domain_mind ?? 10, label: "Mind (Intelligence)", icon: "🧠", color: "#a78bfa", categories: ["Work", "Learning", "Academics", "Finance"] },
+      { name: "Soul" as const, value: data.domain_soul ?? 10, label: "Soul (Sense)", icon: "🌊", color: "#60a5fa", categories: ["Mindfulness", "Spirituality", "Social", "Family"] },
+      { name: "Execution" as const, value: data.domain_execution ?? 10, label: "Execution (Agility)", icon: "⚡", color: "#38bdf8", categories: ["Errands", "General"] },
+      { name: "Builder" as const, value: data.domain_builder ?? 10, label: "Builder (Intelligence & Agility)", icon: "🏗️", color: "#ffd700", categories: ["Side Projects", "Creative"] },
+    ];
+    
+    const sorted = [...stats].sort((a, b) => a.value - b.value);
+    const lowest = sorted[0];
+    const highest = [...stats].sort((a, b) => b.value - a.value)[0];
+    const gap = highest.value - lowest.value;
+
+    return {
+      lowest,
+      highest,
+      gap,
+      allStats: stats
+    };
+  }, [data]);
+
+  const handleAriseSuggestedGate = async (directive: any) => {
+    if (!supabase || !user?.id || !laggingDomainInfo) return;
+    setAriseLoadingId(directive.title);
+    
+    try {
+      const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      const payload = {
+        user_id: user.id,
+        assigned_to: user.id,
+        title: `[DIRECTIVE] ${directive.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "").trim()}`,
+        category: directive.category,
+        xp_tier: directive.xp_tier,
+        points: directive.points,
+        priority: directive.priority,
+        is_recurring: false,
+        deadline: tomorrowStr,
+        description: `SYSTEM INSTRUCTION: ${directive.description}. Complete this directive to align your ${laggingDomainInfo.lowest.name} domain standing.`
+      };
+      
+      await SystemAPI.saveGate(payload, null);
+      
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        title: "🌀 DIRECTIVE MANIFESTED",
+        message: `Gate "${directive.title}" has been successfully manifested. Clear it by tomorrow to stabilize your standing.`,
+        type: "system",
+        is_read: false
+      });
+      
+      await loadData();
+    } catch (err: any) {
+      console.error("Failed to arise suggested gate:", err);
+      alert(`⚠️ FAILED TO ARISE GATE: ${err.message || err}`);
+    } finally {
+      setAriseLoadingId(null);
+    }
+  };
 
 
   const completionRate = useMemo(() => {
@@ -291,6 +491,7 @@ export function DashboardPage() {
     }
     setTasks(ts => ts.map(t => t.id === taskId ? { ...t, is_completed: !isCompleted } : t));
     await supabase.from("tasks").update({ is_completed: !isCompleted, completed_at: !isCompleted ? new Date().toISOString() : null }).eq("id", taskId);
+    await loadData();
   };
 
 
@@ -610,6 +811,197 @@ export function DashboardPage() {
         @keyframes flash { from { opacity: 0.5; } to { opacity: 1; } }
       `}</style>
 
+      {/* ── SYSTEM DIRECTIVE: CORE CALIBRATION (RECOMMENDER) ── */}
+      {laggingDomainInfo && (
+        <div className="page-section" style={{ marginBottom: 40 }}>
+          <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-primary)' }}>
+            <span>🌀 System Directive • Core Calibration</span>
+            <span style={{ fontSize: '0.6rem', background: 'rgba(168,168,255,0.1)', color: 'var(--accent-primary)', padding: '2px 8px', borderRadius: 4, letterSpacing: '1px' }}>IMBALANCE DETECTED</span>
+          </div>
+          
+          <div className="ds-glass core-calibration-panel" style={{
+            background: 'linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(5, 5, 10, 0.98) 100%)',
+            border: '1px solid rgba(168, 168, 255, 0.2)',
+            borderRadius: 24,
+            padding: '32px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 0 30px rgba(168, 168, 255, 0.05)',
+            display: 'grid',
+            gridTemplateColumns: '1.2fr 2fr',
+            gap: 32,
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Watermark Aura */}
+            <div style={{
+              position: 'absolute',
+              top: '-30%',
+              left: '-20%',
+              width: '60%',
+              height: '160%',
+              background: `radial-gradient(circle, ${laggingDomainInfo.lowest.color}15 0%, transparent 70%)`,
+              pointerEvents: 'none',
+              zIndex: 0
+            }} />
+
+            {/* Left Column: Lagging Domain Status */}
+            <div style={{ position: 'relative', zIndex: 1, borderRight: '1px dashed rgba(255,255,255,0.08)', paddingRight: 32, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+                <div style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 20,
+                  background: `rgba(${laggingDomainInfo.lowest.name === 'Physical' ? '255,107,107' : laggingDomainInfo.lowest.name === 'Mind' ? '167,139,250' : laggingDomainInfo.lowest.name === 'Soul' ? '96,165,250' : laggingDomainInfo.lowest.name === 'Execution' ? '56,189,248' : '255,215,0'}, 0.1)`,
+                  border: `1px solid ${laggingDomainInfo.lowest.color}40`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2rem',
+                  boxShadow: `0 0 20px ${laggingDomainInfo.lowest.color}20`
+                }}>
+                  {laggingDomainInfo.lowest.name === 'Physical' && <Dumbbell size={32} color={laggingDomainInfo.lowest.color} />}
+                  {laggingDomainInfo.lowest.name === 'Mind' && <Brain size={32} color={laggingDomainInfo.lowest.color} />}
+                  {laggingDomainInfo.lowest.name === 'Soul' && <Sparkles size={32} color={laggingDomainInfo.lowest.color} />}
+                  {laggingDomainInfo.lowest.name === 'Execution' && <Zap size={32} color={laggingDomainInfo.lowest.color} />}
+                  {laggingDomainInfo.lowest.name === 'Builder' && <Hammer size={32} color={laggingDomainInfo.lowest.color} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 900, color: laggingDomainInfo.lowest.color, letterSpacing: '2px', textTransform: 'uppercase' }}>LAGGING DOMAIN</div>
+                  <h4 style={{ fontSize: '1.8rem', fontWeight: 950, color: '#fff', margin: '4px 0 0 0', letterSpacing: '-0.5px' }}>{laggingDomainInfo.lowest.name}</h4>
+                </div>
+              </div>
+
+              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, margin: '0 0 24px 0' }}>
+                The System detects a resonance disparity. Your <strong>{laggingDomainInfo.lowest.name}</strong> standing is lagging behind your highest domain by <strong>{laggingDomainInfo.gap} levels</strong>. Execute targeted quests to restore absolute calibration.
+              </p>
+
+              {/* Stats Gauge */}
+              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 800, marginBottom: 8 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>RESONANCE SCORE</span>
+                  <span style={{ color: laggingDomainInfo.lowest.color }}>{laggingDomainInfo.lowest.value} Proficiency</span>
+                </div>
+                <div style={{ height: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.max(5, Math.min(100, (laggingDomainInfo.lowest.value / 100) * 100))}%`,
+                    background: `linear-gradient(90deg, ${laggingDomainInfo.lowest.color}dd, ${laggingDomainInfo.lowest.color})`,
+                    boxShadow: `0 0 10px ${laggingDomainInfo.lowest.color}50`,
+                    transition: 'width 1s ease'
+                  }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: 'rgba(255,255,255,0.3)', marginTop: 6, fontWeight: 700 }}>
+                  <span>MIN: 0</span>
+                  <span>TARGET: {Math.max(50, laggingDomainInfo.highest.value)} (HIGHEST)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Recommendations */}
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: -8 }}>
+                🔥 PRESCRIBED INSTRUCTIONS
+              </div>
+
+              {/* 1. Active Quest Recommendations if any already exist */}
+              {tasks.filter(t => !t.is_completed && !t.is_pending && !t.is_failed && laggingDomainInfo.lowest.categories.includes(t.category)).length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: '0.65rem', color: '#ffb020', fontWeight: 800, letterSpacing: '0.5px' }}>ACTIVE GATES IN CUE:</div>
+                  {tasks.filter(t => !t.is_completed && !t.is_pending && !t.is_failed && laggingDomainInfo.lowest.categories.includes(t.category)).slice(0, 2).map(task => (
+                    <div key={task.id} style={{
+                      background: 'rgba(255, 176, 32, 0.04)',
+                      border: '1px solid rgba(255, 176, 32, 0.15)',
+                      borderRadius: 12,
+                      padding: '12px 16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff' }}>{task.title}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, display: 'flex', gap: 8 }}>
+                          <span>Category: {task.category}</span>
+                          <span>XP Rank: {task.xp_tier}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleTaskCompletion(task.id, false)}
+                        style={{
+                          background: 'rgba(255, 176, 32, 0.1)',
+                          border: '1px solid rgba(255, 176, 32, 0.3)',
+                          color: '#ffb020',
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          fontSize: '0.65rem',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        CONQUER
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 2. Directives Recommendations */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--accent-primary)', fontWeight: 800, letterSpacing: '0.5px' }}>MANIFEST NEW DIRECTIVES:</div>
+                {systemDirectives[laggingDomainInfo.lowest.name as keyof typeof systemDirectives]?.map((directive, idx) => (
+                  <div key={idx} style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: 16,
+                    padding: '14px 18px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 16,
+                    transition: 'all 0.3s',
+                    position: 'relative'
+                  }} className="recommender-row-v5">
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 850, color: '#fff' }}>{directive.title}</span>
+                        <span style={{ fontSize: '0.55rem', background: 'rgba(168,168,255,0.1)', color: 'var(--accent-primary)', padding: '2px 6px', borderRadius: 4, fontWeight: 800 }}>+{directive.points} XP</span>
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>({directive.category})</span>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                        {directive.description}
+                      </p>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleAriseSuggestedGate(directive)}
+                      disabled={ariseLoadingId === directive.title}
+                      style={{
+                        background: 'linear-gradient(135deg, var(--accent-primary) 0%, #7c3aed 100%)',
+                        border: 'none',
+                        color: '#fff',
+                        padding: '8px 18px',
+                        borderRadius: 10,
+                        fontSize: '0.7rem',
+                        fontWeight: 950,
+                        letterSpacing: '1px',
+                        cursor: ariseLoadingId === directive.title ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        boxShadow: '0 4px 12px rgba(168,168,255,0.25)',
+                        whiteSpace: 'nowrap'
+                      }}
+                      className="arise-suggested-btn"
+                    >
+                      {ariseLoadingId === directive.title ? 'MANIFESTING...' : 'ARISE'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── PROGRESS / CHARTS ── */}
       {(data.weeklyHistory.length > 0 || data.categoryDistribution.length > 0) && (
         <div className="page-section">
@@ -685,6 +1077,24 @@ export function DashboardPage() {
                   height={240}
                 />
               </div>
+              <div style={{ 
+                marginTop: '15px', 
+                padding: '12px 16px', 
+                background: 'rgba(var(--accent-primary-rgb), 0.1)', 
+                borderLeft: '4px solid var(--accent-primary)',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                color: 'var(--t2)'
+              }}>
+                {laggingDomainInfo && (
+                  <div>
+                    <strong style={{ color: 'var(--accent-primary)', display: 'block', marginBottom: '4px', letterSpacing: '1px', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                      🌀 System Suggestion • Imbalance Detected
+                    </strong>
+                    Your <strong>{laggingDomainInfo.lowest.name}</strong> domain is currently your weakest link. Check out the <strong>Core Calibration</strong> directive panel above for tailored recommendations to align your resonance.
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
@@ -753,18 +1163,28 @@ export function DashboardPage() {
                   <span style={{ fontSize: "0.7rem", color: "var(--accent-primary)", marginLeft: 16 }}>{data.monthlyHistory.length} DAYS SCANNED</span>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={data.monthlyHistory} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                    <defs>
-                      <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="rgba(168,168,255,0.3)" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="rgba(168,168,255,0.05)" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.2)" }} tickLine={false} axisLine={false} interval={Math.floor(data.monthlyHistory.length/6)} />
-                    <YAxis stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.2)" }} tickLine={false} axisLine={false} />
-                    <Tooltip {...TOOLTIP_STYLE} />
-                    <Area type="monotone" dataKey="daily_points" stroke="var(--accent-primary)" strokeWidth={2} fill="url(#xpGrad)" dot={false} activeDot={{ r: 5, fill: "var(--accent-primary)" }} />
-                  </AreaChart>
+                  {(() => {
+                    const dataMax = Math.max(...data.monthlyHistory.map(d => d.daily_points), 0);
+                    const dataMin = Math.min(...data.monthlyHistory.map(d => d.daily_points), 0);
+                    const off = dataMax === dataMin ? 1 : dataMax / (dataMax - dataMin);
+                    
+                    return (
+                      <AreaChart data={data.monthlyHistory} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                        <defs>
+                          <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset={0} stopColor="var(--accent-primary)" stopOpacity={0.8} />
+                            <stop offset={off} stopColor="var(--accent-primary)" stopOpacity={0.05} />
+                            <stop offset={off} stopColor="#ef4444" stopOpacity={0.05} />
+                            <stop offset={1} stopColor="#ef4444" stopOpacity={0.8} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.2)" }} tickLine={false} axisLine={false} interval={Math.floor(data.monthlyHistory.length/6)} />
+                        <YAxis stroke="rgba(255,255,255,0.05)" tick={{ fontSize:10, fill:"rgba(255,255,255,0.2)" }} tickLine={false} axisLine={false} />
+                        <Tooltip {...TOOLTIP_STYLE} />
+                        <Area type="monotone" dataKey="daily_points" stroke="url(#splitColor)" strokeWidth={2} fill="url(#splitColor)" dot={false} activeDot={{ r: 5, fill: "var(--accent-primary)" }} />
+                      </AreaChart>
+                    );
+                  })()}
                 </ResponsiveContainer>
               </div>
             )}
