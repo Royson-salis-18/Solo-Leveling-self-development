@@ -5,6 +5,10 @@
 -- Deterministic luck: never lucky unless the chance is 100%.
 create or replace function private.rng() returns double precision language sql volatile as $$ select 0.99999::float8 $$;
 
+-- Engine arithmetic is asserted exactly, so trophy XP (covered in 40_engagement.test.sql) is switched off here.
+create table if not exists tests.ach_backup as select key, xp_reward from public.achievement_catalog;
+update public.achievement_catalog set xp_reward = 0;
+
 select (now() at time zone 'UTC')::date as today \gset
 
 -- ── A. profile defaults & mode selection ─────────────────────────────────────
@@ -227,7 +231,8 @@ select tests.login(:'iv'::uuid);
 select public.select_mode('Normal');
 select tests.logout();
 update public.user_profiles
-   set total_points = 1000, last_active_date = :'today'::date - 12, last_tick_date = :'today'::date - 12
+   set total_points = 1000, last_active_date = :'today'::date - 12, last_tick_date = :'today'::date - 12,
+       last_comeback_date = :'today'::date          -- Comeback Surge (tested in 40_engagement) would double the next gate
  where user_id = :'iv';
 select tests.login(:'iv'::uuid);
 select public.get_dashboard() as ivd \gset
@@ -439,3 +444,6 @@ select tests.eq('category weight: Learning 0.8', private.effective_xp(15, 'Learn
 select tests.eq('category weight: unknown ⇒ 1.0', private.effective_xp(15, 'Whatever'), 15::numeric);
 select tests.eq('title: unknown class falls back to defaults', private.title_for('Bard', 0), 'Rookie');
 select tests.eq('title: Archer is now covered', private.title_for('Archer', 25000), 'Dimensional Tracker');
+
+-- restore trophy XP for the suites that follow
+update public.achievement_catalog c set xp_reward = b.xp_reward from tests.ach_backup b where b.key = c.key;

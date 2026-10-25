@@ -20,8 +20,10 @@ for i in $(seq $N); do
 done; wait
 EVENTS=$(q -c "select count(*) from public.xp_events where user_id='$U' and kind='complete'")
 XP=$(q -c "select total_points from public.user_profiles where user_id='$U'")
-[[ "$EVENTS" == "1" && "$XP" == "18" ]] || fail "double-pay: $EVENTS ledger rows, $XP XP (expected 1 and 18)"
-pass "$N parallel conquests of one gate paid exactly once (18 XP)"
+# 18 XP for the gate + 10 XP for the "First Gate" trophy — each exactly once.
+TROPHY=$(q -c "select count(*) from public.xp_events where user_id='$U' and kind='achievement'")
+[[ "$EVENTS" == "1" && "$TROPHY" == "1" && "$XP" == "28" ]] || fail "double-pay: $EVENTS conquest rows, $TROPHY trophy rows, $XP XP (expected 1, 1 and 28)"
+pass "$N parallel conquests of one gate paid exactly once (18 XP + one 10 XP trophy)"
 
 # ── 2. N parallel claims against a balance that affords only one ────────────
 U2=$(mkuser "Race2")
@@ -68,3 +70,26 @@ done; wait
 RES=$(q -c "select count(*) from public.xp_events where user_id='$U5' and kind in ('complete','fail')")
 [[ "$RES" == "1" ]] || fail "gate resolved $RES times (expected exactly once)"
 pass "conquest vs failure race: gate resolved exactly once"
+
+# ── 6. the daily chest and the boss loot each pay exactly once under a stampede ─
+U6=$(mkuser "Race6")
+q -c "update public.user_profiles set mode_selected_at=now(), current_mode='Normal', last_active_date=(now() at time zone 'UTC')::date, last_tick_date=(now() at time zone 'UTC')::date where user_id='$U6'" >/dev/null
+for t in "Mid:20:Fitness" "Mid:20:Learning" "Low:5:Fitness"; do
+  IFS=: read tier raw cat <<<"$t"
+  q -c "select tests.ev('$U6','$tier',$raw,'$cat')" >/dev/null
+done
+for i in $(seq $N); do
+  q -c "$(login $U6) select public.claim_bounty_chest();" >/dev/null 2>&1 &
+done; wait
+CH=$(q -c "select count(*) from public.xp_events where user_id='$U6' and kind='bounty'")
+[[ "$CH" == "1" ]] || fail "chest paid $CH times (expected exactly once)"
+pass "$N parallel chest claims: paid exactly once"
+
+WK=$(q -c "select private.boss_week()")
+q -c "select private.boss_for('$WK'::date); insert into public.boss_damage (week_start,user_id,damage) values ('$WK','$U6',(select hp from public.world_bosses where week_start='$WK')) on conflict (week_start,user_id) do update set damage=excluded.damage" >/dev/null
+for i in $(seq $N); do
+  q -c "$(login $U6) select public.claim_boss_reward();" >/dev/null 2>&1 &
+done; wait
+BL=$(q -c "select count(*) from public.xp_events where user_id='$U6' and kind='boss'")
+[[ "$BL" == "1" ]] || fail "boss loot paid $BL times (expected exactly once)"
+pass "$N parallel boss-loot claims: paid exactly once"
