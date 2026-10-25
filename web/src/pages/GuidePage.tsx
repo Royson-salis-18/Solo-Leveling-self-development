@@ -293,7 +293,7 @@ export function GuidePage() {
         .temple-bg {
           position: absolute;
           inset: 0;
-          background-image: url('/assets/cartenon_tablet.png');
+          background-image: url('/assets/cartenon_tablet.webp');
           background-size: cover;
           background-position: center;
           opacity: 0.6;

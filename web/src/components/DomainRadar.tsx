@@ -12,10 +12,22 @@ import {
   type DomainKey, 
   type CategoryDef
 } from '../lib/categoryConfig';
-import * as LucideIcons from 'lucide-react';
+import {
+  Sword, Brain, Sparkles, Zap, Hammer, Dumbbell, Heart, Leaf, TrendingUp, Briefcase,
+  BookOpen, GraduationCap, DollarSign, Rocket, Palette, Target, Sparkle, Users, Home,
+  Settings, HelpCircle, type LucideIcon,
+} from 'lucide-react';
+
+// Explicit map: `import * as Icons` + dynamic lookup defeats tree-shaking and pulled the
+// entire icon library (~800 KB) into the main bundle. Every name used in categoryConfig.ts
+// must be listed here; anything else falls back to HelpCircle.
+const ICONS: Record<string, LucideIcon> = {
+  Sword, Brain, Sparkles, Zap, Hammer, Dumbbell, Heart, Leaf, TrendingUp, Briefcase,
+  BookOpen, GraduationCap, DollarSign, Rocket, Palette, Target, Sparkle, Users, Home, Settings,
+};
 
 const renderIcon = (iconName: string, size = 16, color?: string) => {
-  const Icon = (LucideIcons as any)[iconName] || LucideIcons.HelpCircle;
+  const Icon = ICONS[iconName] ?? HelpCircle;
   return <Icon size={size} color={color} />;
 };
 

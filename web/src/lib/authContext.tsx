@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { ErrorHandler, AppErrorException } from "./errorHandler";
 import type { AppError } from "./errorHandler";
@@ -38,7 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<AppError | null>(null);
 
   /**
-   * Initialize auth state and listen for changes
+   * Initialize auth state and listen for changes.
+   *
+   * IMPORTANT: never `await` another Supabase call inside the onAuthStateChange callback —
+   * supabase-js holds an internal lock while it runs, so awaiting a query there can deadlock
+   * and (as it did here) stalled the whole app behind the 5s profile timeout. We resolve
+   * "loading" as soon as the session is known and hydrate the profile in the background.
    */
   useEffect(() => {
     if (!supabase) {
@@ -46,39 +51,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Set up auth state listener SYNCHRONOUSLY so React gets the cleanup fn
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        logger.debug("Auth state changed", { event: _event, hasSession: !!session });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      logger.debug("Auth state changed", { event, hasSession: !!session });
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      setIsLoading(false);
 
-        if (session?.user) {
-          setUser(session.user);
-          try {
-            await fetchProfile(session.user.id);
-          } catch (err) {
-            logger.warn("Failed to fetch profile on auth change", { error: err });
-          }
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-        // Always resolve loading after first state change
-        setIsLoading(false);
-      }
-    );
-
-    // Seed the initial session (won't fire onAuthStateChange on its own)
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error) {
-        logger.error("getSession error", {}, error as Error);
-        setIsLoading(false);
+      if (!nextUser) {
+        setProfile(null);
         return;
       }
-      if (!data.session) {
-        // No session — stop loading so the login page shows
-        setIsLoading(false);
+      // Token refreshes don't change the profile; everything else (sign-in, initial session,
+      // user update) re-hydrates it, deferred out of the auth callback.
+      if (event !== "TOKEN_REFRESHED") {
+        setTimeout(() => { void fetchProfile(nextUser.id); }, 0);
       }
-      // If there IS a session, onAuthStateChange will fire and set isLoading=false
+    });
+
+    // Safety net for older sessions that don't emit INITIAL_SESSION.
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) logger.error("getSession error", {}, error as Error);
+      if (error || !data.session) setIsLoading(false);
     });
 
     return () => {
@@ -359,7 +352,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
-  const value: AuthContextType = {
+  // Memoised so consumers only re-render when auth state actually changes. The functions
+  // inside close over `user` and stable state setters, so keying on state is sufficient.
+  const value = useMemo<AuthContextType>(() => ({
     user,
     profile,
     isLoading,
@@ -371,7 +366,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateProfile,
     refreshProfile: () => user ? fetchProfile(user.id) : Promise.resolve(),
     clearError,
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [user, profile, isLoading, error]);
 
   return (
     <AuthContext.Provider value={value}>

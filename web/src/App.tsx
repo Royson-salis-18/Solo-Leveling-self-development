@@ -1,32 +1,19 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider }      from "./lib/authContext";
 import { NotificationProvider } from "./lib/notificationContext";
 import { ProtectedRoute }    from "./lib/ProtectedRoute";
 import { Sidebar }           from "./components/Sidebar";
-import { DashboardPage }     from "./pages/DashboardPage";
-import { DungeonGatePage }   from "./pages/DungeonGatePage";
-import { WarRoomPage }       from "./pages/WarRoomPage";
-import { RewardsPage }       from "./pages/RewardsPage";
-import { LeaderboardPage }   from "./pages/LeaderboardPage";
-import { ProfilePage }       from "./pages/ProfilePage";
-import { ArenaPage }         from "./pages/ArenaPage";
-import { SocialPage }        from "./pages/SocialPage";
-import { ChallengesPage }    from "./pages/ChallengesPage";
-import { LoginPage }         from "./pages/LoginPage";
-import { RegisterPage }      from "./pages/RegisterPage";
-import { GuidePage }         from "./pages/GuidePage";
-import { NotificationsPage } from "./pages/NotificationsPage";
-import { CollectionPage }    from "./pages/CollectionPage";
-import { ModeSelectionPage } from "./pages/ModeSelectionPage";
-import { OracleArchitect }    from "./components/OracleArchitect";
+import { PageSkeleton }      from "./components/PageSkeleton";
 import { SoloRainOverlay } from "./components/SoloRainOverlay";
-import "./app.css";
+import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
 
 function AppContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showLevelUpFx, setShowLevelUpFx] = useState(false);
   const [levelUpHud, setLevelUpHud] = useState("LEVEL UP // ARISE");
+
+  useEffect(() => { prefetchCommonRoutes(); }, []);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -50,8 +37,8 @@ function AppContent() {
   return (
     <Routes>
       {/* Auth */}
-      <Route path="/login"    element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login"    element={<Suspense fallback={<PageSkeleton />}><Pages.Login /></Suspense>} />
+      <Route path="/register" element={<Suspense fallback={<PageSkeleton />}><Pages.Register /></Suspense>} />
 
       {/* Protected app shell */}
       <Route
@@ -62,24 +49,26 @@ function AppContent() {
               <div className="system-bg-overlay"></div>
               <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
               <main className="content">
-                <Routes>
-                  <Route path="/"            element={<DashboardPage />} />
-                  <Route path="/war-room"    element={<WarRoomPage />} />
-                  <Route path="/dungeon-gate" element={<DungeonGatePage />} />
-                  <Route path="/collection"  element={<CollectionPage />} />
-                  <Route path="/rewards"     element={<RewardsPage />} />
-                  <Route path="/arena"       element={<ArenaPage />} />
-                  <Route path="/social"      element={<SocialPage />} />
-                  <Route path="/challenges"  element={<ChallengesPage />} />
-                  <Route path="/leaderboard" element={<LeaderboardPage />} />
-                  <Route path="/profile"     element={<ProfilePage />} />
-                  <Route path="/guide"       element={<GuidePage />} />
-                  <Route path="/mode-selection" element={<ModeSelectionPage />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="*"            element={<Navigate to="/" replace />} />
-                </Routes>
+                <Suspense fallback={<PageSkeleton />}>
+                  <Routes>
+                    <Route path="/"            element={<Pages.Dashboard />} />
+                    <Route path="/war-room"    element={<Pages.WarRoom />} />
+                    <Route path="/dungeon-gate" element={<Pages.DungeonGate />} />
+                    <Route path="/collection"  element={<Pages.Collection />} />
+                    <Route path="/rewards"     element={<Pages.Rewards />} />
+                    <Route path="/arena"       element={<Pages.Arena />} />
+                    <Route path="/social"      element={<Pages.Social />} />
+                    <Route path="/challenges"  element={<Pages.Challenges />} />
+                    <Route path="/leaderboard" element={<Pages.Leaderboard />} />
+                    <Route path="/profile"     element={<Pages.Profile />} />
+                    <Route path="/guide"       element={<Pages.Guide />} />
+                    <Route path="/mode-selection" element={<Pages.ModeSelection />} />
+                    <Route path="/notifications" element={<Pages.Notifications />} />
+                    <Route path="*"            element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
               </main>
-              <OracleArchitect />
+              <Suspense fallback={null}><OracleArchitect /></Suspense>
               <SoloRainOverlay
                 active={showLevelUpFx}
                 hudText={levelUpHud}

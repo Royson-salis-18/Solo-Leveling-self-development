@@ -2,6 +2,7 @@ import { Home, ScrollText, Gift, User, LogOut, Brain, Swords, Users, Target, Boo
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
+import { prefetchRoute } from "../routes";
 
 const links = [
   { to: "/",            label: "Dashboard",    icon: Home },
@@ -85,6 +86,9 @@ export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onTog
             end={link.to === "/"}
             className={({ isActive }) => `sb-item${isActive ? " sb-item--active" : ""}${link.to === "/arena" ? " sb-item--arena" : ""}`}
             title={isCollapsed ? link.label : undefined}
+            onMouseEnter={() => prefetchRoute(link.to)}
+            onFocus={() => prefetchRoute(link.to)}
+            onTouchStart={() => prefetchRoute(link.to)}
           >
             <link.icon size={isCollapsed ? 16 : 18} strokeWidth={1.8} />
             {!isCollapsed && <span>{link.label}</span>}

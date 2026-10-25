@@ -33,14 +33,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     if (!isLoading && isAuthenticated) {
-      // Small hold then smooth fade to content.
+      // Short hold then a quick fade to content (was 220ms + 760ms of dead time).
       fadeTimer = window.setTimeout(() => {
         setBootPhase("fading");
         doneTimer = window.setTimeout(() => {
           setBootPhase("done");
           settledRef.current = true;
-        }, 760);
-      }, 220);
+        }, 320);
+      }, 40);
     } else if (isLoading && bootPhase !== "loading") {
       setBootPhase("loading");
     }
@@ -60,7 +60,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       position: "relative",
       overflow: "hidden",
       opacity: bootPhase === "fading" ? 0 : 1,
-      transition: "opacity 760ms cubic-bezier(0.22, 1, 0.36, 1)",
+      transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
     }}>
       <SoloRainOverlay active={bootPhase === "loading"} hudText="SYSTEM LINK [CONNECTING]" tone="entry" />
       <div style={{ textAlign: "center" }}>
