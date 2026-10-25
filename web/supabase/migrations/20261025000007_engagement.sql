@@ -185,6 +185,11 @@ grant select on public.bounty_catalog, public.bounty_chests, public.achievement_
 update public.plans set limits = '{"streak_freeze_cap": 2}'::jsonb || limits where id = 'free';
 update public.plans set limits = '{"streak_freeze_cap": 5}'::jsonb || limits where id = 'pro';
 
+update public.plans set features = features || '["Hold up to 2 Streak Freezes"]'::jsonb
+ where id = 'free' and not features @> '["Hold up to 2 Streak Freezes"]'::jsonb;
+update public.plans set features = features || '["Hold up to 5 Streak Freezes"]'::jsonb
+ where id = 'pro' and not features @> '["Hold up to 5 Streak Freezes"]'::jsonb;
+
 -- ── helpers ──────────────────────────────────────────────────────────────────
 create or replace function private.freeze_cap(p_uid uuid) returns integer
 language sql stable as $$ select coalesce(private.plan_limit(p_uid, 'streak_freeze_cap'), 2) $$;

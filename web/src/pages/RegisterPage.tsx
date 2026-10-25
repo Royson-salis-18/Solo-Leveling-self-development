@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
+import { captureReferral, storedReferral } from "../lib/referral";
 import { Brain, Shield, Zap, Sword, Heart, Star, Target, Eye, Cpu } from "lucide-react";
 
 const CLASSES: { name: string; icon: React.ReactNode; desc: string }[] = [
@@ -29,6 +30,8 @@ export function RegisterPage() {
   const { signUp, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => { captureReferral(); }, []);
+
   useEffect(() => {
     if (isAuthenticated) navigate("/");
   }, [isAuthenticated, navigate]);
@@ -42,7 +45,7 @@ export function RegisterPage() {
     if (password !== confirmPassword) { setError("Access keys do not match.");                  return; }
     setIsLoading(true);
     try {
-      const r = await signUp(email, password, name.trim(), selectedClass);
+      const r = await signUp(email, password, name.trim(), selectedClass, storedReferral());
       if (r.needsEmailConfirmation) { setError(""); setNotice("Check your email to confirm your account, then sign in."); return; }
       navigate("/");
     } catch (err) {

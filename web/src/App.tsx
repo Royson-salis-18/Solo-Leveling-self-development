@@ -11,6 +11,7 @@ import { PageSkeleton }      from "./components/PageSkeleton";
 import { ErrorBoundary }     from "./components/ErrorBoundary";
 import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
+import { captureReferral } from "./lib/referral";
 
 /** New hunters must choose a difficulty before anything else (first pick is free). */
 function ModeGate({ children }: { children: ReactNode }) {
@@ -28,6 +29,7 @@ function AppContent() {
   const [levelUpHud, setLevelUpHud] = useState("LEVEL UP // ARISE");
 
   useEffect(() => { prefetchCommonRoutes(); }, []);
+  useEffect(() => { captureReferral(); }, []);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -85,6 +87,7 @@ function AppContent() {
                     <Route path="/guide"       element={<Pages.Guide />} />
                     <Route path="/mode-selection" element={<Pages.ModeSelection />} />
                     <Route path="/notifications" element={<Pages.Notifications />} />
+                    <Route path="/achievements" element={<Pages.Achievements />} />
                     <Route path="/settings" element={<Pages.Settings />} />
                     <Route path="*"            element={<Navigate to="/" replace />} />
                   </Routes>

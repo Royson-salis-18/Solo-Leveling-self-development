@@ -41,6 +41,7 @@ export const Pages = {
   Forgot: lazyPage(() => import("./pages/PasswordPages"), "ForgotPasswordPage"),
   Reset: lazyPage(() => import("./pages/PasswordPages"), "ResetPasswordPage"),
   Settings: lazyPage(() => import("./pages/SettingsPage"), "SettingsPage"),
+  Achievements: lazyPage(() => import("./pages/AchievementsPage"), "AchievementsPage"),
   Notifications: lazyPage(() => import("./pages/NotificationsPage"), "NotificationsPage"),
 } as const;
 
@@ -60,6 +61,7 @@ const PRELOAD_BY_PATH: Record<string, () => void> = {
   "/profile": Pages.Profile.preload,
   "/guide": Pages.Guide.preload,
   "/mode-selection": Pages.ModeSelection.preload,
+  "/achievements": Pages.Achievements.preload,
   "/notifications": Pages.Notifications.preload,
 };
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EngagementPanel } from "../components/EngagementPanel";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -423,6 +424,9 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── ENGAGEMENT: streak, bounties, world boss, next trophy ── */}
+      <EngagementPanel />
 
       {/* ── MONARCH TRANSMISSION (QUOTE) ── */}
       {(() => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Brain, Flame, Shield, Swords, Zap, LineChart } from "lucide-react";
+import { Brain, Crown, Flame, Gift, Shield, Swords, Zap, LineChart } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { BRAND } from "../lib/brand";
 import { PlanCards } from "../components/PlanCards";
@@ -11,6 +11,8 @@ const FEATURES = [
   { icon: Shield, title: "Cheat-proof", text: "XP is awarded by the server. No console tricks, no double-clicks — leaderboards you can trust." },
   { icon: Zap, title: "Rewards you design", text: "Spend XP on treats you choose. Spending never lowers your level." },
   { icon: LineChart, title: "See your growth", text: "Domains, weekly threshold and history charts show where you're strong and where you're slipping." },
+  { icon: Gift, title: "Something new every day", text: "Three daily bounties, a loot chest with real odds, and Streak Freezes that cover a bad day — so one slip never erases weeks of work." },
+  { icon: Crown, title: "Raid a boss together", text: "A weekly World Boss that every hunter chips away at. Your conquests are the damage; the loot is shared." },
   { icon: Brain, title: "An AI that knows your record", text: "Ask the Oracle for a plan; it reads your real stats, not guesses." },
 ];
 

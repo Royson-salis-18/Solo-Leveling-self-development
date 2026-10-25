@@ -3,6 +3,7 @@ import { useAuth } from "./authContext";
 import { useToast } from "./toast";
 import { SystemAPI } from "../services/SystemAPI";
 import { describeCompletion, describeFailure } from "./gameFormat";
+import { requestEngagementRefresh } from "./engagement";
 import type { CompleteResult, FailResult, ProfileSnapshot, Progression } from "./gameTypes";
 
 /** Window event the app shell listens to for the level-up rain effect. */
@@ -33,6 +34,7 @@ export function useGameActions() {
       const r = await SystemAPI.completeGate(taskId);
       apply(r.profile);
       announce(r.progression);
+      requestEngagementRefresh();
       const f = describeCompletion(r);
       toast.toast({ title: f.title, message: f.message, type: f.kind });
       return r;

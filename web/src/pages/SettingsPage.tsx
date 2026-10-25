@@ -6,7 +6,8 @@ import { useConfirm } from "../lib/confirm";
 import { SystemAPI } from "../services/SystemAPI";
 import { supabase } from "../lib/supabase";
 import { PlanCards } from "../components/PlanCards";
-import type { Entitlements } from "../lib/gameTypes";
+import type { Engagement, Entitlements } from "../lib/gameTypes";
+import { referralLink } from "../lib/referral";
 
 async function callFn<T>(name: string, body?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase!.functions.invoke<T>(name, { body });
@@ -24,8 +25,16 @@ export function SettingsPage() {
   const [params] = useSearchParams();
   const [ent, setEnt] = useState<Entitlements | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ref, setRef] = useState<Engagement["referral"] | null>(null);
 
   useEffect(() => { SystemAPI.entitlements().then(setEnt).catch(() => undefined); }, []);
+  useEffect(() => { SystemAPI.getEngagement().then((e) => setRef(e.referral)).catch(() => undefined); }, []);
+
+  const copyInvite = async () => {
+    if (!ref) return;
+    try { await navigator.clipboard.writeText(referralLink(ref.code)); toast.success("Invite link copied", "Send it to a friend."); }
+    catch { toast.info("Copy this link", referralLink(ref.code)); }
+  };
   useEffect(() => { if (params.get("billing") === "success") toast.success("Welcome to Pro", "It can take a few seconds for your plan to update."); }, [params, toast]);
 
   const run = async (fn: () => Promise<void>) => { setBusy(true); try { await fn(); } catch (e) { toast.fail(e); } finally { setBusy(false); } };
@@ -50,6 +59,19 @@ export function SettingsPage() {
       <div className="panel" style={{ marginBottom: 16 }}>
         <h3>Account</h3><p className="text-muted text-sm">{user?.email}</p>
       </div>
+      {ref && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <h3>Invite a friend</h3>
+          <p className="text-muted text-sm">
+            When a friend you invite conquers their first gate, you get 2 Surge Crystals (double XP on a conquest) and they get 1.
+            {ref.recruited > 0 && <> {ref.active} of {ref.recruited} recruit{ref.recruited === 1 ? "" : "s"} active.</>}
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <code style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,.06)", overflowWrap: "anywhere" }}>{referralLink(ref.code)}</code>
+            <button className="btn" onClick={copyInvite}>Copy link</button>
+          </div>
+        </div>
+      )}
       <div className="panel" style={{ marginBottom: 16 }}>
         <h3>Plan: {ent?.plan.name ?? "…"}</h3>
         {ent && <p className="text-muted text-sm">

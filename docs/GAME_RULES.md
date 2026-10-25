@@ -35,5 +35,15 @@ Tier unlocks: T1 streak 3 · T2 streak 7, rank C, trigger gate · T3 14, B, trig
 ## Modes
 First pick free; later switches have a 7-day cooldown; Hell is a 30-day lock-in.
 
+## Engagement layer (all server-side)
+- **Streak Freezes.** Every 7th streak day banks one (Free holds 2, Pro 5 — `plans.limits.streak_freeze_cap`). On a missed day beyond the mode's grace, a Freeze is spent automatically: the day counts as active (no streak reset, no decay). No Freeze ⇒ the streak resets as before.
+- **Daily Bounties.** Three per local day, one each of difficulty 1–3, picked by a stable hash of (player, day) from `bounty_catalog`. Progress is derived from the XP ledger (gates, XP, C-rank+, B-rank+, before-noon, category variety). **2 of 3** opens the Bounty Chest; **3 of 3** improves the odds. Chest: Common 15 XP · Rare 40 XP + Surge Crystal · Epic 90 XP + Streak Freeze (or +30 XP if full). Odds Rare/Epic: 2/3 → 22%/4%, 3/3 → 30%/7%. **Pity:** five Commons in a row guarantee the next Rare. One chest per local day.
+- **Trophies.** 28 achievements across conquests, streak, level, shadows, B-rank+, chests, XP, referrals and boss kills; each pays its XP once, at the moment it unlocks.
+- **World Boss.** One per UTC week (Mon–Sun). Every first-time conquest deals its earned XP as damage. HP adapts: last week's boss beaten → +15%, missed → −10% (min 2,000; first boss 2,500). When defeated, anyone with ≥ 20 damage can claim 80 XP + a Surge Crystal (current or previous week only).
+- **Comeback Surge.** Returning after 3+ idle days grants 3 Surge Crystals (×2 XP on a conquest each), at most once per 7 days.
+- **Referrals.** `…/register?ref=CODE` (the hunter code). On the recruit's **first conquest** the recruiter gets 2 Surge Crystals and the recruit 1. Capped at 20 paid recruits per recruiter.
+- **Bonus XP** (chest, trophy, boss, referral) is ledgered (`bounty`/`achievement`/`boss`), bypasses Dark Mana, and never counts toward the weekly threshold.
+- **Reminders.** `private.send_return_nudges()` (see SETUP.md): one reminder/day, only while the streak is savable.
+
 ## Not implemented
 Clan/guild event XP rewards (events are display-only "team goals"), reward-expiry streak penalty.

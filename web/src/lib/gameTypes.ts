@@ -18,6 +18,8 @@ export type ProfileSnapshot = {
   dark_mana: number;
   ego_score: number;
   current_mode: string;
+  streak_freezes?: number;
+  best_streak?: number;
 };
 
 export type Progression = {
@@ -53,6 +55,7 @@ export type CompleteResult = {
   flow_active?: boolean;
   shadow?: { name: string; rarity: string; bonus: number } | null;
   progression?: Progression;
+  engagement?: { freeze_earned?: boolean; achievements?: UnlockedTrophy[] };
   profile: ProfileSnapshot;
 };
 
@@ -159,4 +162,96 @@ export type DuelRow = {
 export type PendingInvites = {
   clan: Array<{ id: string; name: string; inviter: string | null; created_at: string }>;
   guild: Array<{ id: string; name: string; inviter: string | null; created_at: string }>;
+};
+
+/* ─── Engagement layer (supabase/migrations/…_engagement.sql) ─── */
+
+export type Rarity = "Common" | "Rare" | "Epic" | "Legendary";
+
+export type UnlockedTrophy = { key: string; name: string; rarity: Rarity; icon: string; xp: number };
+
+export type Bounty = {
+  key: string;
+  title: string;
+  description: string;
+  difficulty: 1 | 2 | 3;
+  target: number;
+  progress: number;
+  done: boolean;
+};
+
+export type BossView = {
+  week: string;
+  name: string;
+  /** null until the first hit of the week creates the boss. */
+  hp: number | null;
+  damage: number;
+  my_damage: number;
+  players: number;
+  defeated: boolean;
+  reward_xp?: number;
+  min_damage?: number;
+  ends_at: string;
+  top: Array<{ name: string; damage: number; me: boolean }>;
+  claimable: Array<{ week: string; name: string; reward_xp: number }>;
+  pending?: boolean;
+};
+
+export type Trophy = {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: Rarity;
+  threshold: number;
+  xp_reward: number;
+  progress: number;
+  unlocked_at: string | null;
+};
+
+export type Engagement = {
+  profile_missing?: boolean;
+  day: string;
+  seconds_left: number;
+  bounties: Bounty[];
+  bounties_done: number;
+  chest:
+    | { claimed: false; unlockable: boolean; pity: number }
+    | { claimed: true; rarity: Rarity; xp: number; item: string | null };
+  streak: {
+    count: number;
+    best: number;
+    freezes: number;
+    freeze_cap: number;
+    done_today: boolean;
+    at_risk: boolean;
+    next_freeze_in: number;
+  };
+  boss: BossView;
+  achievements: {
+    unlocked: number;
+    total: number;
+    next: (Omit<Trophy, "unlocked_at"> & { progress: number }) | null;
+  };
+  referral: { code: string; recruited: number; active: number };
+};
+
+export type ChestResult = {
+  ok: boolean;
+  rarity: Rarity;
+  xp: number;
+  item: string | null;
+  perfect: boolean;
+  achievements: UnlockedTrophy[];
+  progression?: Progression;
+  profile: ProfileSnapshot;
+};
+
+export type BossLootResult = {
+  ok: boolean;
+  xp: number;
+  item: string;
+  achievements: UnlockedTrophy[];
+  progression?: Progression;
+  profile: ProfileSnapshot;
 };

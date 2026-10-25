@@ -5,11 +5,18 @@ Create a project; copy the URL and anon key into `web/.env` (`VITE_SUPABASE_URL`
 
 ## 2. Database — run in the SQL editor, in this order
 1. `web/supabase_schema.sql`, then `web/supabase_notifications.sql` (legacy base; safe to re-run). *Fresh projects only; existing projects already have them.*
-2. every file in `web/supabase/migrations/` in filename order (`…20261025000001` → `…06`). All are idempotent and non-destructive.
+2. every file in `web/supabase/migrations/` in filename order (`…20261025000001` → `…07`). All are idempotent and non-destructive.
 
 **Deploy the new frontend and run the migrations together.** The migrations remove the client's ability to write XP directly, so the old frontend stops working against the new database.
 `…06_rollout_recalibration.sql` gives existing players a clean slate (no retroactive decay).
 In Auth settings, add your site URL and `…/reset-password` to the redirect allow-list. In Database → Replication, ensure `notifications` is published.
+
+### Streak reminders (optional, recommended)
+`…07_engagement.sql` ships `private.send_return_nudges()`: one in-app reminder per player per day, 18:00–21:59 local time, only while their streak can still be saved. Schedule it hourly with pg_cron (Database → Extensions → enable `pg_cron`):
+```sql
+select cron.schedule('streak-nudges', '0 * * * *', $$select private.send_return_nudges()$$);
+```
+World bosses are created lazily on the first hit of each UTC week; nothing to schedule.
 
 ## 3. Edge functions (AI + billing)
 ```bash

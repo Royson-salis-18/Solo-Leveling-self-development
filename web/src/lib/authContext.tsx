@@ -28,6 +28,8 @@ export type UserProfile = ProfileSnapshot & {
   guild_aura_card?: string | null;
   timezone: string;
   mode_selected_at: string | null;
+  streak_freezes?: number;
+  best_streak?: number;
   last_active_date?: string | null;
   season_end_date?: string | null;
   domain_physical?: number;
@@ -51,7 +53,7 @@ interface AuthContextType {
   /** True while the user arrived from a password-reset email and must choose a new password. */
   isRecovering: boolean;
   error: AppError | null;
-  signUp: (email: string, password: string, name: string, playerClass?: string) => Promise<{ needsEmailConfirmation: boolean }>;
+  signUp: (email: string, password: string, name: string, playerClass?: string, referralCode?: string) => Promise<{ needsEmailConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -149,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     throw new AppErrorException(appError);
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, playerClass: string = "Warrior") => {
+  const signUp = useCallback(async (email: string, password: string, name: string, playerClass: string = "Warrior", referralCode?: string) => {
     const emailValidation = ErrorHandler.validateEmail(email);
     if (!emailValidation.valid) fail(emailValidation.error!);
     const passwordValidation = ErrorHandler.validatePassword(password);
@@ -162,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error: authError } = await supabase!.auth.signUp({
         email,
         password,
-        options: { data: { name: name.trim(), player_class: playerClass } },
+        options: { data: { name: name.trim(), player_class: playerClass, ...(referralCode ? { ref: referralCode } : {}) } },
       });
       if (authError) throw authError;
       if (!data.user) throw new Error("Failed to create user account");
