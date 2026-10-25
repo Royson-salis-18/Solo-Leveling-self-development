@@ -1,3 +1,6 @@
+-- LEGACY: superseded by web/supabase/migrations/20261025000003_social.sql, which fixes the
+-- self-assignment notification spam and hardens search_path. Run the migrations AFTER this file.
+
 -- ==========================================
 -- AUTO-NOTIFICATION TRIGGERS
 -- ==========================================

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { SystemAPI } from "../services/SystemAPI";
+import { errorMessage } from "../lib/rpc";
 import { useAuth } from "../lib/authContext";
 import { Button } from "../components/Button";
 import { 
@@ -27,7 +29,6 @@ export function CollectionPage() {
   useEffect(() => {
     if (user) {
       fetchCollection();
-      sweepExpiredGifts();
     }
     
     // Time Window Logic (e.g. 06:00 to 22:00)
@@ -106,74 +107,16 @@ export function CollectionPage() {
     }
   };
 
-  const sweepExpiredGifts = async () => {
-    // This is now partially handled by the 'durability > 0' filter in fetchCollection,
-    // but we still want to clean up the DB eventually.
-    if (!user || !supabase) return;
-    
-    const { data: allItems } = await supabase.from("inventory").select("id, item_category, acquired_at, metadata").eq("user_id", user.id);
-    if (!allItems) return;
-
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    const toDelete = allItems.filter(item => {
-      if (item.item_category !== "Weapon") return false;
-      const acquiredAt = new Date(item.acquired_at).getTime();
-      const ageInDays = (now - acquiredAt) / dayMs;
-      const durability = Math.max(0, (item.metadata?.durability ?? 100) - Math.floor(ageInDays * 20));
-      return durability <= 0;
-    }).map(i => i.id);
-
-    if (toDelete.length > 0) {
-      await supabase.from("inventory").delete().in("id", toDelete);
-      console.log(`System reclaimed ${toDelete.length} broken armaments.`);
-    }
-  };
-
   const getSystemGift = async () => {
-    if (!user || !supabase) return;
-    
-    // Time Window Check
-    if (!isWindowActive) {
-      setAlertInfo({ 
-        show: true, 
-        title: "Access Denied", 
-        message: `The System Gift window is closed. Access restored in ${timeToNextWindow}. (Window: 06:00 - 22:00)` 
-      });
-      return;
+    if (!user) return;
+    try {
+      // Window (06:00-22:00 local) and once-per-day are enforced by the server.
+      const gift = await SystemAPI.claimDailyGift();
+      await fetchCollection();
+      setAlertInfo({ show: true, title: "Reward Acquired", message: `System Gift: You received [${gift.name}]! It has been added to your Arsenal with 100% Mana Durability.` });
+    } catch (err) {
+      setAlertInfo({ show: true, title: "System Notice", message: errorMessage(err) });
     }
-
-    // Daily Cooldown Check
-    const today = new Date().toDateString();
-    const lastGiftDate = localStorage.getItem("lastGiftDate");
-    if (lastGiftDate === today) {
-      setAlertInfo({ show: true, title: "System Notice", message: "You have already claimed your daily gift. The System will prepare another tomorrow." });
-      return;
-    }
-
-    const weapons = ITEM_CATALOG.filter(i => i.item_category === 'Weapon' && i.rarity !== 'Legendary' && i.rarity !== 'S-Rank');
-    const picked = weapons[Math.floor(Math.random() * weapons.length)];
-    
-    const { error } = await supabase.from("inventory").insert({
-      user_id: user.id,
-      name: picked.name,
-      description: `${picked.description} [SYSTEM_RENTAL]`,
-      item_type: picked.item_type,
-      item_category: picked.item_category,
-      rarity: picked.rarity,
-      quantity: 1,
-      metadata: { durability: 100, is_rental: true }
-    });
-
-    if (error) {
-      console.error("Manifestation Failed:", error);
-      setAlertInfo({ show: true, title: "System Error", message: "Failed to manifest gift. The mana flow is unstable. Please try again." });
-      return;
-    }
-    
-    localStorage.setItem("lastGiftDate", today);
-    await fetchCollection();
-    setAlertInfo({ show: true, title: "Reward Acquired", message: `System Gift: You received [${picked.name}]! It has been added to your Arsenal with 100% Mana Durability.` });
   };
 
   const filteredShadows = showAll ? shadows : shadows.filter(s => s.collected);

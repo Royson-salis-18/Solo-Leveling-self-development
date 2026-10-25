@@ -179,7 +179,7 @@ class Logger {
 export const logger = new Logger();
 
 // Make available globally in development
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as any).logger = logger;
   console.log("💡 Logger available as window.logger");
 }

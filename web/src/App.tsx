@@ -8,6 +8,7 @@ import { NotificationProvider } from "./lib/notificationContext";
 import { ProtectedRoute }    from "./lib/ProtectedRoute";
 import { Sidebar }           from "./components/Sidebar";
 import { PageSkeleton }      from "./components/PageSkeleton";
+import { ErrorBoundary }     from "./components/ErrorBoundary";
 import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
 
@@ -50,6 +51,12 @@ function AppContent() {
   return (
     <Routes>
       {/* Auth */}
+      <Route path="/welcome"  element={<Suspense fallback={<PageSkeleton />}><Pages.Landing /></Suspense>} />
+      <Route path="/pricing"  element={<Suspense fallback={<PageSkeleton />}><Pages.Pricing /></Suspense>} />
+      <Route path="/terms"    element={<Suspense fallback={<PageSkeleton />}><Pages.Terms /></Suspense>} />
+      <Route path="/privacy"  element={<Suspense fallback={<PageSkeleton />}><Pages.Privacy /></Suspense>} />
+      <Route path="/forgot-password" element={<Suspense fallback={<PageSkeleton />}><Pages.Forgot /></Suspense>} />
+      <Route path="/reset-password"  element={<Suspense fallback={<PageSkeleton />}><Pages.Reset /></Suspense>} />
       <Route path="/login"    element={<Suspense fallback={<PageSkeleton />}><Pages.Login /></Suspense>} />
       <Route path="/register" element={<Suspense fallback={<PageSkeleton />}><Pages.Register /></Suspense>} />
 
@@ -78,6 +85,7 @@ function AppContent() {
                     <Route path="/guide"       element={<Pages.Guide />} />
                     <Route path="/mode-selection" element={<Pages.ModeSelection />} />
                     <Route path="/notifications" element={<Pages.Notifications />} />
+                    <Route path="/settings" element={<Pages.Settings />} />
                     <Route path="*"            element={<Navigate to="/" replace />} />
                   </Routes>
                   </ModeGate>
@@ -100,7 +108,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ToastProvider>
+    <ErrorBoundary><ToastProvider>
       <ConfirmProvider>
         <AuthProvider>
           <NotificationProvider>
@@ -108,6 +116,6 @@ export default function App() {
           </NotificationProvider>
         </AuthProvider>
       </ConfirmProvider>
-    </ToastProvider>
+    </ToastProvider></ErrorBoundary>
   );
 }

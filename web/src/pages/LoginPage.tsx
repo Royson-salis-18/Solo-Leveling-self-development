@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { Brain } from "lucide-react";
 
@@ -82,6 +82,7 @@ export function LoginPage() {
             {isLoading ? "Signing in…" : "Sign In"}
           </button>
         </form>
+        <p style={{ marginTop: 12, fontSize: ".8rem", textAlign: "center" }}><Link to="/forgot-password">Forgot your password?</Link></p>
 
         <p className="auth-switch">
           Don't have an account?{" "}

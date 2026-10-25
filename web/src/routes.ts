@@ -34,6 +34,13 @@ export const Pages = {
   Profile: lazyPage(() => import("./pages/ProfilePage"), "ProfilePage"),
   Guide: lazyPage(() => import("./pages/GuidePage"), "GuidePage"),
   ModeSelection: lazyPage(() => import("./pages/ModeSelectionPage"), "ModeSelectionPage"),
+  Landing: lazyPage(() => import("./pages/LandingPage"), "LandingPage"),
+  Pricing: lazyPage(() => import("./pages/PricingPage"), "PricingPage"),
+  Terms: lazyPage(() => import("./pages/LegalPages"), "TermsPage"),
+  Privacy: lazyPage(() => import("./pages/LegalPages"), "PrivacyPage"),
+  Forgot: lazyPage(() => import("./pages/PasswordPages"), "ForgotPasswordPage"),
+  Reset: lazyPage(() => import("./pages/PasswordPages"), "ResetPasswordPage"),
+  Settings: lazyPage(() => import("./pages/SettingsPage"), "SettingsPage"),
   Notifications: lazyPage(() => import("./pages/NotificationsPage"), "NotificationsPage"),
 } as const;
 

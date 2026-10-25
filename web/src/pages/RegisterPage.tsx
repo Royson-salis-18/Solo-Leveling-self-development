@@ -24,6 +24,7 @@ export function RegisterPage() {
   const [selectedClass,   setSelectedClass]   = useState("Warrior");
   const [isLoading,       setIsLoading]       = useState(false);
   const [error,           setError]           = useState("");
+  const [notice,          setNotice]          = useState("");
 
   const { signUp, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -41,7 +42,8 @@ export function RegisterPage() {
     if (password !== confirmPassword) { setError("Access keys do not match.");                  return; }
     setIsLoading(true);
     try {
-      await signUp(email, password, name.trim(), selectedClass);
+      const r = await signUp(email, password, name.trim(), selectedClass);
+      if (r.needsEmailConfirmation) { setError(""); setNotice("Check your email to confirm your account, then sign in."); return; }
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
@@ -65,6 +67,7 @@ export function RegisterPage() {
           <p className="reg-subtitle">Configure your protocol before entering the gate</p>
         </div>
 
+        {notice && <div className="auth-error" style={{ color: "#34d399", borderColor: "#34d399" }}>{notice}</div>}
         <form onSubmit={handleRegister} className="reg-form">
 
           {/* Hunter Alias */}

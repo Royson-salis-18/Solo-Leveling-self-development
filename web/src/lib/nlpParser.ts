@@ -45,7 +45,7 @@ export function parseScheduleText(text: string): ParsedTask[] {
     if (!trimmed) continue;
 
     // Detect task headers (lines with numbers/bullets)
-    const isTaskHeader = /^[\d\-\*\•\.][\s\)]|^#{1,3}\s|^\[\s*\]|\(\s*\)/.test(trimmed);
+    const isTaskHeader = /^(\d+[.)]|[-*•])\s|^#{1,3}\s|^\[\s*\]|\(\s*\)/.test(trimmed);
 
     if (isTaskHeader || (currentTask && isNewTask(trimmed))) {
       // Save previous task

@@ -1,11 +1,13 @@
 import { useNotifications } from "../lib/notificationContext";
 import { Bell, Check, Trash2, ExternalLink, Inbox, MessageSquare, Zap, Shield, UserPlus, Trash } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useConfirm } from "../lib/confirm";
 
 
 export function NotificationsPage() {
   const { notifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotifications();
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const handleAction = async (n: any) => {
     await markAsRead(n.id);
@@ -13,9 +15,8 @@ export function NotificationsPage() {
   };
 
   const handleWipeAll = async () => {
-    if (window.confirm("ARE_YOU_SURE? THIS_WILL_PERMANENTLY_WIPE_ALL_TRANSMISSION_RECORDS.")) {
-      await deleteAllNotifications();
-    }
+    const ok = await confirm({ title: "Clear all notifications?", message: "This permanently removes every notification.", confirmLabel: "Clear all", danger: true });
+    if (ok) await deleteAllNotifications();
   };
 
   const getTypeStyles = (type: string) => {
