@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabase";
 import { PlanCards } from "../components/PlanCards";
 import type { Engagement, Entitlements } from "../lib/gameTypes";
 import { referralLink } from "../lib/referral";
+import "../components/engagement.css";
 
 async function callFn<T>(name: string, body?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase!.functions.invoke<T>(name, { body });
@@ -17,6 +18,15 @@ async function callFn<T>(name: string, body?: Record<string, unknown>): Promise<
     throw new Error(msg ?? error.message);
   }
   return data as T;
+}
+
+function P(props: { title: string; children: React.ReactNode; danger?: boolean }) {
+  return (
+    <div className={`dd-panel ds-glass${props.danger ? " aura-red" : ""}`} style={{ marginBottom: 24 }}>
+      <h3 className="dd-h">{props.title}</h3>
+      {props.children}
+    </div>
+  );
 }
 
 export function SettingsPage() {
@@ -55,40 +65,39 @@ export function SettingsPage() {
   const isPro = ent?.plan.id !== "free" && !!ent;
   return (
     <section className="page">
-      <div className="page-header"><h2 className="page-title">Settings</h2></div>
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <h3>Account</h3><p className="text-muted text-sm">{user?.email}</p>
-      </div>
-      {ref && (
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <h3>Invite a friend</h3>
-          <p className="text-muted text-sm">
-            When a friend you invite conquers their first gate, you get 2 Surge Crystals (double XP on a conquest) and they get 1.
-            {ref.recruited > 0 && <> {ref.active} of {ref.recruited} recruit{ref.recruited === 1 ? "" : "s"} active.</>}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <code style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,.06)", overflowWrap: "anywhere" }}>{referralLink(ref.code)}</code>
-            <button className="btn" onClick={copyInvite}>Copy link</button>
-          </div>
+      <div className="page-header" style={{ marginBottom: 40 }}>
+        <div>
+          <div className="hf-eyebrow">SYSTEM_CONFIG_v5.0.4</div>
+          <h2 className="page-title" style={{ fontSize: "2.2rem" }}>Settings</h2>
         </div>
+      </div>
+      <P title="Account"><div className="dd-mono" style={{ fontSize: ".85rem" }}>{user?.email}</div></P>
+      {ref && (
+        <P title="Recruit a hunter">
+          <div className="dd-foot" style={{ textTransform: "none", letterSpacing: 0, fontSize: ".8rem", lineHeight: 1.6 }}>
+            When a hunter you recruit conquers their first gate, you receive 2 Surge Crystals (double XP on a conquest) and they receive 1.
+            {ref.recruited > 0 && <> {ref.active} of {ref.recruited} recruit{ref.recruited === 1 ? "" : "s"} active.</>}
+          </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <code className="dd-mono" style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.08)", fontSize: ".72rem", overflowWrap: "anywhere" }}>{referralLink(ref.code)}</code>
+            <button className="dd-btn" onClick={copyInvite}>Copy link</button>
+          </div>
+        </P>
       )}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <h3>Plan: {ent?.plan.name ?? "…"}</h3>
-        {ent && <p className="text-muted text-sm">
+      <P title={`Access tier: ${ent?.plan.name ?? "…"}`}>
+        {ent && <div className="dd-foot" style={{ textTransform: "none", letterSpacing: 0, fontSize: ".8rem" }}>
           {ent.usage.active_gates} active gates{ent.limits.max_active_gates ? ` of ${ent.limits.max_active_gates}` : ""} · {ent.usage.ai_messages_today} of {ent.limits.ai_messages_per_day ?? "∞"} Oracle messages today
           {ent.cancel_at_period_end && ent.current_period_end ? ` · ends ${new Date(ent.current_period_end).toLocaleDateString()}` : ""}
-        </p>}
-        {isPro ? <button className="btn btn-secondary" disabled={busy} onClick={portal}>Manage billing</button> : <PlanCards current={ent?.plan.id} onChoose={() => void upgrade()} />}
-      </div>
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <h3>Your data</h3>
-        <p className="text-muted text-sm">Download everything we store about you.</p>
-        <button className="btn btn-secondary" disabled={busy} onClick={exportData}>Export my data</button>
-      </div>
-      <div className="panel" style={{ borderColor: "rgba(239,68,68,.4)" }}>
-        <h3>Danger zone</h3>
-        <button className="btn btn-danger" disabled={busy} onClick={del}>Delete my account</button>
-      </div>
+        </div>}
+        {isPro ? <button className="dd-btn" disabled={busy} onClick={portal}>Manage billing</button> : <PlanCards current={ent?.plan.id} onChoose={() => void upgrade()} />}
+      </P>
+      <P title="Your data">
+        <div className="dd-foot" style={{ textTransform: "none", letterSpacing: 0, fontSize: ".8rem" }}>Download everything the System stores about you.</div>
+        <button className="dd-btn" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={exportData}>Export my data</button>
+      </P>
+      <P title="Danger zone" danger>
+        <button className="dd-btn" style={{ alignSelf: "flex-start", color: "#ff6b6b", borderColor: "rgba(239,68,68,.4)" }} disabled={busy} onClick={del}>Delete my account</button>
+      </P>
     </section>
   );
 }

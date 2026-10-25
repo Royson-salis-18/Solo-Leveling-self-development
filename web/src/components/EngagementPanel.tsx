@@ -1,37 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, Flame, Gift, Snowflake, Sparkles, Swords, Target, Trophy as TrophyIcon, Users } from "lucide-react";
-import { SystemAPI } from "../services/SystemAPI";
-import { useAuth } from "../lib/authContext";
-import { useToast } from "../lib/toast";
-import { useGameActions } from "../lib/gameActions";
+import { Gift, Snowflake, Sparkles, Trophy as TrophyIcon } from "lucide-react";
+import { useEngagement } from "../lib/useEngagement";
+import type { RevealData } from "../lib/useEngagement";
 import {
-  ENGAGEMENT_REFRESH_EVENT, RARITY_COLOR, bountyPercent, chestHint, formatCountdown, nextBestAction, percent,
+  RARITY_COLOR, bountyPercent, chestHint, clock, nextBestAction, percent,
 } from "../lib/engagement";
-import type { ChestResult, Engagement, BossLootResult } from "../lib/gameTypes";
 import "./engagement.css";
 
-const DIFF_LABEL = { 1: "EASY", 2: "MEDIUM", 3: "HARD" } as const;
+/** Quest difficulty is shown as a gate rank, like everything else in the System. */
+const RANK = { 1: "E", 2: "C", 3: "B" } as const;
 
-/** Shared "you got loot" reveal for the Bounty Chest and the World Boss. */
-function Reveal({ title, rarity, xp, item, perfect, trophies, onClose }: {
-  title: string; rarity: string; xp: number; item: string | null; perfect?: boolean;
-  trophies: Array<{ name: string; xp: number }>; onClose: () => void;
-}) {
-  const color = RARITY_COLOR[rarity as keyof typeof RARITY_COLOR] ?? "#a8a8ff";
+export function Reveal({ d, onClose }: { d: RevealData; onClose: () => void }) {
+  const color = RARITY_COLOR[d.rarity as keyof typeof RARITY_COLOR] ?? "#a8a8ff";
   return (
-    <div className="eng-reveal-bg" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
-      <div className="eng-reveal" style={{ ["--rc" as string]: color }} onClick={(e) => e.stopPropagation()}>
-        <div className="eng-reveal-icon"><Gift size={42} /></div>
-        <div className="trophy-rar" style={{ ["--rc" as string]: color }}>{rarity}</div>
-        <h3>{title}</h3>
-        <div className="eng-xp">+{xp} XP</div>
-        <div className="eng-chips">
-          {item && <span className="eng-chip">+ {item}</span>}
-          {perfect && <span className="eng-chip">PERFECT DAY</span>}
-          {trophies.map((t) => <span key={t.name} className="eng-chip">🏆 {t.name}{t.xp ? ` +${t.xp}` : ""}</span>)}
+    <div className="dd-reveal-bg" onClick={onClose} role="dialog" aria-modal="true" aria-label={d.title}>
+      <div className="dd-reveal" style={{ ["--rc" as string]: color }} onClick={(e) => e.stopPropagation()}>
+        <div className="dd-tag">[SYSTEM] {d.tag}</div>
+        <div className="dd-reveal-ico"><Gift size={34} /></div>
+        <h3>{d.title}</h3>
+        <div className="dd-tag">{d.rarity} grade</div>
+        <div className="dd-val">+{d.xp}<small>XP</small></div>
+        <div className="dd-chips">
+          {d.item && <span className="dd-chip">+ {d.item}</span>}
+          {d.perfect && <span className="dd-chip">Full clear</span>}
+          {d.trophies.map((t) => <span key={t.name} className="dd-chip">Record: {t.name}{t.xp ? ` +${t.xp}` : ""}</span>)}
         </div>
-        <button className="eng-btn is-hot" onClick={onClose} autoFocus>Claim</button>
+        <button className="dd-btn hot" onClick={onClose} autoFocus>Acquire</button>
       </div>
     </div>
   );
@@ -39,46 +34,9 @@ function Reveal({ title, rarity, xp, item, perfect, trophies, onClose }: {
 
 export function EngagementPanel() {
   const navigate = useNavigate();
-  const toast = useToast();
-  const { apply, announce } = useGameActions();
-  const { refreshProfile } = useAuth();
+  const { data: e, failed, busy, reveal, setReveal, secondsLeft, bossSeconds, openChest, claimBoss } = useEngagement();
 
-  const [e, setE] = useState<Engagement | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  const fetchedAt = useRef(Date.now());
-  const [reveal, setReveal] = useState<null | { title: string; rarity: string; xp: number; item: string | null; perfect?: boolean; trophies: Array<{ name: string; xp: number }> }>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const r = await SystemAPI.getEngagement();
-      if (r.profile_missing) return;
-      fetchedAt.current = Date.now();
-      setE(r);
-      setFailed(false);
-    } catch {
-      setFailed(true);               // the panel is a bonus layer: never block the dashboard on it
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const onRefresh = () => void load();
-    const onVisible = () => { if (document.visibilityState === "visible") void load(); };
-    window.addEventListener(ENGAGEMENT_REFRESH_EVENT, onRefresh);
-    document.addEventListener("visibilitychange", onVisible);
-    const tick = window.setInterval(() => setNow(Date.now()), 1000);
-    const poll = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 60_000);
-    return () => {
-      window.removeEventListener(ENGAGEMENT_REFRESH_EVENT, onRefresh);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.clearInterval(tick);
-      window.clearInterval(poll);
-    };
-  }, [load]);
-
-  // A quiet "come back" cue in the tab title while there is something real to do.
+  // A quiet cue in the tab title while something real is waiting.
   useEffect(() => {
     if (!e) return;
     const base = document.title.replace(/^\(!\)\s*/, "");
@@ -87,170 +45,151 @@ export function EngagementPanel() {
     return () => { document.title = base; };
   }, [e]);
 
-  const secondsLeft = useMemo(
-    () => (e ? Math.max(0, e.seconds_left - Math.floor((now - fetchedAt.current) / 1000)) : 0),
-    [e, now],
-  );
-  const bossSeconds = useMemo(() => (e ? Math.max(0, Math.floor((new Date(e.boss.ends_at).getTime() - now) / 1000)) : 0), [e, now]);
-
-  const afterLoot = useCallback((r: ChestResult | BossLootResult) => {
-    apply(r.profile);
-    announce(r.progression);
-    void refreshProfile();
-    void load();
-  }, [apply, announce, refreshProfile, load]);
-
-  const openChest = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const r = await SystemAPI.claimBountyChest();
-      afterLoot(r);
-      setReveal({ title: "Bounty Chest", rarity: r.rarity, xp: r.xp, item: r.item, perfect: r.perfect, trophies: r.achievements });
-    } catch (err) { toast.fail(err, "Chest locked"); void load(); } finally { setBusy(false); }
-  };
-
-  const claimBoss = async (week: string) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const r = await SystemAPI.claimBossReward(week);
-      afterLoot(r);
-      setReveal({ title: "Boss Loot", rarity: "Epic", xp: r.xp, item: r.item, trophies: r.achievements });
-    } catch (err) { toast.fail(err, "Could not claim loot"); void load(); } finally { setBusy(false); }
-  };
-
   if (failed && !e) return null;
   if (!e) {
-    return <div className="eng" aria-busy="true"><div className="eng-grid">{[0, 1, 2].map((i) => (
-      <div key={i} className="eng-card ds-glass" style={{ minHeight: 190, opacity: .5 }} />))}</div></div>;
+    return <div className="dd" aria-busy="true"><div className="dd-grid">{[0, 1, 2].map((i) => (
+      <div key={i} className="dd-panel ds-glass" style={{ minHeight: 230, opacity: .4 }} />))}</div></div>;
   }
 
   const action = nextBestAction(e);
   const s = e.streak;
   const b = e.boss;
-  const freezePips = Array.from({ length: s.freeze_cap }, (_, i) => i < s.freezes);
   const hpLeft = b.hp ? Math.max(0, b.hp - b.damage) : null;
   const nextT = e.achievements.next;
+  const cacheReady = !e.chest.claimed && e.chest.unlockable;
 
   return (
-    <div className="eng">
-      <div className={`eng-next${action.kind === "streak" ? " is-urgent" : ""}`} role="status">
-        <Sparkles size={16} />
-        <span><b>Next:</b> {action.text}</span>
-        {action.kind === "chest" || action.kind === "start" ? null : (
-          <button className="eng-btn" style={{ marginLeft: "auto" }} onClick={() => navigate("/dungeon-gate")}>Open gates</button>
+    <div className="dd">
+      <div className="dd-label">Daily Directives <b>RESET {clock(secondsLeft)}</b></div>
+
+      <div className={`dd-directive ds-glass${action.kind === "streak" ? " is-urgent" : ""}`} role="status">
+        <Sparkles size={20} color={action.kind === "streak" ? "#ffa030" : "var(--accent-primary)"} style={{ opacity: .7, flexShrink: 0 }} />
+        <div>
+          <div className="dd-tag">System Directive</div>
+          <div className="dd-text">{action.text}</div>
+        </div>
+        {action.kind !== "chest" && action.kind !== "start" && (
+          <button className="dd-btn" style={{ marginLeft: "auto" }} onClick={() => navigate("/dungeon-gate")}>Enter gates</button>
         )}
       </div>
 
-      <div className="eng-grid">
-        {/* ── Streak ── */}
-        <div className="eng-card ds-glass">
-          <div className="eng-head">
-            <span className="eng-title"><Flame size={14} /> Streak</span>
-            <span className="eng-sub">best {s.best}</span>
-          </div>
-          <div className={`eng-flame${s.count === 0 ? " is-cold" : ""}${s.at_risk ? " is-risk" : ""}`}>
-            <Flame size={34} color="#fb923c" />
-            <span className="eng-flame-num">{s.count}</span>
-            <span className="eng-flame-unit">DAY{s.count === 1 ? "" : "S"}</span>
-          </div>
-          <div className="eng-note">
-            {s.done_today
-              ? <>Locked in for today. Come back tomorrow to make it <b>{s.count + 1}</b>.</>
-              : s.count > 0
-                ? <><span className="eng-warn">Ends in {formatCountdown(secondsLeft)}.</span> One conquest keeps it alive.</>
-                : <>Conquer a gate today to start your streak.</>}
+      <div className="dd-grid">
+        {/* ── Chain of Resolve (streak) ── */}
+        <div className={`dd-panel ds-glass aura-orange${s.at_risk ? " is-live" : ""}`}>
+          <div className="dd-top">
+            <div>
+              <h3 className="dd-h">🔥 Chain of Resolve</h3>
+              <div className="dd-val">{s.count}<small>DAY{s.count === 1 ? "" : "S"}</small></div>
+            </div>
+            <span className={`dd-pill ${s.done_today ? "ok" : s.count === 0 ? "cold" : "hot"}`}>
+              {s.done_today ? "HELD TODAY" : s.count === 0 ? "DORMANT" : `SEVERS ${clock(secondsLeft)}`}
+            </span>
           </div>
           <div>
-            <div className="eng-sub" style={{ marginBottom: 6 }}>
-              <Snowflake size={11} style={{ verticalAlign: -1 }} /> STREAK FREEZES · {s.freezes}/{s.freeze_cap}
+            <div className="dd-foot" style={{ marginBottom: 8 }}>
+              <span><Snowflake size={10} style={{ verticalAlign: -1 }} /> Freeze charges</span>
+              <span>{s.freezes}/{s.freeze_cap}</span>
             </div>
-            <div className="eng-pips">
-              {freezePips.map((on, i) => <span key={i} className={`eng-pip${on ? " is-on" : ""}`}><Snowflake size={14} /></span>)}
+            <div className="dd-pips">
+              {Array.from({ length: s.freeze_cap }, (_, i) => (
+                <span key={i} className={`dd-pip${i < s.freezes ? " on" : ""}`}><Snowflake size={14} /></span>))}
             </div>
-            <div className="eng-note" style={{ marginTop: 8 }}>
-              A Freeze automatically covers a missed day. Next one in <b>{s.next_freeze_in}</b> day{s.next_freeze_in === 1 ? "" : "s"} of streak.
-            </div>
+          </div>
+          <div className="dd-foot">
+            <span>Best {s.best}</span>
+            <span>Next charge in {s.next_freeze_in} day{s.next_freeze_in === 1 ? "" : "s"}</span>
           </div>
         </div>
 
-        {/* ── Daily bounties ── */}
-        <div className="eng-card ds-glass">
-          <div className="eng-head">
-            <span className="eng-title"><Target size={14} /> Daily Bounties</span>
-            <span className="eng-sub">resets in {formatCountdown(secondsLeft)}</span>
+        {/* ── Daily Quests ── */}
+        <div className="dd-panel ds-glass">
+          <div className="dd-top">
+            <div>
+              <h3 className="dd-h">📜 Daily Quests</h3>
+              <div className="dd-val">{e.bounties_done}<small>/ 3 CLEARED</small></div>
+            </div>
+            <span className={`dd-pill ${e.chest.claimed ? "cold" : cacheReady ? "ok" : "warn"}`}>
+              {e.chest.claimed ? "CACHE TAKEN" : cacheReady ? "CACHE UNSEALED" : "CACHE SEALED"}
+            </span>
           </div>
           {e.bounties.map((q) => (
-            <div key={q.key} className={`eng-bounty${q.done ? " is-done" : ""}`}>
-              <div className="eng-bounty-row">
-                <b><span className="eng-bounty-d">{DIFF_LABEL[q.difficulty]}</span>{q.title}</b>
-                <span className="eng-sub">{q.progress}/{q.target}</span>
+            <div key={q.key} className={`dd-quest${q.done ? " is-done" : ""}`}>
+              <div className="dd-quest-row">
+                <span className="dd-quest-name"><span className="dd-rank">{RANK[q.difficulty]}</span>{q.title}</span>
+                <span className="dd-foot dd-mono">{q.progress}/{q.target}</span>
               </div>
-              <div className={`eng-bar${q.done ? " is-done" : ""}`}><i style={{ width: `${q.done ? 100 : bountyPercent(q)}%` }} /></div>
-              <span className="eng-sub">{q.description}</span>
+              <div className={`dd-bar${q.done ? " ok" : ""}`}><i style={{ width: `${q.done ? 100 : bountyPercent(q)}%` }} /></div>
+              <span className="dd-quest-desc">{q.description}</span>
             </div>
           ))}
           {e.chest.claimed ? (
-            <div className="eng-note">
-              <Gift size={13} style={{ verticalAlign: -2 }} /> Today’s chest: <b style={{ color: RARITY_COLOR[e.chest.rarity] }}>{e.chest.rarity}</b> · +{e.chest.xp} XP
-              {e.chest.item ? ` · ${e.chest.item}` : ""}. New bounties at midnight.
+            <div className="dd-foot">
+              <span>{e.chest.rarity} cache · +{e.chest.xp} XP{e.chest.item ? ` · ${e.chest.item}` : ""}</span>
             </div>
           ) : (
             <>
-              <button className={`eng-btn${e.chest.unlockable ? " is-hot" : ""}`} disabled={!e.chest.unlockable || busy} onClick={openChest}>
-                <Gift size={14} /> {e.chest.unlockable ? "Open Bounty Chest" : `Chest unlocks at 2/3 (${e.bounties_done}/3)`}
+              <button className={`dd-btn${cacheReady ? " hot" : ""}`} disabled={!cacheReady || busy} onClick={openChest}>
+                <Gift size={14} /> {cacheReady ? "Open quest cache" : "Clear 2 quests to unseal"}
               </button>
-              <span className="eng-sub">{chestHint(e.bounties_done)}{e.chest.pity >= 3 ? ` · luck is building (${e.chest.pity}/5)` : ""}</span>
+              <div className="dd-foot"><span>{chestHint(e.bounties_done)}</span>{e.chest.pity >= 3 && <em>Luck building {e.chest.pity}/5</em>}</div>
             </>
           )}
         </div>
 
-        {/* ── World boss ── */}
-        <div className="eng-card ds-glass">
-          <div className="eng-head">
-            <span className="eng-title"><Crown size={14} /> World Boss</span>
-            <span className="eng-sub">{formatCountdown(bossSeconds)} left</span>
+        {/* ── Calamity raid (world boss) ── */}
+        <div className="dd-panel ds-glass aura-red">
+          <div className="dd-top">
+            <div>
+              <h3 className="dd-h">👑 Calamity Raid</h3>
+              <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "#fff" }}>{b.name}</div>
+            </div>
+            <span className={`dd-pill ${b.defeated ? "ok" : "red"}`}>{b.defeated ? "SLAIN" : `${Math.floor(bossSeconds / 3600)}H LEFT`}</span>
           </div>
-          <div className="eng-boss-name">{b.name}</div>
           {b.hp ? (
             <>
-              <div className={`eng-bar is-boss${b.defeated ? " is-down" : ""}`}><i style={{ width: `${b.defeated ? 100 : 100 - percent(b.damage, b.hp)}%` }} /></div>
-              <div className="eng-boss-stats">
-                <span>{b.defeated ? "DEFEATED" : `${hpLeft?.toLocaleString()} HP left`}</span>
-                <span><Users size={11} style={{ verticalAlign: -1 }} /> {b.players} hunter{b.players === 1 ? "" : "s"}</span>
+              <div className={`dd-bar big ${b.defeated ? "ok" : "red"}`}><i style={{ width: `${b.defeated ? 100 : 100 - percent(b.damage, b.hp)}%` }} /></div>
+              <div className="dd-foot">
+                <span>{b.defeated ? "Calamity defeated" : `${hpLeft?.toLocaleString()} HP remaining`}</span>
+                <span>{b.players} hunter{b.players === 1 ? "" : "s"} engaged</span>
               </div>
             </>
           ) : (
-            <div className="eng-note">Land the first hit of the week — every conquest deals XP as damage.</div>
+            <div className="dd-foot"><span>The raid is unopened. Land the first strike.</span></div>
           )}
-          <div className="eng-note"><Swords size={12} style={{ verticalAlign: -2 }} /> You dealt <b>{b.my_damage.toLocaleString()}</b> damage{b.min_damage && b.my_damage < b.min_damage && b.hp ? ` · ${b.min_damage - b.my_damage} more to qualify for loot` : ""}.</div>
+          <div className="dd-foot">
+            <span>Your damage <b style={{ color: "#fff" }}>{b.my_damage.toLocaleString()}</b></span>
+            {b.min_damage && b.hp && b.my_damage < b.min_damage ? <em>{b.min_damage - b.my_damage} more to qualify</em> : null}
+          </div>
           {b.top.length > 0 && (
-            <div className="eng-top">
-              {b.top.map((t, i) => (<div key={i} className={t.me ? "is-me" : ""}><span>{i + 1}. {t.name}</span><span>{t.damage.toLocaleString()}</span></div>))}
+            <div className="dd-log">
+              {b.top.map((t, i) => (<div key={i} className={t.me ? "me" : ""}><span>{i + 1}. {t.name}</span><span>{t.damage.toLocaleString()}</span></div>))}
             </div>
           )}
           {b.claimable.map((c) => (
-            <button key={c.week} className="eng-btn is-hot" disabled={busy} onClick={() => claimBoss(c.week)}>
-              <Crown size={14} /> Claim loot · {c.name} (+{c.reward_xp} XP)
+            <button key={c.week} className="dd-btn hot" disabled={busy} onClick={() => claimBoss(c.week)}>
+              <TrophyIcon size={14} /> Claim spoils · +{c.reward_xp} XP
             </button>
           ))}
         </div>
       </div>
 
       {nextT && (
-        <button className="eng-trophy ds-glass" onClick={() => navigate("/achievements")} aria-label="Open trophies">
-          <span className="eng-trophy-icon" style={{ color: RARITY_COLOR[nextT.rarity], background: "rgba(255,255,255,.05)" }}><TrophyIcon size={20} /></span>
-          <span className="eng-trophy-body">
-            <span className="eng-trophy-name"><span>{nextT.name} <span className="eng-sub">· {nextT.description}</span></span>
-              <span className="eng-sub">{nextT.progress}/{nextT.threshold}</span></span>
-            <span className="eng-bar"><i style={{ width: `${percent(nextT.progress, nextT.threshold)}%` }} /></span>
+        <button className="dd-record" onClick={() => navigate("/achievements")} aria-label="Open the Hall of Feats">
+          <span className="dd-record-ico" style={{ color: RARITY_COLOR[nextT.rarity], borderColor: `${RARITY_COLOR[nextT.rarity]}55`, background: `${RARITY_COLOR[nextT.rarity]}14` }}>
+            <TrophyIcon size={20} />
           </span>
-          <span className="eng-sub">{e.achievements.unlocked}/{e.achievements.total} trophies</span>
+          <span className="dd-record-body">
+            <span className="dd-tag">Next record</span>
+            <span className="dd-record-name">{nextT.name}<span>{nextT.description}</span></span>
+            <span className="dd-bar"><i style={{ width: `${percent(nextT.progress, nextT.threshold)}%` }} /></span>
+          </span>
+          <span className="dd-foot dd-mono" style={{ flexDirection: "column", alignItems: "flex-end" }}>
+            <span>{nextT.progress}/{nextT.threshold}</span><span>{e.achievements.unlocked}/{e.achievements.total} RECORDS</span>
+          </span>
         </button>
       )}
 
-      {reveal && <Reveal {...reveal} onClose={() => setReveal(null)} />}
+      {reveal && <Reveal d={reveal} onClose={() => setReveal(null)} />}
     </div>
   );
 }

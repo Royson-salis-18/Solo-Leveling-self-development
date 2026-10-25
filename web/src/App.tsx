@@ -12,6 +12,8 @@ import { ErrorBoundary }     from "./components/ErrorBoundary";
 import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
 import { captureReferral } from "./lib/referral";
+import { useIsMobile } from "./lib/useMedia";
+import { MobileShell } from "./components/mobile/MobileShell";
 
 /** New hunters must choose a difficulty before anything else (first pick is free). */
 function ModeGate({ children }: { children: ReactNode }) {
@@ -25,6 +27,7 @@ function ModeGate({ children }: { children: ReactNode }) {
 
 function AppContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const isMobile = useIsMobile();
   const [showLevelUpFx, setShowLevelUpFx] = useState(false);
   const [levelUpHud, setLevelUpHud] = useState("LEVEL UP // ARISE");
 
@@ -50,6 +53,27 @@ function AppContent() {
     };
   }, []);
 
+  const appRoutes = (
+                  <Routes>
+                    <Route path="/"            element={isMobile ? <Pages.MobileHome /> : <Pages.Dashboard />} />
+                    <Route path="/war-room"    element={<Pages.WarRoom />} />
+                    <Route path="/dungeon-gate" element={<Pages.DungeonGate />} />
+                    <Route path="/collection"  element={<Pages.Collection />} />
+                    <Route path="/rewards"     element={<Pages.Rewards />} />
+                    <Route path="/arena"       element={<Pages.Arena />} />
+                    <Route path="/social"      element={<Pages.Social />} />
+                    <Route path="/challenges"  element={<Pages.Challenges />} />
+                    <Route path="/leaderboard" element={<Pages.Leaderboard />} />
+                    <Route path="/profile"     element={<Pages.Profile />} />
+                    <Route path="/guide"       element={<Pages.Guide />} />
+                    <Route path="/mode-selection" element={<Pages.ModeSelection />} />
+                    <Route path="/notifications" element={<Pages.Notifications />} />
+                    <Route path="/achievements" element={<Pages.Achievements />} />
+                    <Route path="/settings" element={<Pages.Settings />} />
+                    <Route path="*"            element={<Navigate to="/" replace />} />
+                  </Routes>
+  );
+
   return (
     <Routes>
       {/* Auth */}
@@ -67,30 +91,24 @@ function AppContent() {
         path="/*"
         element={
           <ProtectedRoute>
+            {isMobile ? (
+              <>
+                <MobileShell>
+                  <Suspense fallback={<PageSkeleton />}>
+                    <ModeGate>{appRoutes}</ModeGate>
+                  </Suspense>
+                </MobileShell>
+                <Suspense fallback={null}><OracleArchitect /></Suspense>
+                <SoloRainOverlay active={showLevelUpFx} hudText={levelUpHud} tone="levelup" className="solo-levelup-fx" />
+              </>
+            ) : (
             <div className={`layout ${isCollapsed ? 'sb-collapsed' : ''}`}>
               <div className="system-bg-overlay"></div>
               <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
               <main className="content">
                 <Suspense fallback={<PageSkeleton />}>
                   <ModeGate>
-                  <Routes>
-                    <Route path="/"            element={<Pages.Dashboard />} />
-                    <Route path="/war-room"    element={<Pages.WarRoom />} />
-                    <Route path="/dungeon-gate" element={<Pages.DungeonGate />} />
-                    <Route path="/collection"  element={<Pages.Collection />} />
-                    <Route path="/rewards"     element={<Pages.Rewards />} />
-                    <Route path="/arena"       element={<Pages.Arena />} />
-                    <Route path="/social"      element={<Pages.Social />} />
-                    <Route path="/challenges"  element={<Pages.Challenges />} />
-                    <Route path="/leaderboard" element={<Pages.Leaderboard />} />
-                    <Route path="/profile"     element={<Pages.Profile />} />
-                    <Route path="/guide"       element={<Pages.Guide />} />
-                    <Route path="/mode-selection" element={<Pages.ModeSelection />} />
-                    <Route path="/notifications" element={<Pages.Notifications />} />
-                    <Route path="/achievements" element={<Pages.Achievements />} />
-                    <Route path="/settings" element={<Pages.Settings />} />
-                    <Route path="*"            element={<Navigate to="/" replace />} />
-                  </Routes>
+                  {appRoutes}
                   </ModeGate>
                 </Suspense>
               </main>
@@ -102,6 +120,7 @@ function AppContent() {
                 className="solo-levelup-fx"
               />
             </div>
+            )}
           </ProtectedRoute>
         }
       />

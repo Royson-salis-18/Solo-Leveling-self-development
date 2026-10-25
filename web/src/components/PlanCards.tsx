@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import "./engagement.css";
 
 type Plan = { id: string; name: string; description: string; price_cents_monthly: number; price_cents_yearly: number | null; features: string[] };
 
@@ -23,14 +24,14 @@ export function PlanCards({ onChoose, current }: { onChoose?: (planId: string) =
       {plans.map((p) => (
         <article key={p.id} className={`lp-plan${p.id === "pro" ? " lp-plan--hi" : ""}`}>
           <h3>{p.name}</h3>
-          <div className="lp-price">{money(p.price_cents_monthly)}<small>/mo</small></div>
-          {p.price_cents_yearly ? <div className="lp-yearly">{p.price_cents_yearly ? `${money(p.price_cents_yearly)}/yr` : ""}</div> : null}
+          <div className="lp-price">{money(p.price_cents_monthly)}<small>/MO</small></div>
+          {p.price_cents_yearly ? <div className="lp-yearly">{`${money(p.price_cents_yearly)}/yr`}</div> : null}
           <p>{p.description}</p>
           <ul>{(p.features ?? []).map((f) => <li key={f}><Check size={14} /> {f}</li>)}</ul>
-          {current === p.id ? <span className="badge">Current plan</span>
-            : onChoose && p.id !== "free" ? <button className="btn btn-primary" onClick={() => onChoose(p.id)}>Upgrade</button>
-            : p.id === "free" ? <Link to="/register" className="btn btn-secondary">Start free</Link>
-            : <Link to="/register" className="btn btn-primary">Get Pro</Link>}
+          {current === p.id ? <span className="dd-pill ok">CURRENT TIER</span>
+            : onChoose && p.id !== "free" ? <button className="dd-btn hot" onClick={() => onChoose(p.id)}>Upgrade</button>
+            : p.id === "free" ? <Link to="/register" className="dd-btn">Start free</Link>
+            : <Link to="/register" className="dd-btn hot">Get Pro</Link>}
         </article>
       ))}
     </div>

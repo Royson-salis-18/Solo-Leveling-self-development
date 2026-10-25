@@ -41,6 +41,7 @@ export const Pages = {
   Forgot: lazyPage(() => import("./pages/PasswordPages"), "ForgotPasswordPage"),
   Reset: lazyPage(() => import("./pages/PasswordPages"), "ResetPasswordPage"),
   Settings: lazyPage(() => import("./pages/SettingsPage"), "SettingsPage"),
+  MobileHome: lazyPage(() => import("./pages/MobileHome"), "MobileHome"),
   Achievements: lazyPage(() => import("./pages/AchievementsPage"), "AchievementsPage"),
   Notifications: lazyPage(() => import("./pages/NotificationsPage"), "NotificationsPage"),
 } as const;

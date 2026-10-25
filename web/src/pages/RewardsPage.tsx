@@ -227,7 +227,7 @@ export function RewardsPage() {
           📜 THE RULE OF REWARD
         </h3>
         <p className="text-muted" style={{ fontSize: "0.78rem", lineHeight: 1.5, marginBottom: 10 }}>
-          Rewards are not gifts; they are manifested from excess mana. To stabilize a reward, the System enforces strict requirements based on Tier. High-tier manifestations (Tier 2+) require a **Trigger Gate** — a mission completed in the last 48 hours to serve as an anchor.
+          Rewards are not gifts; they are manifested from excess mana. To stabilize a reward, the System enforces strict requirements based on Tier. High-tier manifestations (Tier 2+) require a Trigger Gate — a mission completed in the last 48 hours to serve as an anchor.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: "0.72rem", color: "var(--t3)" }}>
           <div>• 72-Hour Claim Window: Manifestations expire in 3 days.</div>

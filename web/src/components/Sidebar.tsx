@@ -4,7 +4,7 @@ import { useAuth } from "../lib/authContext";
 import { calcLevel, calcXpProgress, xpForLevel } from "../lib/levelEngine";
 import { prefetchRoute } from "../routes";
 
-const links = [
+export const links = [
   { to: "/",            label: "Dashboard",    icon: Home },
   { to: "/war-room",    label: "War Room",      icon: Target },
   { to: "/dungeon-gate", label: "Dungeon Gate",  icon: ScrollText },
@@ -13,7 +13,7 @@ const links = [
   { to: "/arena",       label: "Arena",        icon: Swords },
   { to: "/social",      label: "Social",       icon: Users },
   { to: "/leaderboard", label: "Leaderboard",  icon: Trophy },
-  { to: "/achievements", label: "Trophies",    icon: Award },
+  { to: "/achievements", label: "Hall of Feats", icon: Award },
   { to: "/profile",     label: "Profile",        icon: User },
   { to: "/guide",       label: "Guide",        icon: BookOpen },
   { to: "/settings",    label: "Settings",     icon: Settings },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bountyPercent, chestHint, formatCountdown, nextBestAction, percent } from "../engagement";
+import { bountyPercent, chestHint, clock, formatCountdown, nextBestAction, percent } from "../engagement";
 import { captureReferral, referralLink, storedReferral } from "../referral";
 import type { Engagement } from "../gameTypes";
 
@@ -29,6 +29,14 @@ describe("formatCountdown", () => {
   });
 });
 
+describe("clock", () => {
+  it("is zero-padded and never negative", () => {
+    expect(clock(4 * 3600 + 16 * 60 + 59)).toBe("04:16:59");
+    expect(clock(61)).toBe("00:01:01");
+    expect(clock(-5)).toBe("00:00:00");
+  });
+});
+
 describe("percent", () => {
   it("clamps and tolerates empty totals", () => {
     expect(percent(5, 10)).toBe(50);
@@ -44,8 +52,8 @@ describe("nextBestAction", () => {
   it("a streak about to end outranks everything", () => {
     const a = nextBestAction(base({ streak: { ...base().streak, at_risk: true, done_today: false }, chest: { claimed: false, unlockable: true, pity: 0 } }));
     expect(a.kind).toBe("streak");
-    expect(a.text).toContain("4-day streak");
-    expect(a.text).toContain("Freeze");
+    expect(a.text).toContain("4-day chain");
+    expect(a.text).toContain("Freeze charge");
   });
   it("then a chest that is ready", () => {
     expect(nextBestAction(base({ chest: { claimed: false, unlockable: true, pity: 0 }, bounties_done: 2 })).kind).toBe("chest");
@@ -65,7 +73,7 @@ describe("nextBestAction", () => {
 describe("chestHint", () => {
   it("explains the effort/reward link", () => {
     expect(chestHint(2)).toMatch(/all 3/);
-    expect(chestHint(3)).toMatch(/Perfect/);
+    expect(chestHint(3)).toMatch(/best/);
   });
 });
 
