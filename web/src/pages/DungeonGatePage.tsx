@@ -4,13 +4,19 @@ import { Button }         from "../components/Button";
 import type { DBTask }    from "../components/QuestItem";
 import { NLPImportModal } from "../components/NLPImportModal";
 import { Plus, Shield, Zap, Skull, ChevronRight, Filter, Target, CalendarDays, Activity, Edit3, Trash2, Clock, RotateCcw, RefreshCw, Layers, XCircle, Grid, List } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import { useAuth }  from "../lib/authContext";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
+import { useGameActions } from "../lib/gameActions";
+import { MODE_CONFIGS, type ModeType } from "../lib/modeConfig";
+import { tierForPoints } from "../lib/nlpParser";
+import type { Entitlements } from "../lib/gameTypes";
 
 import { RaidTimer } from "../components/RaidTimer";
 import { Calendar }  from "../components/Calendar";
 
 import { SystemAPI, type GatePayload } from "../services/SystemAPI";
+import { hasSupabaseConfig } from "../lib/supabase";
 
 import { SYSTEM_CATEGORIES } from '../lib/categoryConfig';
 
@@ -32,7 +38,10 @@ const EMPTY_FORM = {
 
 
 export function DungeonGatePage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const game = useGameActions();
   const [tasks,        setTasks]        = useState<DBTask[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [activeTab,    setActiveTab]    = useState<"active" | "completed" | "pending" | "calendar">("active");
@@ -40,10 +49,11 @@ export function DungeonGatePage() {
   const [showNLP,      setShowNLP]      = useState(false);
    const [formData,     setFormData]     = useState(EMPTY_FORM);
   const [editingId,    setEditingId]    = useState<string | null>(null);
-  const [originalDeadline, setOriginalDeadline] = useState<string | null>(null);
   const [saving,       setSaving]       = useState(false);
-  const [userStatus,   setUserStatus]   = useState<string>("ACTIVE");
-  const [totalXp,      setTotalXp]      = useState<number>(0);
+  const [ent,          setEnt]          = useState<Entitlements | null>(null);
+  // Status and XP come from the live profile (kept fresh by every engine response).
+  const userStatus = profile?.status ?? "ACTIVE";
+  const totalXp    = profile?.total_points ?? 0;
 
   // Filters & Details
   const [catFilter,    setCatFilter]    = useState("All");
@@ -83,25 +93,22 @@ export function DungeonGatePage() {
   };
 
   const fetchQuests = async () => {
-    if (!supabase || !user?.id) return;
+    if (!user?.id) { if (!hasSupabaseConfig) setLoading(false); return; }
     setLoading(true);
     try {
+      // The server runs recurring roll-over and overdue→pending sweeps on its daily tick; the client
+      // no longer sweeps (it used to `select *` everything and UPDATE row by row).
       const data = await SystemAPI.fetchGates(user.id);
-      const needsRefetch = await SystemAPI.sweepRecurringGates(user.id, data);
-      if (needsRefetch) return fetchQuests();
-      const tree = buildTaskTree(data);
-      setTasks(tree);
+      setTasks(buildTaskTree(data));
     } catch (err) {
-      console.error("Fetch Error:", err);
+      toast.fail(err, "Could not load your gates");
     } finally {
-      const profile = await SystemAPI.fetchUserStatus(user!.id);
-      setUserStatus(profile.status || "ACTIVE");
-      setTotalXp(profile.total_points || 0);
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchQuests(); }, [user]);
+  useEffect(() => { fetchQuests(); }, [user?.id]);
+  useEffect(() => { SystemAPI.entitlements().then(setEnt).catch(() => undefined); }, [user?.id]);
 
   const PRIORITY_WEIGHT: Record<string, number> = {
     "URGENT": 4,
@@ -196,70 +203,44 @@ export function DungeonGatePage() {
     }
   };
 
-  const getXpByTier = (tier: string) => {
-    switch (tier) {
-      case "Legendary": return 50;  // S-Rank
-      case "Super": return 35;      // A-Rank
-      case "High": return 25;       // B-Rank
-      case "Mid": return 15;        // C-Rank
-      case "Low": return 5;         // E-Rank
-      default: return 5;
-    }
-  };
-
   const handleSave = async () => {
     if (!user || !formData.title.trim()) return;
     setSaving(true);
     try {
-      const isRecurring = formData.recurrence_type !== "none";
       const payload: GatePayload = {
-        user_id: user.id,
-        assigned_to: formData.assignTo || user.id,
         title: formData.title,
         category: formData.category,
-        points: getXpByTier(formData.xp_tier),
         description: formData.description,
         deadline: formData.deadline || null,
         start_time: formData.start_time || null,
         end_time: formData.end_time || null,
         priority: formData.priority,
         xp_tier: formData.xp_tier,
-        is_recurring: isRecurring,
         recurrence_type: formData.recurrence_type,
         recurrence_interval: formData.recurrence_interval,
         is_gauntlet: formData.is_gauntlet,
         is_weekly_trial: formData.is_weekly_trial,
-        recurrence_days: formData.recurrence_days, 
+        recurrence_days: formData.recurrence_days,
         recurrence_day_of_month: formData.recurrence_day_of_month,
         recurrence_custom_label: formData.recurrence_custom_label,
         parent_id: formData.parentId || null,
       };
 
-      if (editingId && originalDeadline && formData.deadline && originalDeadline !== "" && formData.deadline > originalDeadline) {
-        // Penalty ONLY if moving an EXISTING deadline further into the future
-        SystemAPI.increaseDarkMana(user.id, 5); 
-        if (supabase) {
-          // Deduct XP for postponing
-          const { data: prof } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-          const newXp = Math.max(0, (prof?.total_points || 0) - 5);
-          await supabase.from("user_profiles").update({ total_points: newXp }).eq("user_id", user.id);
-          
-          // Sync level/rank UI
-          const { syncProgression, showProgressionToast } = await import("../lib/levelEngine");
-          const progression = await syncProgression(supabase, user.id);
-          showProgressionToast(progression);
-        }
+      // Postponement penalties (and the Hard/Hell ban on postponing) are enforced by the server.
+      const res = await SystemAPI.saveGate(payload, editingId);
+      if (res.profile) game.apply(res.profile);
+      if (res.postponed) {
+        toast.toast({ type: "error", title: "Deadline postponed", message: `−${res.penalty ?? 5} XP and +5 Dark Mana.` });
+      } else {
+        toast.success(editingId ? "Gate updated" : "Gate manifested", formData.title);
       }
 
-      await SystemAPI.saveGate(payload, editingId);
-      
       await fetchQuests();
       setShowModal(false);
       setEditingId(null);
       setFormData(EMPTY_FORM);
-    } catch (err: any) {
-      console.error("Error manifesting gate:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message || "Unknown error occurred while manifesting gate."}`);
+    } catch (err) {
+      toast.fail(err, "Could not save the gate");
     } finally {
       setSaving(false);
     }
@@ -304,17 +285,22 @@ export function DungeonGatePage() {
       is_gauntlet: !!gate.is_gauntlet,
       is_weekly_trial: !!gate.is_weekly_trial,
     });
-    setOriginalDeadline(gate.deadline || "");
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to dismantle this gate?")) return;
+    const ok = await confirm({
+      title: "Dismantle this gate?",
+      message: "The gate and any sub-objectives will be permanently removed. No XP is gained or lost.",
+      confirmLabel: "Dismantle",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await SystemAPI.deleteGate(id);
       await fetchQuests();
     } catch (err) {
-      console.error("Error dismantling gate:", err);
+      toast.fail(err, "Could not dismantle the gate");
     }
   };
 
@@ -326,8 +312,7 @@ export function DungeonGatePage() {
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_active: true, started_at } : null);
     } catch (err: any) {
-      console.error("Raid Start Error:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+      toast.fail(err, "Could not start the raid");
     } finally {
       setSaving(false);
     }
@@ -340,8 +325,7 @@ export function DungeonGatePage() {
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_paused: true, paused_at } : null);
     } catch (err: any) {
-      console.error("PAUSE FAILURE:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+      toast.fail(err, "Could not pause the raid");
     } finally { setSaving(false); }
   };
 
@@ -352,21 +336,20 @@ export function DungeonGatePage() {
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_paused: false, paused_at: null } : null);
     } catch (err: any) {
-      console.error("RESUME FAILURE:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+      toast.fail(err, "Could not resume the raid");
     } finally { setSaving(false); }
   };
 
   const handleResetRaid = async (id: string) => {
-    if (!confirm("⚠️ RESTART RAID? Progress will be lost.")) return;
+    const ok = await confirm({ title: "Restart the raid?", message: "The timer resets to zero. The gate itself is unaffected.", confirmLabel: "Restart", danger: true });
+    if (!ok) return;
     try {
       setSaving(true);
       await SystemAPI.resetRaid(id);
       await fetchQuests();
       setSelectedGate(prev => prev ? { ...prev, is_active: false, started_at: null, is_paused: false, paused_at: null } : null);
     } catch (err: any) {
-      console.error("RESET FAILURE:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+      toast.fail(err, "Could not reset the raid");
     } finally { setSaving(false); }
   };
 
@@ -390,8 +373,7 @@ export function DungeonGatePage() {
         });
       }
     } catch (err: any) {
-      console.error("RE-ACTIVATE FAILED:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
+      toast.fail(err, "Could not reactivate the gate");
     } finally { setSaving(false); }
   };
 
@@ -399,32 +381,25 @@ export function DungeonGatePage() {
     if (!user) return;
     const task = findTaskById(tasks, id) || tasks.find(t => t.id === id);
     if (!task) return;
-    const penalty = task.points || 10;
 
-    const confirmed = window.confirm(
-      `☠️ GATE BREACH — MISSION FAILURE\n\n"${task.title}"\n\nAbandon this gate? You will lose ${penalty} XP as a penalty.\n\nThis action cannot be undone.`
-    );
+    // Preview mirrors the server formula: 20%/35%/50%… of the GATE's XP (capped at 200), plus Dark Mana.
+    const mode = MODE_CONFIGS[(profile?.current_mode as ModeType) || "Normal"] ?? MODE_CONFIGS.Normal;
+    const estimate = Math.min(200, Math.floor((task.points || 10) * mode.failXpPenaltyRate));
+    const confirmed = await confirm({
+      title: "Abandon this gate?",
+      message: `"${task.title}"\n\nYou will lose about ${estimate} XP and gain ${mode.dmOnFail} Dark Mana. This cannot be undone.`,
+      confirmLabel: "Abandon gate",
+      danger: true,
+    });
     if (!confirmed) return;
 
     try {
       setSaving(true);
-      const { penalty: p, progression } = await SystemAPI.failGate(user.id, task);
-
-      if (progression) {
-        const msgs: string[] = [
-          `💀 GATE FAILED — MISSION ABANDONED\n-${p} XP DEDUCTED`,
-          `🚨 SYSTEM ALERT: Penalty Quest Manifested!`
-        ];
-        if (progression.level < progression.prevLevel) msgs.push(`⬇️ LEVEL DOWN: ${progression.prevLevel} → ${progression.level}`);
-        if (progression.rank !== progression.prevRank) msgs.push(`⬇️ RANK DROPPED: ${progression.prevRank} → ${progression.rank}`);
-        setTimeout(() => alert(msgs.join("\n")), 100);
+      const result = await game.fail(id);
+      if (result) {
+        await fetchQuests();
+        setSelectedGate(null);
       }
-
-      await fetchQuests();
-      setSelectedGate(null);
-    } catch (err: any) {
-      console.error("FAIL GATE ERROR:", err);
-      alert(`⚠️ SYSTEM ERROR: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -435,26 +410,20 @@ export function DungeonGatePage() {
     const task = tasks.find(t => t.id === id) || findTaskById(tasks, id);
     if (!task) return;
 
-    const completedSubtasks = task.subtasks.filter((s: any) => s.is_completed).length;
-    
-    // Enforcement: Weekly Trials require proof of struggle (3+ manifested objectives)
+    // Instant feedback; the server enforces the same rules authoritatively.
     if (task.is_weekly_trial && (!task.subtasks || task.subtasks.length < 3)) {
-      alert("⚠️ SYSTEM RESTRICTION: S-Rank Weekly Trials require at least 3 Manifested Objectives to unlock the Boss Chamber. You must provide proof of your struggle before Conquest is permitted!");
+      toast.error("Weekly Trial locked", "S-Rank Weekly Trials need at least 3 manifested objectives before conquest.");
       return;
     }
-
-    if (task.subtasks.length > 0 && completedSubtasks < task.subtasks.length) {
-      alert("⚠️ CRITICAL FAILURE: Internal dungeons are still active. Clear all sub-objectives to unlock Gate Conquest!");
+    if (task.subtasks.length > 0 && task.subtasks.some((s: any) => !s.is_completed)) {
+      toast.error("Boss shield active", "Internal dungeons are still active. Clear every sub-objective first.");
       return;
     }
 
     try {
       setSaving(true);
-      const result = await SystemAPI.completeGate(user.id, task, totalXp, userStatus);
-
-      if (result.extractedShadow) {
-        alert(`✨ ARISE! You have extracted a [${result.extractedShadow.rarity}] grade shadow: ${result.extractedShadow.name}!`);
-      }
+      const result = await game.complete(id);
+      if (!result) return;
 
       await fetchQuests();
 
@@ -472,8 +441,6 @@ export function DungeonGatePage() {
           return updateRecursive(prev);
         });
       }
-    } catch (err) {
-      console.error("Error conquering gate:", err);
     } finally {
       setSaving(false);
     }
@@ -489,8 +456,8 @@ export function DungeonGatePage() {
           <h2 className="page-title" style={{ fontSize: '2.4rem', fontWeight: 950, letterSpacing: '-1px', margin: 0 }}>Dungeon Gates</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
              <p className="page-subtitle" style={{ fontSize: '0.85rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>System Portal: Select your next challenge</p>
-             <div className="badge" style={{ fontSize: '0.75rem', padding: '4px 12px', borderRadius: 8, borderColor: (tasks.filter(t => !t.is_completed && !t.is_failed).length >= 20) ? '#ff4444' : 'var(--accent-primary)', color: (tasks.filter(t => !t.is_completed && !t.is_failed).length >= 20) ? '#ff4444' : 'var(--accent-primary)' }}>
-               {tasks.filter(t => !t.is_completed && !t.is_failed).length}/20 ACTIVE GATES
+             <div className="badge" style={{ fontSize: '0.75rem', padding: '4px 12px', borderRadius: 8, borderColor: (!!ent?.limits.max_active_gates && tasks.filter(t => !t.is_completed && !t.is_failed).length >= ent.limits.max_active_gates) ? '#ff4444' : 'var(--accent-primary)', color: (!!ent?.limits.max_active_gates && tasks.filter(t => !t.is_completed && !t.is_failed).length >= ent.limits.max_active_gates) ? '#ff4444' : 'var(--accent-primary)' }}>
+               {tasks.filter(t => !t.is_completed && !t.is_failed).length}{ent?.limits.max_active_gates ? `/${ent.limits.max_active_gates}` : ""} ACTIVE GATES
              </div>
           </div>
         </div>
@@ -511,10 +478,10 @@ export function DungeonGatePage() {
             <Activity size={18} /> ACTIVE MANIFESTATIONS
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: '0.72rem', color: 'var(--t3)' }}>
-            <div>• Red Gates: 50% XP loss on fail.</div>
-            <div>• Prep: Rank * 30m manifestation buffer.</div>
-            <div>• Auto-Rank: E-Rank default for no deadlines.</div>
-            <div>• Capacity: Max 20 active portals.</div>
+            <div>• Failing costs a share of the gate's XP (set by your mode) plus Dark Mana.</div>
+            <div>• Prep: a new gate needs rank × 30 min before its deadline.</div>
+            <div>• Auto-Rank: no deadline means E-Rank (5 XP).</div>
+            <div>• Capacity: 20 gates per day (30 on weekends).</div>
           </div>
         </div>
 
@@ -1148,7 +1115,7 @@ export function DungeonGatePage() {
                 <div className="stat-meta-v3">
                   <span className="stat-label-v3">{selectedGate.is_active ? "TIME ELAPSED" : "STATUS"}</span>
                   <strong className="stat-val-v3">
-                    {selectedGate.is_active && selectedGate.started_at ? <RaidTimer startedAt={selectedGate.started_at} /> : "READY"}
+                    {selectedGate.is_active && selectedGate.started_at ? <RaidTimer startedAt={selectedGate.started_at} pausedAt={selectedGate.is_paused ? selectedGate.paused_at : null} /> : "READY"}
                   </strong>
                 </div>
               </div>
@@ -1442,30 +1409,34 @@ export function DungeonGatePage() {
         onTasksCreate={async (parsedTasks) => {
           if (!user) return;
           setSaving(true);
-          try {
-            for (const pt of parsedTasks) {
-              const payload: GatePayload = {
-                user_id: user.id,
-                assigned_to: user.id,
+          const PRIORITY = { high: "High", medium: "Normal", low: "Low" } as const;
+          let made = 0;
+          const problems: string[] = [];
+          for (const pt of parsedTasks) {
+            try {
+              const parent = await SystemAPI.saveGate({
                 title: pt.title,
                 category: pt.category || "General",
-                points: pt.points || 10,
                 description: pt.description || "",
                 deadline: pt.deadline || null,
-                priority: pt.priority || "Normal",
-                xp_tier: pt.xp_tier || "Low",
-                is_recurring: false,
-                is_gauntlet: false
-              };
-              await SystemAPI.saveGate(payload, null);
+                priority: PRIORITY[(pt.priority as keyof typeof PRIORITY) || "medium"] ?? "Normal",
+                xp_tier: pt.xp_tier || tierForPoints(pt.points),
+              }, null);
+              made++;
+              // Sub-bullets become sub-objectives (a boss guarded by its minions).
+              for (const sub of pt.subtasks ?? []) {
+                try {
+                  await SystemAPI.saveGate({ title: sub, category: pt.category || "General", priority: "Normal", xp_tier: "Low", parent_id: parent.id }, null);
+                } catch { /* a failed sub-objective shouldn't discard the parent */ }
+              }
+            } catch (err: any) {
+              problems.push(`${pt.title.slice(0, 40)}: ${err?.message ?? "failed"}`);
             }
-            await fetchQuests();
-          } catch (err: any) {
-            console.error("NLP Import Error:", err);
-            alert(`⚠️ IMPORT FAILED: ${err.message}`);
-          } finally {
-            setSaving(false);
           }
+          await fetchQuests();
+          setSaving(false);
+          if (made) toast.success("Schedule imported", `${made} gate${made === 1 ? "" : "s"} manifested.`);
+          if (problems.length) toast.toast({ type: "error", title: `${problems.length} not imported`, message: problems[0], duration: 8000 });
         }} 
       />
 

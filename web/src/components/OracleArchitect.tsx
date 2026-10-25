@@ -33,7 +33,7 @@ export function OracleArchitect() {
       
       setMessages(prev => [...prev, { role: 'system', content: response }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'system', content: 'SYSTEM ERROR: Connection to Architect lost. Check your mana link.' }]);
+      setMessages(prev => [...prev, { role: 'system', content: err instanceof Error && err.message ? err.message : 'SYSTEM ERROR: Connection to Architect lost. Check your mana link.' }]);
     } finally {
       setIsTyping(false);
     }

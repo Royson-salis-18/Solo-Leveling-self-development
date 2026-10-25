@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
+import { SystemAPI } from "../services/SystemAPI";
+import { errorMessage } from "../lib/rpc";
 import { Button } from "../components/Button";
 import { Check, X, Search, Copy, CheckCheck, Users, UserPlus, Clock, MessageSquare, Send, ArrowLeft } from "lucide-react";
 
@@ -62,8 +64,8 @@ export function SocialPage() {
     if (!frs || frs.length === 0) { setFriends([]); setLoading(false); return; }
     const profileIds = frs.map(f => f.requester_id === user.id ? f.receiver_id : f.requester_id);
     const { data: profs } = await supabase
-      .from("user_profiles")
-      .select("user_id, name, level, total_points, player_class, player_rank")
+      .from("public_profiles")
+      .select("user_id, name, level, standing_xp, player_class, player_rank")
       .in("user_id", profileIds);
     const merged: Friend[] = frs.map(f => {
       const otherId = f.requester_id === user.id ? f.receiver_id : f.requester_id;
@@ -71,7 +73,7 @@ export function SocialPage() {
       return {
         id: otherId, user_id: otherId,
         name: p?.name ?? "Unknown Hunter", level: p?.level ?? 1,
-        total_points: p?.total_points ?? 0, player_class: p?.player_class ?? "None",
+        total_points: p?.standing_xp ?? 0, player_class: p?.player_class ?? "None",
         player_rank: p?.player_rank ?? "E", status: f.status,
         request_id: f.id, is_requester: f.requester_id === user.id,
       };
@@ -152,7 +154,8 @@ export function SocialPage() {
   // Poll for new messages when in a chat
   useEffect(() => {
     if (!chatFriend) return;
-    const interval = setInterval(() => fetchMessages(chatFriend.user_id, true), 4000);
+    const tick = () => { if (!document.hidden) fetchMessages(chatFriend.user_id, true); };
+    const interval = setInterval(tick, 4000);
     return () => clearInterval(interval);
   }, [chatFriend]);
 
@@ -161,14 +164,11 @@ export function SocialPage() {
     const code = searchCode.trim();
     if (!supabase || !user || !code) return;
     setSearching(true); setMsg("");
-    const isFullUUID = code.length === 36 && code.includes("-");
     let targetId: string | null = null;
-    if (isFullUUID) {
-      const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
-      targetId = prof?.user_id ?? null;
-    } else {
-      const { data: results } = await supabase.from("user_profiles").select("user_id").eq("hunter_code", code.toUpperCase()).limit(1);
-      targetId = results?.[0]?.user_id ?? null;
+    try {
+      targetId = (await SystemAPI.findHunter(code))?.user_id ?? null;
+    } catch (err) {
+      setMsg(`⚠ ${errorMessage(err)}`); setSearching(false); return;
     }
     if (!targetId) { setMsg("⚠ Hunter not found."); setSearching(false); return; }
     if (targetId === user.id) { setMsg("⚠ You cannot add yourself."); setSearching(false); return; }

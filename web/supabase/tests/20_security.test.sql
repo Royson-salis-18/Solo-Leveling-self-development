@@ -13,6 +13,15 @@ select tests.login(:'m'::uuid); select public.select_mode('Normal');
 select tests.login(:'v'::uuid); select public.select_mode('Normal');
 select tests.login(:'by'::uuid); select public.select_mode('Normal');
 
+-- ── 0. sign-up keeps every class the UI offers (Register offers "Ranger", Profile offers "Archer")
+select tests.logout();
+select tests.mkuser('RangerGuy', 'Ranger') as u_ranger \gset
+select tests.mkuser('ArcherGal', 'Archer') as u_archer \gset
+select tests.mkuser('Hacker', 'Overlord') as u_junk \gset
+select tests.eq('sign-up: Ranger is kept', (select player_class from public.user_profiles where user_id = :'u_ranger'), 'Ranger');
+select tests.eq('sign-up: Archer is kept', (select player_class from public.user_profiles where user_id = :'u_archer'), 'Archer');
+select tests.eq('sign-up: junk class falls back to Warrior', (select player_class from public.user_profiles where user_id = :'u_junk'), 'Warrior');
+
 -- ── 1. cannot write game state on your own profile ──────────────────────────
 select tests.login(:'m'::uuid);
 select tests.throws('own XP is read-only',        $$update public.user_profiles set total_points = 999999 where user_id = auth.uid()$$, 'permission denied%');
@@ -54,6 +63,14 @@ select tests.throws('public_profiles: has no timezone column', $$select timezone
 select tests.eq('tasks: cannot see a victim''s tasks', (select count(*)::int from public.tasks where user_id = :'v'), 0);
 select tests.eq('xp ledger: cannot read a victim''s history', (select count(*)::int from public.xp_events where user_id = :'v'), 0);
 select tests.eq('inventory: cannot read a victim''s items', (select count(*)::int from public.inventory where user_id = :'v'), 0);
+
+select tests.ok('public_activity: weekly counts are visible to every player', (select count(*) from public.public_activity) >= 1);
+select tests.throws('public_activity: exposes no task content', $$select title from public.public_activity$$, '%does not exist%');
+
+select tests.ok('public_conquests: category + XP of a rival, no titles', (select count(*) from public.public_conquests where user_id <> auth.uid()) >= 1);
+select tests.throws('public_conquests: no task titles', $$select title from public.public_conquests$$, '%does not exist%');
+select tests.ok('clan leaderboard is aggregated in the database', (select count(*) from public.clan_leaderboard) >= 0);
+select tests.throws('leaderboards: no member emails', $$select email from public.guild_leaderboard$$, '%does not exist%');
 
 -- ── 3. anonymous visitors get nothing (except public pricing) ───────────────
 select tests.anon();

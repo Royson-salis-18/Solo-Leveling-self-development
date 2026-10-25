@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
+import { SystemAPI } from "../services/SystemAPI";
+import type { DuelRow, PendingInvites } from "../lib/gameTypes";
 import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
 import {
@@ -11,14 +15,9 @@ import {
 /* ─────────────────────── types ─────────────────────── */
 type Guild = { id: string; name: string; description: string; leader_id: string; member_count: number; min_rank: string };
 type Clan  = { id: string; name: string; description: string; leader_id: string };
-type Member = { user_id: string; name: string; role: string; level: number; total_points: number; player_class: string; player_rank: string };
-type Challenge = {
-  id: string; creator_id: string; opponent_id: string;
-  target_points: number; creator_start_pts: number; opponent_start_pts: number;
-  expires_at: string; status: string;
-  creator_name: string; opponent_name: string;
-  creator_pts: number; opponent_pts: number;
-};
+// XP shown for other hunters is their STANDING (balance + spent), so spending on rewards doesn't drop you down the roster.
+type Member = { user_id: string; name: string; role: string; level: number; standing_xp: number; player_class: string; player_rank: string };
+type Challenge = DuelRow;
 type GroupEvent = {
   id: string; title: string; description: string; event_type: string;
   xp_reward: number; start_time: string; end_time: string; status: string;
@@ -29,7 +28,10 @@ type Tab = typeof TABS[number];
 
 /* ─────────────────────── component ─────────────────────── */
 export function ArenaPage() {
-  const { user, profile } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [invites, setInvites]   = useState<PendingInvites>({ clan: [], guild: [] });
   const [tab, setTab]           = useState<Tab>("1v1 Duels");
   const [clan, setClan]         = useState<Clan | null>(null);
   const [guild, setGuild]       = useState<Guild | null>(null);
@@ -61,7 +63,7 @@ export function ArenaPage() {
   // assign quest form
   const [aq, setAq] = useState({
     assignTo: "", title: "", category: "General",
-    points: 10, priority: "Normal", deadline: "", description: ""
+    tier: "Low", priority: "Normal", deadline: "", description: ""
   });
 
   const [eventForm, setEventForm] = useState({
@@ -77,256 +79,171 @@ export function ArenaPage() {
   const fetchAll = async () => {
     if (!supabase || !user) return;
     setLoading(true);
-
-    // Clan membership
-    const { data: clanMembership } = await supabase
-      .from("clan_members").select("clan_id").eq("user_id", user.id).maybeSingle();
-
-    if (clanMembership) {
-      const [{ data: clanData }, { data: clanMR }, { data: cEvents }] = await Promise.all([
-        supabase.from("clans").select("*").eq("id", clanMembership.clan_id).single(),
-        supabase.from("clan_members").select("user_id, role").eq("clan_id", clanMembership.clan_id),
-        supabase.from("clan_events").select("*").eq("clan_id", clanMembership.clan_id).eq("status", "active"),
+    try {
+      const [clanMembership, guildMembership, duels, inv] = await Promise.all([
+        supabase.from("clan_members").select("clan_id").eq("user_id", user.id).maybeSingle(),
+        supabase.from("user_profiles").select("guild_id").eq("user_id", user.id).maybeSingle(),
+        SystemAPI.listChallenges().catch(() => [] as Challenge[]),
+        SystemAPI.myInvites().catch(() => ({ clan: [], guild: [] }) as PendingInvites),
       ]);
-      setClan(clanData);
-      setClanEvents(cEvents ?? []);
-      if (clanMR) {
-        const uids = clanMR.map((m: any) => m.user_id);
-        const { data: profs } = await supabase.from("user_profiles").select("*").in("user_id", uids);
-        const enriched = clanMR.map((m: any) => {
-          const p = profs?.find((p: any) => p.user_id === m.user_id);
-          return { ...m, ...p } as Member;
-        }).sort((a: Member, b: Member) => (b.total_points || 0) - (a.total_points || 0));
-        setClanMembers(enriched);
-        // determine leadership
-        const myRole = clanMR.find((m: any) => m.user_id === user?.id)?.role;
-        setIsLeader(myRole === "leader" || myRole === "officer");
-      }
-    } else { setClan(null); setIsLeader(false); setClanEvents([]); }
+      setChallenges(duels);
+      setInvites(inv);
 
-    // Guild membership
-    const { data: guildMembership } = await supabase
-      .from("user_profiles").select("guild_id").eq("user_id", user.id).maybeSingle();
+      // Rosters read other hunters from the public view (no email / Dark Mana / timezone).
+      if (clanMembership.data) {
+        const clanId = clanMembership.data.clan_id;
+        const [{ data: clanData }, { data: clanMR }, { data: cEvents }] = await Promise.all([
+          supabase.from("clans").select("*").eq("id", clanId).single(),
+          supabase.from("clan_members").select("user_id, role").eq("clan_id", clanId),
+          supabase.from("clan_events").select("*").eq("clan_id", clanId).eq("status", "active"),
+        ]);
+        setClan(clanData);
+        setClanEvents(cEvents ?? []);
+        if (clanMR) {
+          const { data: profs } = await supabase.from("public_profiles").select("*").in("user_id", clanMR.map((m: any) => m.user_id));
+          const enriched = clanMR.map((m: any) => ({ ...m, ...profs?.find((p: any) => p.user_id === m.user_id) } as Member))
+            .sort((a: Member, b: Member) => (b.standing_xp || 0) - (a.standing_xp || 0));
+          setClanMembers(enriched);
+          const myRole = clanMR.find((m: any) => m.user_id === user.id)?.role;
+          setIsLeader(myRole === "leader" || myRole === "officer");
+        }
+      } else { setClan(null); setClanMembers([]); setIsLeader(false); setClanEvents([]); }
 
-    if (guildMembership?.guild_id) {
-      const [{ data: guildData }, { data: guildProfs }, { data: gEvents }] = await Promise.all([
-        supabase.from("guilds").select("*").eq("id", guildMembership.guild_id).single(),
-        supabase.from("user_profiles").select("*").eq("guild_id", guildMembership.guild_id),
-        supabase.from("guild_events").select("*").eq("guild_id", guildMembership.guild_id).eq("status", "active")
-      ]);
-      setGuild(guildData);
-      setGuildMembers((guildProfs ?? []).sort((a: any, b: any) => b.total_points - a.total_points));
-      setGuildEvents(gEvents ?? []);
-    } else { setGuild(null); setGuildEvents([]); }
-
-    // Challenges
-    const { data: chals } = await supabase.from("challenges")
-      .select("*")
-      .or(`creator_id.eq.${user.id},opponent_id.eq.${user.id}`)
-      .eq("status", "active");
-
-    if (chals?.length) {
-      const uids = Array.from(new Set(chals.flatMap((c: any) => [c.creator_id, c.opponent_id])));
-      const { data: profs } = await supabase.from("user_profiles").select("user_id, name, total_points").in("user_id", uids);
-      setChallenges(chals.map((c: any) => {
-        const cr = profs?.find((p: any) => p.user_id === c.creator_id);
-        const op = profs?.find((p: any) => p.user_id === c.opponent_id);
-        return {
-          ...c,
-          creator_name: cr?.name || "Unknown",
-          opponent_name: op?.name || "Unknown",
-          creator_pts: Math.max(0, (cr?.total_points || 0) - c.creator_start_pts),
-          opponent_pts: Math.max(0, (op?.total_points || 0) - c.opponent_start_pts),
-        };
-      }));
-    } else { setChallenges([]); }
-
-    setLoading(false);
+      const guildId = guildMembership.data?.guild_id;
+      if (guildId) {
+        const [{ data: guildData }, { data: guildProfs }, { data: gEvents }] = await Promise.all([
+          supabase.from("guilds").select("*").eq("id", guildId).single(),
+          supabase.from("public_profiles").select("*").eq("guild_id", guildId),
+          supabase.from("guild_events").select("*").eq("guild_id", guildId).eq("status", "active"),
+        ]);
+        setGuild(guildData);
+        setGuildMembers(((guildProfs ?? []) as Member[]).sort((a, b) => (b.standing_xp || 0) - (a.standing_xp || 0)));
+        setGuildEvents(gEvents ?? []);
+      } else { setGuild(null); setGuildMembers([]); setGuildEvents([]); }
+    } catch (err) {
+      toast.fail(err, "Could not load the arena");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchAll(); }, [user]);
 
+  /** Run an action, toast failures, and refresh. Returns true on success. */
+  const act = async (fn: () => Promise<unknown>, ok?: string, failTitle = "Action failed") => {
+    setSaving(true);
+    try {
+      await fn();
+      if (ok) toast.success(ok);
+      await Promise.all([fetchAll(), refreshProfile()]);
+      return true;
+    } catch (err) {
+      toast.fail(err, failTitle);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Resolve a Hunter ID (8-char code or full UUID) through the server — never by reading profiles. */
+  const resolveHunter = async (raw: string) => {
+    const hunter = await SystemAPI.findHunter(raw);
+    if (!hunter) throw new Error("Hunter not found in the System.");
+    return hunter;
+  };
+
   /* ── actions ── */
   const createClan = async () => {
-    if (!supabase || !user || !form.name.trim()) return;
-    setSaving(true);
-    const { data, error } = await supabase.from("clans")
-      .insert({ name: form.name, description: form.desc, leader_id: user.id })
-      .select().single();
-    if (error) { alert("Failed to create clan: " + error.message); setSaving(false); return; }
-    if (data) {
-      // Add creator as leader in clan_members
-      await supabase.from("clan_members").insert({ clan_id: data.id, user_id: user.id, role: "leader" });
-      // Link clan to creator's profile
-      await supabase.from("user_profiles").update({ clan_id: data.id }).eq("user_id", user.id);
+    if (!form.name.trim()) return;
+    if (await act(() => SystemAPI.createClan(form.name, form.desc), "Clan established", "Could not create the clan")) {
+      setShowCreateClan(false); setForm({ ...form, name: "", desc: "" });
     }
-    setSaving(false); setShowCreateClan(false); setForm({ ...form, name: "", desc: "" }); fetchAll();
   };
 
   const createGuild = async () => {
-    if (!supabase || !user || !form.name.trim()) return;
-    setSaving(true);
-    const { data, error } = await supabase.from("guilds").insert({
-      name: form.name, description: form.desc,
-      leader_id: user.id, member_count: 1, min_rank: form.minRank,
-      logo_url: guildAssets.logo, aura_theme: guildAssets.aura
-    }).select().single();
-    if (error) { alert("Failed to create guild: " + error.message); setSaving(false); return; }
-    // Link guild to creator's profile (guild master)
-    if (data) {
-      await supabase.from("user_profiles").update({ 
-        guild_id: data.id,
-        guild_logo: guildAssets.logo,
-        guild_aura_card: guildAssets.aura,
-        guild_title: "Guild Master"
-      }).eq("user_id", user.id);
-    }
-    setSaving(false); setShowCreateGuild(false); setForm({ ...form, name: "", desc: "" }); fetchAll();
+    if (!form.name.trim()) return;
+    const ok = await act(
+      () => SystemAPI.createGuild({ name: form.name, desc: form.desc, minRank: form.minRank, logo: guildAssets.logo, aura: guildAssets.aura }),
+      "Guild founded", "Could not found the guild");
+    if (ok) { setShowCreateGuild(false); setForm({ ...form, name: "", desc: "" }); }
   };
 
   const inviteByHunterId = async (type: "clan" | "guild") => {
-    if (!supabase || !user || !form.hunterId.trim()) return;
-    setSaving(true);
-    const code = form.hunterId.trim();
-    // Support both short 8-char code and full UUID
-    const isFullUUID = code.length === 36 && code.includes("-");
-    let targetId: string | null = null;
-    if (isFullUUID) {
-      const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
-      targetId = prof?.user_id ?? null;
-    } else {
-      const { data: results } = await supabase.from("user_profiles").select("user_id").eq("hunter_code", code.toUpperCase()).limit(1);
-      targetId = results?.[0]?.user_id ?? null;
-    }
-    if (!targetId) { alert("Hunter not found in system."); setSaving(false); return; }
-    if (targetId === user.id) { alert("You can't invite yourself."); setSaving(false); return; }
-
-    if (type === "clan" && clan) {
-      if (clanMembers.length >= 5) { alert("Clan is full (max 5)."); setSaving(false); return; }
-      const { error } = await supabase.from("clan_members").insert({ clan_id: clan.id, user_id: targetId, role: "member" });
-      if (error) { alert("Invite failed: " + error.message); setSaving(false); return; }
-      await supabase.from("user_profiles").update({ clan_id: clan.id }).eq("user_id", targetId);
-      await supabase.from("clan_invites").insert({ clan_id: clan.id, inviter_id: user.id, invitee_id: targetId, status: "accepted" });
-      setShowInviteClan(false);
-    } else if (type === "guild" && guild) {
-      if (guildMembers.length >= 20) { alert("Guild is full (max 20)."); setSaving(false); return; }
-      await supabase.from("user_profiles").update({ guild_id: guild.id }).eq("user_id", targetId);
-      setShowInviteGuild(false);
-    }
-    setSaving(false); setForm({ ...form, hunterId: "" }); fetchAll();
+    if (!form.hunterId.trim()) return;
+    const ok = await act(async () => {
+      const hunter = await resolveHunter(form.hunterId);
+      return type === "clan" ? SystemAPI.inviteToClan(hunter.user_id) : SystemAPI.inviteToGuild(hunter.user_id);
+    }, "Invitation sent — they must accept to join", "Could not send the invitation");
+    if (ok) { setShowInviteClan(false); setShowInviteGuild(false); setForm({ ...form, hunterId: "" }); }
   };
 
+  const respondInvite = (kind: "clan" | "guild", id: string, accept: boolean) =>
+    act(() => (kind === "clan" ? SystemAPI.respondClanInvite(id, accept) : SystemAPI.respondGuildInvite(id, accept)),
+        accept ? "Welcome aboard" : "Invitation declined", "Could not answer the invitation");
+
   const createChallenge = async () => {
-    if (!supabase || !user || !form.hunterId.trim()) return;
-    setSaving(true);
-    const code = form.hunterId.trim();
-    const isFullUUID = code.length === 36 && code.includes("-");
-    let opponentId: string | null = null;
-    if (isFullUUID) {
-      const { data: prof } = await supabase.from("user_profiles").select("user_id").eq("user_id", code).maybeSingle();
-      opponentId = prof?.user_id ?? null;
-    } else {
-      const { data: results } = await supabase.from("user_profiles").select("user_id").eq("hunter_code", code.toUpperCase()).limit(1);
-      opponentId = results?.[0]?.user_id ?? null;
-    }
-    if (!opponentId) { alert("Opponent not found."); setSaving(false); return; }
-    if (opponentId === user.id) { alert("You can't challenge yourself."); setSaving(false); return; }
-    const { data: myProf } = await supabase.from("user_profiles").select("total_points").eq("user_id", user.id).single();
-    const { data: opProf } = await supabase.from("user_profiles").select("total_points").eq("user_id", opponentId).single();
-    const expires = new Date(Date.now() + form.days * 86400000).toISOString();
-    await supabase.from("challenges").insert({
-      creator_id: user.id,
-      opponent_id: opponentId,
-      target_points: form.targetPts,
-      creator_start_pts: myProf?.total_points || 0,
-      opponent_start_pts: opProf?.total_points || 0,
-      expires_at: expires,
-      status: "active",
-    });
-
-    // Notify opponent
-    await supabase.from("notifications").insert({
-      user_id: opponentId,
-      title: "New Challenge Issued!",
-      message: `${profile?.name || "A hunter"} has challenged you to a 1v1 Duel!`,
-      type: "duel",
-      link: "/challenges"
-    });
-
-    setSaving(false); setShowNewChallenge(false); setForm({ ...form, hunterId: "" }); fetchAll();
+    if (!form.hunterId.trim()) return;
+    const ok = await act(async () => {
+      const hunter = await resolveHunter(form.hunterId);
+      return SystemAPI.createChallenge(hunter.user_id, form.targetPts, form.days);
+    }, "Duel started", "Could not issue the challenge");
+    if (ok) { setShowNewChallenge(false); setForm({ ...form, hunterId: "" }); }
   };
 
   const leaveClan = async () => {
-    if (!supabase || !user || !clan) return;
-    if (!confirm(`Leave ${clan.name}?`)) return;
-    await supabase.from("clan_members").delete().eq("clan_id", clan.id).eq("user_id", user.id);
-    fetchAll();
+    if (!clan) return;
+    const yes = await confirm({ title: `Leave ${clan.name}?`, message: "If you lead the clan, leadership passes to the next member.", confirmLabel: "Leave clan", danger: true });
+    if (yes) await act(() => SystemAPI.leaveClan(), "You left the clan");
+  };
+
+  const leaveGuild = async () => {
+    if (!guild) return;
+    const yes = await confirm({ title: `Leave ${guild.name}?`, message: "If you are the guild master, leadership passes to the next member.", confirmLabel: "Leave guild", danger: true });
+    if (yes) await act(() => SystemAPI.leaveGuild(), "You left the guild");
   };
 
   const assignQuest = async () => {
-    if (!supabase || !user || !aq.assignTo || !aq.title.trim()) return;
-    setSaving(true);
-    await supabase.from("tasks").insert({
-      user_id:     user.id,
-      assigned_to: aq.assignTo,
-      title:       aq.title,
-      category:    aq.category,
-      points:      Math.max(1, aq.points),
-      priority:    aq.priority,
-      deadline:    aq.deadline || null,
-      description: aq.description,
-    });
-
-    // Notify member
-    await supabase.from("notifications").insert({
-      user_id: aq.assignTo,
-      title: "New Mission Assigned",
-      message: `Leader ${profile?.name || "of your clan"} has assigned you a new quest: ${aq.title}`,
-      type: "assignment",
-      link: "/quests"
-    });
-
-    setSaving(false);
-    setShowAssignQuest(false);
-    setAq({ assignTo: "", title: "", category: "General", points: 10, priority: "Normal", deadline: "", description: "" });
+    if (!aq.assignTo || !aq.title.trim()) return;
+    const ok = await act(() => SystemAPI.assignQuest({
+      target: aq.assignTo, title: aq.title, category: aq.category, tier: aq.tier,
+      priority: aq.priority, deadline: aq.deadline || null, description: aq.description,
+    }), "Mission deployed", "Could not assign the quest");
+    if (ok) {
+      setShowAssignQuest(false);
+      setAq({ assignTo: "", title: "", category: "General", tier: "Low", priority: "Normal", deadline: "", description: "" });
+    }
   };
 
   const createEvent = async (group: "clan" | "guild") => {
     if (!supabase || !user) return;
-    setSaving(true);
     const table = group === "clan" ? "clan_events" : "guild_events";
     const groupId = group === "clan" ? clan?.id : guild?.id;
-    if (!groupId || !eventForm.title.trim()) { setSaving(false); return; }
+    if (!groupId || !eventForm.title.trim()) return;
 
-    const start = new Date().toISOString();
-    const end = new Date(Date.now() + eventForm.days * 86400000).toISOString();
-
-    const payload = {
+    const payload: Record<string, unknown> = {
       creator_id: user.id,
-      title: eventForm.title,
+      title: eventForm.title.trim(),
       description: eventForm.description,
       event_type: eventForm.type,
-      xp_reward: eventForm.reward,
-      start_time: start,
-      end_time: end,
-      status: "active"
+      xp_reward: Math.min(1000, Math.max(0, eventForm.reward)),
+      start_time: new Date().toISOString(),
+      end_time: new Date(Date.now() + eventForm.days * 86400000).toISOString(),
+      status: "active",
     };
-
     if (group === "clan") {
-      (payload as any).clan_id = groupId;
-      if (eventForm.type === "War" && eventForm.opponentId.trim()) (payload as any).opponent_clan_id = eventForm.opponentId.trim();
+      payload.clan_id = groupId;
+      if (eventForm.type === "War" && eventForm.opponentId.trim()) payload.opponent_clan_id = eventForm.opponentId.trim();
     } else {
-      (payload as any).guild_id = groupId;
-      if (eventForm.type === "War" && eventForm.opponentId.trim()) (payload as any).opponent_guild_id = eventForm.opponentId.trim();
+      payload.guild_id = groupId;
+      if (eventForm.type === "War" && eventForm.opponentId.trim()) payload.opponent_guild_id = eventForm.opponentId.trim();
     }
 
-    await supabase.from(table).insert(payload);
-    
-    setSaving(false);
-    if (group === "clan") setShowNewClanEvent(false);
-    else setShowNewGuildEvent(false);
-    setEventForm({ title: "", description: "", type: "Rally", reward: 50, days: 3, opponentId: "" });
-    fetchAll();
+    const ok = await act(async () => { const { error } = await supabase!.from(table).insert(payload); if (error) throw error; },
+      "Event launched", "Could not create the event");
+    if (ok) {
+      if (group === "clan") setShowNewClanEvent(false); else setShowNewGuildEvent(false);
+      setEventForm({ title: "", description: "", type: "Rally", reward: 50, days: 3, opponentId: "" });
+    }
   };
 
   /* ── helpers ── */
@@ -390,7 +307,7 @@ export function ArenaPage() {
                   <span className="text-xs text-muted">{m.player_class} · {m.player_rank}-Rank · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{m.user_id.slice(0,8).toUpperCase()}</span></span>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-800" style={{ color: "#fff" }}>{(m.total_points || 0).toLocaleString()}</div>
+                  <div className="text-sm font-800" style={{ color: "#fff" }}>{(m.standing_xp || 0).toLocaleString()}</div>
                   <div className="text-xs text-muted">XP</div>
                 </div>
               </div>
@@ -411,7 +328,7 @@ export function ArenaPage() {
                       </div>
                       <div className="text-right">
                         <span className="tag" style={{ color: "#ffcc00", borderColor: "rgba(255,204,0,0.3)" }}>{e.event_type}</span>
-                        <div className="text-xs font-700 mt-4" style={{ color: "#34d399" }}>+{e.xp_reward} XP</div>
+                        <div className="text-xs font-700 mt-4" style={{ color: "#34d399" }}>Goal: {e.xp_reward} XP</div>
                       </div>
                     </div>
                     <div className="text-xs mt-8" style={{ color: "var(--t3)" }}>
@@ -448,6 +365,7 @@ export function ArenaPage() {
                 <Button variant="secondary" size="sm" onClick={() => setShowInviteGuild(true)}><Mail size={12} /> Recruit</Button>
               )}
               <Button variant="secondary" size="sm" onClick={() => setShowNewGuildEvent(true)}><Star size={12} /> Event</Button>
+              <Button variant="danger" size="sm" onClick={leaveGuild}><LogOut size={12} /></Button>
             </div>
           </div>
 
@@ -472,7 +390,7 @@ export function ArenaPage() {
                   <span className="text-sm font-700 truncate">{m.user_id === user?.id ? "You" : m.name}</span>
                   <span className="text-xs text-muted">{m.player_class} · {m.player_rank}-Rank · <span style={{ fontFamily: 'monospace', color: 'rgba(168,168,255,0.5)', fontSize: '0.58rem' }}>#{m.user_id.slice(0,8).toUpperCase()}</span></span>
                 </div>
-                <div className="text-sm font-800">{(m.total_points || 0).toLocaleString()} <span className="text-xs text-muted">XP</span></div>
+                <div className="text-sm font-800">{(m.standing_xp || 0).toLocaleString()} <span className="text-xs text-muted">XP</span></div>
               </div>
             ))}
             {guildMembers.length > 10 && (
@@ -494,7 +412,7 @@ export function ArenaPage() {
                       </div>
                       <div className="text-right">
                         <span className="tag" style={{ color: "#ffcc00", borderColor: "rgba(255,204,0,0.3)" }}>{e.event_type}</span>
-                        <div className="text-xs font-700 mt-4" style={{ color: "#34d399" }}>+{e.xp_reward} XP</div>
+                        <div className="text-xs font-700 mt-4" style={{ color: "#34d399" }}>Goal: {e.xp_reward} XP</div>
                       </div>
                     </div>
                     <div className="text-xs mt-8" style={{ color: "var(--t3)" }}>
@@ -515,21 +433,21 @@ export function ArenaPage() {
       <div className="flex-between mb-16">
         <div>
           <div className="text-xs text-muted uppercase tracking-widest">Active Duels</div>
-          <div className="text-sm font-700 mt-2">{challenges.length} ongoing</div>
+          <div className="text-sm font-700 mt-2">{challenges.filter(c => c.status === "active").length} ongoing</div>
         </div>
         <Button variant="primary" size="sm" onClick={() => setShowNewChallenge(true)}>
           <Swords size={13} /> Issue Challenge
         </Button>
       </div>
 
-      {challenges.length === 0 ? (
+      {challenges.filter(c => c.status === "active").length === 0 ? (
         <div className="arena-empty-state" style={{ padding: "40px 0" }}>
           <Swords size={36} className="arena-empty-icon" />
           <p className="text-muted text-sm mt-8">No active duels. Challenge a hunter to begin.</p>
         </div>
       ) : (
         <div className="flex-col gap-16">
-          {challenges.map(c => {
+          {challenges.filter(c => c.status === "active").map(c => {
             const isCreator = c.creator_id === user?.id;
             const myPts     = isCreator ? c.creator_pts : c.opponent_pts;
             const theirPts  = isCreator ? c.opponent_pts : c.creator_pts;
@@ -576,6 +494,29 @@ export function ArenaPage() {
           })}
         </div>
       )}
+
+      {challenges.some(c => c.status !== "active") && (
+        <div className="mt-16">
+          <div className="text-xs text-muted uppercase tracking-widest mb-8">Recent results</div>
+          <div className="flex-col gap-8">
+            {challenges.filter(c => c.status !== "active").map(c => {
+              const won = c.winner_id === user?.id;
+              const theirName = c.creator_id === user?.id ? c.opponent_name : c.creator_name;
+              return (
+                <div key={c.id} className="glass-panel panel-no-pad" style={{ padding: 12, borderLeft: `3px solid ${c.status === "expired" ? "#64748b" : won ? "#34d399" : "#ff4444"}` }}>
+                  <div className="flex-between">
+                    <div className="text-sm font-700">vs {theirName}</div>
+                    <span className="tag" style={{ color: c.status === "expired" ? "#94a3b8" : won ? "#34d399" : "#ff4444" }}>
+                      {c.status === "expired" ? "EXPIRED" : won ? "VICTORY" : "DEFEAT"}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted mt-4">Target {c.target_points} XP · you {c.creator_id === user?.id ? c.creator_pts : c.opponent_pts} · them {c.creator_id === user?.id ? c.opponent_pts : c.creator_pts}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -589,6 +530,27 @@ export function ArenaPage() {
         </div>
       </div>
 
+      {(invites.clan.length > 0 || invites.guild.length > 0) && (
+        <div className="glass-panel" style={{ padding: 16, marginBottom: 16, borderLeft: "3px solid #34d399" }}>
+          <div className="text-xs text-muted uppercase tracking-widest mb-8">Pending invitations</div>
+          <div className="flex-col gap-8">
+            {([["clan", invites.clan], ["guild", invites.guild]] as const).flatMap(([kind, list]) =>
+              list.map(inv => (
+                <div key={inv.id} className="flex-between" style={{ gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="text-sm font-700 truncate">{kind === "clan" ? "🛡️" : "⚜️"} {inv.name}</div>
+                    <div className="text-xs text-muted">Invited by {inv.inviter ?? "a hunter"}</div>
+                  </div>
+                  <div className="flex gap-8">
+                    <Button variant="success" size="sm" disabled={saving} onClick={() => respondInvite(kind, inv.id, true)}>Accept</Button>
+                    <Button variant="secondary" size="sm" disabled={saving} onClick={() => respondInvite(kind, inv.id, false)}>Decline</Button>
+                  </div>
+                </div>
+              )))}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="arena-tabs">
         {TABS.map(t => (
@@ -597,8 +559,8 @@ export function ArenaPage() {
             {t === "Clan"     && <Shield size={14} />}
             {t === "Guild"    && <Trophy size={14} />}
             {t}
-            {t === "1v1 Duels" && challenges.length > 0 && tab !== t && (
-              <span className="arena-tab-badge">{challenges.length}</span>
+            {t === "1v1 Duels" && challenges.some(c => c.status === "active") && tab !== t && (
+              <span className="arena-tab-badge">{challenges.filter(c => c.status === "active").length}</span>
             )}
           </button>
         ))}
@@ -682,14 +644,14 @@ export function ArenaPage() {
       <Modal isOpen={showNewChallenge} title="Issue Challenge" onClose={() => setShowNewChallenge(false)}
         footer={<><Button variant="secondary" onClick={() => setShowNewChallenge(false)}>Cancel</Button>
                  <Button variant="primary" onClick={createChallenge} disabled={saving}>⚔️ Initiate Duel</Button></>}>
-        <p className="text-xs text-muted mb-12">Both hunters must earn target XP from scratch within the time limit.</p>
+        <p className="text-xs text-muted mb-12">Both hunters race to earn the target XP from scratch within the time limit. Only hunters in your party (friends) can be challenged.</p>
         <div className="form-group"><label className="form-label">Opponent Hunter ID</label>
           <input className="form-input" placeholder="e.g. A3F6C21B or full UUID" value={form.hunterId} onChange={e => setForm({ ...form, hunterId: e.target.value })} style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }} /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="form-group"><label className="form-label">Target XP</label>
             <input type="number" className="form-input" value={form.targetPts} onChange={e => setForm({ ...form, targetPts: parseInt(e.target.value) || 50 })} /></div>
           <div className="form-group"><label className="form-label">Duration (days)</label>
-            <input type="number" min={1} max={30} className="form-input" value={form.days} onChange={e => setForm({ ...form, days: parseInt(e.target.value) || 2 })} /></div>
+            <input type="number" min={1} max={14} className="form-input" value={form.days} onChange={e => setForm({ ...form, days: parseInt(e.target.value) || 2 })} /></div>
         </div>
       </Modal>
 
@@ -697,7 +659,7 @@ export function ArenaPage() {
       <Modal isOpen={showAssignQuest} title="Assign Mission to Member" onClose={() => setShowAssignQuest(false)}
         footer={<><Button variant="secondary" onClick={() => setShowAssignQuest(false)}>Cancel</Button>
                  <Button variant="primary" onClick={assignQuest} disabled={saving || !aq.assignTo || !aq.title}>Deploy Mission</Button></>}>
-        <p className="text-xs text-muted mb-12">Assign a quest to a clan member. It will appear in their Quests → Assigned tab.</p>
+        <p className="text-xs text-muted mb-12">Assign a quest to a clan member. It appears in their Dungeon Gate, and they earn its XP (set by the rank you choose) when they conquer it.</p>
         <div className="form-group"><label className="form-label">Target Member</label>
           <select className="form-select" value={aq.assignTo} onChange={e => setAq({ ...aq, assignTo: e.target.value })}>
             <option value="">— Select member —</option>
@@ -714,12 +676,18 @@ export function ArenaPage() {
             </select></div>
           <div className="form-group"><label className="form-label">Priority</label>
             <select className="form-select" value={aq.priority} onChange={e => setAq({ ...aq, priority: e.target.value })}>
-              {["Low","Normal","Medium","URGENT"].map(p => <option key={p}>{p}</option>)}
+              {["Low","Normal","High","URGENT"].map(p => <option key={p}>{p}</option>)}
             </select></div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div className="form-group"><label className="form-label">XP Reward</label>
-            <input type="number" className="form-input" value={aq.points} onChange={e => setAq({ ...aq, points: parseInt(e.target.value) || 10 })} /></div>
+          <div className="form-group"><label className="form-label">Rank (sets the XP)</label>
+            <select className="form-select" value={aq.tier} onChange={e => setAq({ ...aq, tier: e.target.value })}>
+              <option value="Low">E-Rank · 5 XP</option>
+              <option value="Mid">C-Rank · 15 XP</option>
+              <option value="High">B-Rank · 25 XP</option>
+              <option value="Super">A-Rank · 35 XP</option>
+              <option value="Legendary">S-Rank · 50 XP</option>
+            </select></div>
           <div className="form-group"><label className="form-label">Deadline</label>
             <input type="date" className="form-input" value={aq.deadline} onChange={e => setAq({ ...aq, deadline: e.target.value })} /></div>
         </div>
@@ -741,7 +709,7 @@ export function ArenaPage() {
             <select className="form-select" value={eventForm.type} onChange={e => setEventForm({ ...eventForm, type: e.target.value })}>
               {["Rally", "Raid", "War", "Training"].map(t => <option key={t}>{t}</option>)}
             </select></div>
-          <div className="form-group"><label className="form-label">XP Reward (Per Member)</label>
+          <div className="form-group"><label className="form-label">Team goal (XP)</label>
             <input type="number" className="form-input" value={eventForm.reward} onChange={e => setEventForm({ ...eventForm, reward: parseInt(e.target.value) || 50 })} /></div>
         </div>
         {eventForm.type === "War" && (
@@ -766,7 +734,7 @@ export function ArenaPage() {
             <select className="form-select" value={eventForm.type} onChange={e => setEventForm({ ...eventForm, type: e.target.value })}>
               {["Rally", "Raid", "Tournament", "War"].map(t => <option key={t}>{t}</option>)}
             </select></div>
-          <div className="form-group"><label className="form-label">XP Reward (Per Member)</label>
+          <div className="form-group"><label className="form-label">Team goal (XP)</label>
             <input type="number" className="form-input" value={eventForm.reward} onChange={e => setEventForm({ ...eventForm, reward: parseInt(e.target.value) || 100 })} /></div>
         </div>
         {eventForm.type === "War" && (

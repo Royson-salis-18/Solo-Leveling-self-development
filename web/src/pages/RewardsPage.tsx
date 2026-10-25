@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
+import { SystemAPI } from "../services/SystemAPI";
 
 import { Plus, Trash2, Gift, Zap } from "lucide-react";
 import { SYSTEM_REWARDS, SYSTEM_PUNISHMENTS } from "../lib/catalog";
@@ -12,9 +15,12 @@ type Reward = {
   id: string;
   name: string;
   xp_cost: number;
-  tier: "instant" | "medium" | "major";
+  /** "1".."5" */
+  tier: string;
   is_claimed: boolean;
   claimed_at: string | null;
+  /** Built-in rewards are reusable and tracked via reward_claims. */
+  system_key?: string;
 };
 
 type Punishment = {
@@ -24,6 +30,8 @@ type Punishment = {
   triggered: number;
 };
 
+type Claim = { id: string; system_key: string | null; reward_id: string | null; name: string; claimed_at: string; expires_at: string };
+
 const TIER_OPTS = [
   { key: "1", label: "Tier 1: Indulgence", streak: 3,  rank: "E", xp: 25 },
   { key: "2", label: "Tier 2: Comfort",    streak: 7,  rank: "C", xp: 150 },
@@ -32,138 +40,167 @@ const TIER_OPTS = [
   { key: "5", label: "Tier 5: Legendary",  streak: 60, rank: "S", xp: 3000 },
 ];
 
-const EMPTY_REWARD = { name: "", xp_cost: 100, tier: "instant" as const };
+const EMPTY_REWARD = { name: "", xp_cost: 100, tier: "1" };
 const EMPTY_PUNISH = { name: "", xp_penalty: 25 };
+const isSystem = (id: string) => id.startsWith("sys-");
 
 export function RewardsPage() {
-  const { user } = useAuth();
-  const [rewards,     setRewards]     = useState<Reward[]>([]);
-  const [punishments, setPunishments] = useState<Punishment[]>([]);
-  const [profile,     setProfile]     = useState<{ total_points: number } | null>(null);
+  const { user, profile, applyProfilePatch } = useAuth();
+  const game_apply = applyProfilePatch;
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [custom,      setCustom]      = useState<Reward[]>([]);
+  const [builtIn,     setBuiltIn]     = useState<Reward[]>(
+    SYSTEM_REWARDS.map(r => ({ id: r.id, system_key: r.id, name: r.name, xp_cost: r.xp_cost, tier: r.tier, is_claimed: false, claimed_at: null })),
+  );
+  const [punishments, setPunishments] = useState<Punishment[]>(
+    SYSTEM_PUNISHMENTS.map(p => ({ id: p.id, name: p.name, xp_penalty: p.xp_penalty, triggered: 0 })),
+  );
+  const [claims,      setClaims]      = useState<Claim[]>([]);
   const [tab,         setTab]         = useState<"rewards" | "punishments">("rewards");
-  const [activeFilter, setActiveFilter] = useState<"all" | "instant" | "medium" | "major">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
   const [showRewardModal,  setShowRewardModal]  = useState(false);
   const [showPunishModal,  setShowPunishModal]  = useState(false);
   const [rewardForm,  setRewardForm]  = useState(EMPTY_REWARD);
   const [punishForm,  setPunishForm]  = useState(EMPTY_PUNISH);
   const [loading,     setLoading]     = useState(true);
-  const [darkMana,    setDarkMana]    = useState(0);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [recentGates, setRecentGates] = useState<any[]>([]);
+  const [recentGates, setRecentGates] = useState<{ id: string; title: string }[]>([]);
   const [selectedGate, setSelectedGate] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  // Live numbers: every engine response patches the profile, so no separate fetch is needed.
+  const availableXP = profile?.total_points ?? 0;
+  const darkMana = profile?.dark_mana ?? 0;
+  const userProfile = profile;
 
   const location = useLocation();
-
   useEffect(() => {
-    if (location.hash === "#punishments") {
-      setTab("punishments");
-    } else if (location.hash === "#rewards") {
-      setTab("rewards");
-    }
+    if (location.hash === "#punishments") setTab("punishments");
+    else if (location.hash === "#rewards") setTab("rewards");
   }, [location.hash]);
 
-  useEffect(() => {
-    if (!supabase || !user) return;
-    (async () => {
-      const [rRes, pRes, profRes, gateRes] = await Promise.all([
-        supabase.from("rewards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("punishments").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("user_profiles").select("*").eq("user_id", user.id).single(),
-        supabase.from("tasks").select("id, title, completed_at").eq("user_id", user.id).eq("is_completed", true).order("completed_at", { ascending: false }).limit(10),
-      ]);
-      setRewards([...SYSTEM_REWARDS, ...(rRes.data ?? [])] as any);
-      setPunishments([...SYSTEM_PUNISHMENTS, ...(pRes.data ?? [])] as any);
-      setProfile(profRes.data);
-      setUserProfile(profRes.data);
-      setDarkMana(profRes.data?.dark_mana || 0);
-      setRecentGates(gateRes.data ?? []);
-      setLoading(false);
-    })();
+  const load = useCallback(async () => {
+    if (!supabase || !user) { setLoading(false); return; }
+    const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    const [sysRes, rRes, pRes, claimRes, gateRes] = await Promise.all([
+      supabase.from("system_rewards").select("key, name, xp_cost, tier").order("xp_cost", { ascending: true }),
+      supabase.from("rewards").select("id, name, xp_cost, tier, is_claimed, claimed_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("punishments").select("id, name, xp_penalty, triggered").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("reward_claims").select("id, system_key, reward_id, name, trigger_gate_id, claimed_at, expires_at").eq("user_id", user.id).order("claimed_at", { ascending: false }).limit(30),
+      // Trigger gates: conquered in the last 48h and not already spent as an anchor.
+      supabase.from("tasks").select("id, title").eq("user_id", user.id).eq("is_completed", true).eq("is_failed", false)
+        .gte("completed_at", since).order("completed_at", { ascending: false }).limit(15),
+    ]);
+    if (sysRes.data?.length) {
+      setBuiltIn(sysRes.data.map(r => ({ id: r.key, system_key: r.key, name: r.name, xp_cost: r.xp_cost, tier: r.tier, is_claimed: false, claimed_at: null })));
+    }
+    setCustom((rRes.data ?? []) as Reward[]);
+    setPunishments([
+      ...SYSTEM_PUNISHMENTS.map(p => ({ id: p.id, name: p.name, xp_penalty: p.xp_penalty, triggered: 0 })),
+      ...((pRes.data ?? []) as Punishment[]),
+    ]);
+    const used = new Set((claimRes.data ?? []).map((c: any) => c.trigger_gate_id).filter(Boolean));
+    setClaims((claimRes.data ?? []) as Claim[]);
+    setRecentGates((gateRes.data ?? []).filter(g => !used.has(g.id)));
+    setLoading(false);
   }, [user]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const rewards = useMemo(() => [...builtIn, ...custom], [builtIn, custom]);
+  const activeClaim = (r: Reward) => claims.find(c =>
+    (r.system_key ? c.system_key === r.system_key : c.reward_id === r.id) && new Date(c.expires_at).getTime() > Date.now());
 
   const handleAddReward = async () => {
     if (!supabase || !user || !rewardForm.name.trim()) return;
-    const { data } = await supabase.from("rewards").insert({
+    const { data, error } = await supabase.from("rewards").insert({
       user_id: user.id,
-      name: rewardForm.name,
-      xp_cost: rewardForm.xp_cost,
+      name: rewardForm.name.trim(),
+      xp_cost: Math.max(0, rewardForm.xp_cost),
       tier: rewardForm.tier,
-    }).select().single();
-    if (data) setRewards(r => [data, ...r]);
+    }).select("id, name, xp_cost, tier, is_claimed, claimed_at").single();
+    if (error) { toast.fail(error, "Could not add the reward"); return; }
+    if (data) setCustom(r => [data as Reward, ...r]);
     setRewardForm(EMPTY_REWARD);
     setShowRewardModal(false);
   };
 
   const handleClaimReward = async (reward: Reward) => {
-    if (!supabase || !user || reward.is_claimed) return;
-    
-    const tierRule = TIER_OPTS.find(t => t.key === reward.tier);
-    if (tierRule && (parseInt(reward.tier) >= 2) && !selectedGate) {
-      alert("⚠️ TRIGGER REQUIRED: Select a recently conquered gate to manifest this reward.");
+    if (busy || reward.is_claimed) return;
+    if ((parseInt(reward.tier) >= 2 && parseInt(reward.tier) <= 4) && !selectedGate) {
+      toast.error("Trigger gate required", "Select a gate you conquered in the last 48 hours to anchor this reward.");
       return;
     }
-
+    setBusy(true);
     try {
-      const { SystemAPI } = await import("../services/SystemAPI");
-      const res = await SystemAPI.claimReward(user.id, reward, selectedGate || undefined);
-      
-      setRewards(rs => rs.map(r => r.id === reward.id ? { ...r, is_claimed: true } : r));
-      setProfile(p => p ? { ...p, total_points: p.total_points - reward.xp_cost } : p);
-      alert(`✨ REWARD MANIFESTED! Claim window: 72 hours. Expires: ${new Date(res.expires_at).toLocaleString()}`);
-    } catch (err: any) {
-      alert(err.message);
+      const res = await SystemAPI.claimReward({
+        rewardId: reward.system_key ? undefined : reward.id,
+        systemKey: reward.system_key,
+        triggerGateId: selectedGate || null,
+      });
+      game_apply(res.profile);
+      if (!reward.system_key) setCustom(rs => rs.map(r => (r.id === reward.id ? { ...r, is_claimed: true } : r)));
+      setSelectedGate("");
+      toast.success("Reward manifested", `${res.name} — enjoy it within 72 hours (until ${new Date(res.expires_at).toLocaleString()}).`);
+      await load();
+    } catch (err) {
+      toast.fail(err, "Could not claim the reward");
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleDeleteReward = async (id: string) => {
-    if (!supabase || !user) return;
-    await supabase.from("rewards").delete().eq("id", id);
-    setRewards(rs => rs.filter(r => r.id !== id));
+    if (!supabase || !user || isSystem(id)) return;
+    const { error } = await supabase.from("rewards").delete().eq("id", id);
+    if (error) { toast.fail(error, "Could not delete the reward"); return; }
+    setCustom(rs => rs.filter(r => r.id !== id));
   };
 
   const handleAddPunishment = async () => {
     if (!supabase || !user || !punishForm.name.trim()) return;
-    const { data } = await supabase.from("punishments").insert({
+    const { data, error } = await supabase.from("punishments").insert({
       user_id: user.id,
-      name: punishForm.name,
-      xp_penalty: punishForm.xp_penalty,
-    }).select().single();
-    if (data) setPunishments(p => [data, ...p]);
+      name: punishForm.name.trim(),
+      xp_penalty: Math.max(0, punishForm.xp_penalty),
+    }).select("id, name, xp_penalty, triggered").single();
+    if (error) { toast.fail(error, "Could not add the punishment"); return; }
+    if (data) setPunishments(p => [...p, data as Punishment]);
     setPunishForm(EMPTY_PUNISH);
     setShowPunishModal(false);
   };
 
   const handleTriggerPunishment = async (p: Punishment) => {
-    if (!supabase || !user) return;
-    
+    if (busy) return;
+    const cleared = Math.min(p.xp_penalty, darkMana);
+    const ok = await confirm({
+      title: "Accept this punishment?",
+      message: `Clears ${cleared} Dark Mana and costs ${Math.floor(cleared * 1.5)} XP (1.5× dual cost).\n\nOnly accept it once you have actually done it: "${p.name}".`,
+      confirmLabel: "I did it — redeem",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
     try {
-      const { SystemAPI } = await import("../services/SystemAPI");
-      await SystemAPI.redeemDarkMana(user.id, p.xp_penalty);
-      
-      setDarkMana(prev => Math.max(0, prev - p.xp_penalty));
-      setPunishments(ps => ps.map(x => x.id === p.id ? { ...x, triggered: x.triggered + 1 } : x));
-      
-      const [rRes, profRes] = await Promise.all([
-        supabase.from("rewards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("user_profiles").select("total_points, dark_mana").eq("user_id", user.id).single(),
-      ]);
-      setRewards(rRes.data ?? []);
-      setProfile(profRes.data);
-      
-      alert(`⚖️ SYSTEM: Punishment Accepted. Dark Mana reduced by ${p.xp_penalty}. Dual-cost applied (1.5x XP).`);
-    } catch (err: any) {
-      alert(err.message);
+      const res = await SystemAPI.redeemDarkMana(p.xp_penalty, isSystem(p.id) ? null : p.id);
+      game_apply(res.profile);
+      toast.success("Debt cleansed", `−${res.dark_mana_cleared} Dark Mana · −${res.xp_cost} XP`);
+      await load();
+    } catch (err) {
+      toast.fail(err, "Could not redeem");
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleDeletePunishment = async (id: string) => {
-    if (!supabase || !user) return;
-    await supabase.from("punishments").delete().eq("id", id);
+    if (!supabase || !user || isSystem(id)) return;
+    const { error } = await supabase.from("punishments").delete().eq("id", id);
+    if (error) { toast.fail(error, "Could not delete the punishment"); return; }
     setPunishments(ps => ps.filter(p => p.id !== id));
   };
 
   const filteredRewards = rewards.filter(r => activeFilter === "all" || r.tier === activeFilter);
-  const availableXP = profile?.total_points ?? 0;
 
 
 
@@ -272,6 +309,12 @@ export function RewardsPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: "0.90rem", fontWeight: 500, color: "var(--t1)", marginBottom: 3 }}>
                         {reward.name}
+                        {(() => {
+                          const c = activeClaim(reward);
+                          if (!c) return null;
+                          const hours = Math.max(1, Math.round((new Date(c.expires_at).getTime() - Date.now()) / 3600000));
+                          return <span className="badge" style={{ marginLeft: 8, fontSize: "0.6rem", padding: "1px 6px", color: "var(--success)", borderColor: "var(--success)" }}>ACTIVE · {hours}h left</span>;
+                        })()}
                       </div>
                       <div style={{ fontSize: "0.70rem", color: "var(--t3)", display: 'flex', gap: 8 }}>
                         {(() => {
@@ -303,12 +346,12 @@ export function RewardsPage() {
                           Claim
                         </Button>
                       )}
-                      <button
+                      {!isSystem(reward.id) && <button
                         onClick={() => handleDeleteReward(reward.id)}
                         style={{ background: "none", border: "none", color: "rgba(255,80,80,0.45)", cursor: "pointer", padding: "4px 6px", borderRadius: "var(--r-sm)", transition: "color 0.15s" }}
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 );

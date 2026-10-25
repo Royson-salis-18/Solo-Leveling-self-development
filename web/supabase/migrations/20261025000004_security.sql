@@ -85,7 +85,7 @@ begin
     raise exception 'INVALID_AGE: Enter a realistic age.' using errcode = 'P0001';
   end if;
   if new.player_class is distinct from old.player_class then
-    if new.player_class not in ('Warrior','Mage','Assassin','Tank','Healer','Archer','Necromancer','Tamer','Craftsman','Scout') then
+    if new.player_class not in ('Warrior','Mage','Assassin','Tank','Healer','Archer','Ranger','Necromancer','Tamer','Craftsman','Scout') then
       raise exception 'INVALID_CLASS: Unknown class.' using errcode = 'P0001';
     end if;
     new.player_title := private.title_for(new.player_class, coalesce(new.total_points, 0) + coalesce(new.spent_xp, 0));
@@ -108,6 +108,38 @@ select user_id, name,
        ego_score, playmaker_rating, created_at
   from public.user_profiles;
 grant select on public.public_profiles to authenticated;
+
+-- Weekly completion counts for everyone (War Room / leaderboards) WITHOUT exposing any task
+-- content. The War Room used to count other hunters' completions from the tasks table, which RLS
+-- hides, so every other hunter always showed zero activity.
+create or replace view public.public_activity with (security_invoker = false) as
+select user_id, count(*)::integer as completions_7d
+  from public.xp_events
+ where kind = 'complete' and created_at > now() - interval '7 days'
+ group by user_id;
+grant select on public.public_activity to authenticated;
+
+-- A hunter's recent conquests for the profile inspector: category + XP only, never titles or notes.
+create or replace view public.public_conquests with (security_invoker = false) as
+select user_id, meta ->> 'category' as category, raw as points, created_at as completed_at
+  from public.xp_events
+ where kind = 'complete';
+grant select on public.public_conquests to authenticated;
+
+-- Guild / clan totals computed in the database. The leaderboard used to download every profile
+-- and every membership row and add them up in the browser (O(users) per page view).
+create or replace view public.guild_leaderboard with (security_invoker = false) as
+select g.id, g.name, coalesce(sum(p.standing_xp), 0)::bigint as total_xp, count(p.user_id)::integer as member_count
+  from public.guilds g left join public.user_profiles p on p.guild_id = g.id
+ group by g.id, g.name;
+
+create or replace view public.clan_leaderboard with (security_invoker = false) as
+select c.id, c.name, coalesce(sum(p.standing_xp), 0)::bigint as total_xp, count(cm.user_id)::integer as member_count
+  from public.clans c
+  join public.clan_members cm on cm.clan_id = c.id
+  join public.user_profiles p on p.user_id = cm.user_id
+ group by c.id, c.name;
+grant select on public.guild_leaderboard, public.clan_leaderboard to authenticated;
 
 -- ── 3. read-only game state (writes only via RPC) ────────────────────────────
 grant select on public.tasks, public.user_points, public.xp_events, public.reward_claims,

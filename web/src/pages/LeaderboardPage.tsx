@@ -63,10 +63,10 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
 
   const fetchRecentConquests = async () => {
     if (!supabase) return;
-    const { data } = await supabase.from("tasks")
+    // public_conquests exposes category + XP only (never titles); tasks themselves are private.
+    const { data } = await supabase.from("public_conquests")
       .select("category, points, completed_at")
       .eq("user_id", user.user_id)
-      .eq("is_completed", true)
       .order("completed_at", { ascending: false })
       .limit(3);
     if (data) setRecentConquests(data);
@@ -100,9 +100,10 @@ function PlayerProfilePopup({ user, onClose }: { user: LBUser; onClose: () => vo
   const fetchHunterPotential = async () => {
     if (!supabase) return;
     const { data: tasks, error } = await supabase
-      .from("tasks").select("category")
-      .or(`user_id.eq.${user.user_id},assigned_to.eq.${user.user_id}`)
-      .eq("is_completed", true);
+      .from("public_conquests").select("category")
+      .eq("user_id", user.user_id)
+      .order("completed_at", { ascending: false })
+      .limit(500);
     if (error) { console.error(error); return; }
     if (tasks) {
       const counts: Record<string, number> = { Work: 0, Fitness: 0, Learning: 0, Mind: 0, Social: 0 };
@@ -343,77 +344,22 @@ export function LeaderboardPage() {
     if (!supabase) { setLoading(false); return; }
     (async () => {
       try {
-        // 1. Fetch Hunters (with Domain data)
-        let hData: LBUser[] = [];
-        const { data: hFull, error: hErr } = await supabase.from("user_profiles")
-          .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, domain_physical, domain_mind, domain_soul, domain_execution, domain_builder, guild_logo, guild_title, guild_aura_card, status, last_heartbeat")
-          .order("total_points", { ascending: false }).limit(100);
+        // Hunters ranked by STANDING (balance + spent): buying a reward must not drop you down the board.
+        const { data: hFull, error: hErr } = await supabase.from("public_profiles")
+          .select("user_id, name, level, total_points:standing_xp, player_class, player_rank, player_title, guild_id, domain_physical, domain_mind, domain_soul, domain_execution, domain_builder, guild_logo, guild_title, guild_aura_card, status")
+          .order("standing_xp", { ascending: false }).limit(100);
+        if (hErr) console.error("Leaderboard fetch error:", hErr);
+        const hData: LBUser[] = (hFull ?? []) as unknown as LBUser[];
 
-        if (!hErr && hFull) {
-          hData = hFull as LBUser[];
-        } else {
-          console.warn("Domain fetch failed, falling back to basic profile data:", hErr);
-          const { data: hBasic, error: hBasicErr } = await supabase.from("user_profiles")
-            .select("user_id, name, level, total_points, player_class, player_rank, player_title, guild_id, guild_logo, guild_title, guild_aura_card, status, last_heartbeat")
-            .order("total_points", { ascending: false }).limit(100);
-          
-          if (!hBasicErr && hBasic) {
-            hData = hBasic as LBUser[];
-          } else if (hBasicErr) {
-            console.error("Critical Leaderboard Fetch Error:", hBasicErr);
-          }
-        }
-        
         setHunters(hData);
 
+        // Totals are computed server-side (these used to download every profile and membership).
         const [gRes, cRes] = await Promise.all([
-          supabase.from("guilds").select("id, name"),
-          supabase.from("clans").select("id, name"),
+          supabase.from("guild_leaderboard").select("id, name, total_xp, member_count").order("total_xp", { ascending: false }).limit(50),
+          supabase.from("clan_leaderboard").select("id, name, total_xp, member_count").order("total_xp", { ascending: false }).limit(50),
         ]);
-
-        // System Sweep: Flag hunters as DECEASED after 14 days of inactivity
-        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-        await supabase
-          .from("user_profiles")
-          .update({ status: 'DECEASED' })
-          .lt("last_heartbeat", fourteenDaysAgo)
-          .eq("status", "ACTIVE");
-
-        const { data: allProfs, error: pErr } = await supabase
-          .from("user_profiles").select("user_id, total_points, guild_id");
-        if (pErr) console.error("Profile Fetch Error:", pErr);
-
-        if (gRes.data?.length) {
-          const gXP = new Map<string, { xp: number; count: number }>();
-          (allProfs ?? []).forEach((p: any) => {
-            if (p.guild_id) {
-              const c = gXP.get(p.guild_id) ?? { xp: 0, count: 0 };
-              gXP.set(p.guild_id, { xp: c.xp + (p.total_points ?? 0), count: c.count + 1 });
-            }
-          });
-          setGuilds((gRes.data ?? []).map(g => ({
-            id: g.id, name: g.name,
-            total_xp: gXP.get(g.id)?.xp ?? 0,
-            member_count: gXP.get(g.id)?.count ?? 0,
-          })).sort((a, b) => b.total_xp - a.total_xp));
-        }
-
-
-        
-        if (cRes.data?.length) {
-          const { data: cms } = await supabase.from("clan_members").select("clan_id, user_id");
-          const cXP = new Map<string, { xp: number; count: number }>();
-          (cms ?? []).forEach((cm: any) => {
-            const prof = allProfs?.find((p: any) => p.user_id === cm.user_id);
-            const c = cXP.get(cm.clan_id) ?? { xp: 0, count: 0 };
-            cXP.set(cm.clan_id, { xp: c.xp + (prof?.total_points ?? 0), count: c.count + 1 });
-          });
-          setClans((cRes.data ?? []).map(c => ({
-            id: c.id, name: c.name,
-            total_xp: cXP.get(c.id)?.xp ?? 0,
-            member_count: cXP.get(c.id)?.count ?? 0,
-          })).filter(c => c.member_count >= 1).sort((a, b) => b.total_xp - a.total_xp));
-        }
+        setGuilds(((gRes.data ?? []) as GuildLB[]).map(g => ({ ...g, total_xp: Number(g.total_xp) })));
+        setClans(((cRes.data ?? []) as ClanLB[]).map(c => ({ ...c, total_xp: Number(c.total_xp) })));
       } catch (err) {
         console.error("Leaderboard Load Error:", err);
       } finally {

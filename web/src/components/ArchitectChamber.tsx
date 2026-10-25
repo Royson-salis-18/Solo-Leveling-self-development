@@ -34,7 +34,7 @@ export function ArchitectChamber({ onClose }: ArchitectChamberProps) {
       const response = await SystemAPI.consultArchitect(userMsg, user?.id || '', 'long');
       setMessages(prev => [...prev, { role: 'system', content: response }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'system', content: '### [CRITICAL ERROR]\n\nMana resonance link severed.' }]);
+      setMessages(prev => [...prev, { role: 'system', content: err instanceof Error && err.message ? err.message : '### [CRITICAL ERROR]\n\nMana resonance link severed.' }]);
     } finally {
       setIsAnalyzing(false);
     }

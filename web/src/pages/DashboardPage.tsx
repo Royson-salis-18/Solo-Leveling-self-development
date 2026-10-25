@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
   Cell, AreaChart, Area, CartesianGrid,
 } from "recharts";
 import { PerformanceRadar } from "../components/PerformanceRadar";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
+import { useToast } from "../lib/toast";
+import { useGameActions } from "../lib/gameActions";
 import { Sparkles, Skull, Activity, CheckCircle, Brain, Dumbbell, Zap, Hammer } from "lucide-react";
 import { RaidTimer } from "../components/RaidTimer";
 import { AuraCard } from "../components/AuraCard";
@@ -14,9 +15,14 @@ import { Modal } from "../components/Modal";
 import { SeasonHUD } from "../components/SeasonHUD";
 import { ZoneOverlay } from "../components/ZoneOverlay";
 import { PlaymakerCard } from "../components/PlaymakerCard";
+import { PageSkeleton } from "../components/PageSkeleton";
+import { hasSupabaseConfig } from "../lib/supabase";
 
 import { SystemAPI, type DashboardData } from "../services/SystemAPI";
-import { calculatePlaymakerRating, evaluateWeeklySelection } from "../lib/levelEngine";
+import { evaluateWeeklySelection, TIER_POINTS } from "../lib/levelEngine";
+
+/** What each tier is actually worth (the server derives XP from the tier, never from the client). */
+const TIER_XP: Record<string, number> = TIER_POINTS;
 
 
 type TaskRow = {
@@ -59,205 +65,92 @@ const TOOLTIP_STYLE = {
 };
 
 /* ─── COMPONENT ─────────────────────────────────────────────────── */
+const EMPTY_DASHBOARD: DashboardData = {
+  activeCount: 0, pendingCount: 0, completedCount: 0, failedCount: 0,
+  totalXp: 0, total_points: 0, spent_xp: 0, standing_xp: 0, level: 1, streak_count: 0,
+  weeklyHistory: [], monthlyHistory: [], categoryDistribution: [],
+  player_rank: "E", player_title: "Newcomer", status: "ACTIVE",
+  activeTasks: [], completedTasks: [], clanMembers: [], shadows: [],
+  dark_mana: 0, current_mode: "Normal", ego_score: 0, playmaker_rating: 0,
+  timezone: "UTC", needs_mode_selection: false, weekly_xp: 0, weekly_target: null,
+  flow: { count: 0, active: false },
+  domain_physical: 10, domain_mind: 14, domain_soul: 10, domain_execution: 12, domain_builder: 13,
+};
+
 export function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+  const toast = useToast();
+  const game = useGameActions();
+
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivityRow[]>([]);
   const [affiliations, setAffiliations] = useState<AffiliationRow[]>([]);
   const [shadows, setShadows] = useState<any[]>([]);
-  const [showReawakening, setShowReawakening] = useState(false);
   const [redGateId, setRedGateId] = useState<string | null>(localStorage.getItem("redGateId"));
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
-  
-  const [isZoneActive, setIsZoneActive] = useState(false);
-  const [marketValue, setMarketValue] = useState(0);
+  const [zoneDismissed, setZoneDismissed] = useState(false);
   const [weeklySelection, setWeeklySelection] = useState<any[]>([]);
-  const [data, setData] = useState<DashboardData>({
-    activeCount: 0,
-    pendingCount: 0,
-    completedCount: 0,
-    failedCount: 0,
-    totalXp: 0, level: 1,
-    total_points: 0,
-    weeklyHistory: [],
-    monthlyHistory: [],
-    categoryDistribution: [],
-    player_rank: "E",
-    player_title: "Newcomer",
-    activeTasks: [],
-    completedTasks: [],
-    clanMembers: [],
-    shadows: [],
-    dark_mana: 0,
-    current_mode: "Normal",
-    ego_score: 0,
-    domain_physical: 10,
-    domain_mind: 14,
-    domain_soul: 10,
-    domain_execution: 12,
-    domain_builder: 13,
-  });
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD);
+  const [loaded, setLoaded] = useState(false);
+  const busyIds = useRef(new Set<string>());
 
-  const loadData = async () => {
-    if (!supabase || !user?.id) return;
-    const userId = user.id;
+  const isZoneActive = data.flow.active && !zoneDismissed;
+  const showReawakening = data.status === "DECEASED";
+
+  /**
+   * One round trip. The server runs the daily tick (decay, streak, overdue/recurring sweeps,
+   * status) and returns the whole snapshot — this used to be ~25 sequential requests plus a
+   * `select *` over every task the user had ever created, re-run after every click.
+   */
+  const loadData = useCallback(async () => {
+    if (!user?.id) { if (!hasSupabaseConfig) setLoaded(true); return; }   // no backend: preview shell
     try {
-      // -- FLOW SYSTEM: Maintenance Operations --
-      try {
-        await SystemAPI.cleanupDuplicateSystemGates(userId);
-        await SystemAPI.manifestWeeklyTrial(userId);
+      const d = await SystemAPI.fetchDashboardData();
+      if (d.profile_missing) return;
+      if (d.needs_mode_selection) { navigate("/mode-selection", { replace: true }); return; }
 
-        const NUDGE_KEY = `last_nudge_check_${userId}`;
-        const lastNudge = localStorage.getItem(NUDGE_KEY);
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        if (!lastNudge || Date.now() - parseInt(lastNudge) > sevenDaysMs) {
-          await SystemAPI.checkCategoryNudges(userId);
-          localStorage.setItem(NUDGE_KEY, Date.now().toString());
-        }
-      } catch (maintenanceErr) {
-        console.warn("System maintenance non-fatal error:", maintenanceErr);
-      }
-
-      const dashboardData = await SystemAPI.fetchDashboardData(userId);
-      
-      // Mode Check (m1)
-      if (!dashboardData.current_mode) {
-        navigate('/mode-selection');
-        return;
-      }
-      
-      // Status / Heartbeat sweep
-      let currentStatus = dashboardData.status || 'ACTIVE';
-      const lastHeartbeat = dashboardData.last_heartbeat;
-      const now = new Date();
-      const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-      const heartbeatDate = lastHeartbeat ? new Date(lastHeartbeat) : null;
-
-      if (currentStatus === 'ACTIVE') {
-        if (heartbeatDate && heartbeatDate < fourteenDaysAgo) {
-          currentStatus = 'DECEASED';
-          await supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", userId);
-        } else {
-          await supabase.from("user_profiles").update({ last_heartbeat: now.toISOString() }).eq("user_id", userId);
-        }
-      }
-
-      if (currentStatus === 'DECEASED') setShowReawakening(true);
-
-      // Task system sweep: recurring reset + overdue → pending
-      const todayStr = now.toISOString().split("T")[0];
-      const { data: allUserTasks } = await supabase.from("tasks").select("*").eq("user_id", userId);
-      if (allUserTasks) {
-        const expiredRecur = allUserTasks.filter(t => (t.is_completed || t.is_failed) && t.is_recurring && t.deadline && t.deadline < todayStr);
-        if (expiredRecur.length > 0) {
-          const { findNextValidDeadline } = await import("../lib/taskUtils");
-          for (const task of expiredRecur) {
-            const nextDeadline = findNextValidDeadline(task);
-            await supabase.from("tasks").update({ is_completed: false, is_failed: false, is_pending: false, completed_at: null, deadline: nextDeadline }).eq("id", task.id);
-          }
-        }
-
-        const overdue = allUserTasks.filter(t => !t.is_completed && !t.is_failed && !t.is_pending && t.deadline && t.deadline < todayStr);
-        if (overdue.length > 0) {
-          await supabase.from("tasks").update({ is_pending: true, is_completed: false, is_active: false }).in("id", overdue.map(t => t.id));
-        }
-      }
-
-      // Build affiliations from SystemAPI data
-      const affils: AffiliationRow[] = dashboardData.clanMembers.map((cm: any) => ({
-        id: cm.clan_id,
-        name: cm.clans?.name || "Unknown Clan",
-        role: cm.role,
-        type: "clan" as const,
+      const affils: AffiliationRow[] = d.clanMembers.map((cm: any) => ({
+        id: cm.clan_id, name: cm.clans?.name || "Unknown Clan", role: cm.role, type: "clan" as const,
       }));
-      if (dashboardData.guild) {
-        affils.push({
-          id: dashboardData.guild.id,
-          name: dashboardData.guild.name,
-          role: dashboardData.guild_title || "Member",
-          type: "guild",
-        });
-      }
+      if (d.guild) affils.push({ id: d.guild.id, name: d.guild.name, role: d.guild_title || "Member", type: "guild" });
 
-      // Commit all state
-      setData(dashboardData);
-      setTasks(dashboardData.activeTasks as TaskRow[]);
-      setRecentActivity(dashboardData.completedTasks as RecentActivityRow[]);
+      setData(d);
+      setTasks(d.activeTasks as TaskRow[]);
+      setRecentActivity(d.completedTasks as RecentActivityRow[]);
       setAffiliations(affils);
-      setShadows(dashboardData.shadows);
+      setShadows(d.shadows);
+      setWeeklySelection(evaluateWeeklySelection(d.completedTasks));
+      if (!d.flow.active) setZoneDismissed(false);
 
-      // Weekly Selection Calculation (bl4)
-      const weeklyTop = evaluateWeeklySelection(dashboardData.completedTasks);
-      setWeeklySelection(weeklyTop);
-
-      // Playmaker Rating On-the-fly (bl6)
-      if (dashboardData.playmaker_rating === 0 && dashboardData.completedCount > 0) {
-        const avgXp = weeklyTop.reduce((acc, t) => acc + (t.points || 0), 0) / (weeklyTop.length || 1);
-        const rating = calculatePlaymakerRating(dashboardData.completedCount, dashboardData.activeCount + dashboardData.completedCount, avgXp, dashboardData.streak_count || 0, dashboardData.ego_score || 0);
-        setData(prev => ({ ...prev, playmaker_rating: rating }));
-      }
-
-      // Red Gate Auto-Selection (B-Rank or higher: High, Super, Legendary)
+      // "Red Gate of the day": a B-rank+ gate picked once per calendar day (cosmetic, stays local).
       const today = new Date().toDateString();
-      const storedDate = localStorage.getItem("redGateDate");
-      if (storedDate !== today) {
+      if (localStorage.getItem("redGateDate") !== today) {
         localStorage.removeItem("redGateId");
         setRedGateId(null);
       }
-
       if (!localStorage.getItem("redGateId")) {
-        const bPlusTasks = (dashboardData.activeTasks as TaskRow[]).filter(t => 
-          ['High', 'Super', 'Legendary'].includes(t.xp_tier || '')
-        );
-        if (bPlusTasks.length > 0) {
-          const picked = bPlusTasks[0].id;
-          localStorage.setItem("redGateId", picked);
+        const pick = (d.activeTasks as TaskRow[]).find((t) => ["High", "Super", "Legendary"].includes(t.xp_tier || ""));
+        if (pick) {
+          localStorage.setItem("redGateId", pick.id);
           localStorage.setItem("redGateDate", today);
-          setRedGateId(picked);
+          setRedGateId(pick.id);
         }
       }
-      // Rigid Market Value Logic (Beginners start at 0)
-      const getRankBase = (rank: string) => {
-        switch (rank) {
-          case "S": return 500000000;  // ₩500M
-          case "A": return 100000000;  // ₩100M
-          case "B": return 25000000;   // ₩25M
-          case "C": return 5000000;    // ₩5M
-          case "D": return 500000;     // ₩0.5M
-          case "E": return 0;          // Beginners have 0 base value
-          default: return 0;
-        }
-      };
-
-      const base = getRankBase(dashboardData.player_rank || "E");
-      const levelBonus = Math.max(0, (dashboardData.level || 1) - 1) * 100000; // ₩100k per level above 1
-      const xpBonus = (dashboardData.total_points || 0) * 1000;               // ₩1k per XP
-      const streakBonus = (dashboardData.streak_count || 0) * 50000;         // ₩50k per streak day
-      
-      setMarketValue(base + levelBonus + xpBonus + streakBonus);
-
-      // Zone State (Flow State) check: 5 tasks in 90 min (bl2)
-      const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
-      if (lastCompletions.length >= 5) {
-        const nowTime = Date.now();
-        const fiveTasksAgo = lastCompletions[0];
-        if (nowTime - fiveTasksAgo < 90 * 60 * 1000) {
-          setIsZoneActive(true);
-        } else {
-          setIsZoneActive(false);
-        }
-      }
-
     } catch (err) {
-      console.error("Dashboard fetch error:", err);
+      toast.fail(err, "Could not load your dashboard");
+    } finally {
+      setLoaded(true);
     }
-  };
+  }, [user?.id, navigate, toast]);
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  // Rigid market value (beginners start at 0). Pure display maths on public numbers.
+  const marketValue = useMemo(() => {
+    const base = ({ S: 500_000_000, A: 100_000_000, B: 25_000_000, C: 5_000_000, D: 500_000 } as Record<string, number>)[data.player_rank] ?? 0;
+    return base + Math.max(0, data.level - 1) * 100_000 + data.standing_xp * 1_000 + data.streak_count * 50_000;
+  }, [data.player_rank, data.level, data.standing_xp, data.streak_count]);
 
   const [ariseLoadingId, setAriseLoadingId] = useState<string | null>(null);
 
@@ -420,39 +313,26 @@ export function DashboardPage() {
   }, [data]);
 
   const handleAriseSuggestedGate = async (directive: any) => {
-    if (!supabase || !user?.id || !laggingDomainInfo) return;
+    if (!user?.id || !laggingDomainInfo) return;
     setAriseLoadingId(directive.title);
     
     try {
       const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       
       const payload = {
-        user_id: user.id,
-        assigned_to: user.id,
         title: `[DIRECTIVE] ${directive.title.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "").trim()}`,
         category: directive.category,
         xp_tier: directive.xp_tier,
-        points: directive.points,
         priority: directive.priority,
-        is_recurring: false,
         deadline: tomorrowStr,
         description: `SYSTEM INSTRUCTION: ${directive.description}. Complete this directive to align your ${laggingDomainInfo.lowest.name} domain standing.`
       };
       
       await SystemAPI.saveGate(payload, null);
-      
-      await supabase.from("notifications").insert({
-        user_id: user.id,
-        title: "🌀 DIRECTIVE MANIFESTED",
-        message: `Gate "${directive.title}" has been successfully manifested. Clear it by tomorrow to stabilize your standing.`,
-        type: "system",
-        is_read: false
-      });
-      
+      toast.success("Directive manifested", `"${directive.title}" is now an active gate. Clear it by tomorrow to stabilize your standing.`);
       await loadData();
-    } catch (err: any) {
-      console.error("Failed to arise suggested gate:", err);
-      alert(`⚠️ FAILED TO ARISE GATE: ${err.message || err}`);
+    } catch (err) {
+      toast.fail(err, "Could not manifest the directive");
     } finally {
       setAriseLoadingId(null);
     }
@@ -476,40 +356,47 @@ export function DashboardPage() {
     return "0%";
   }, [data.activeCount, data.completedCount, data.categoryDistribution]);
 
-  const weeklyTotal = useMemo(() => {
-    const weekly = data.weeklyHistory.reduce((sum, day) => sum + (day.daily_points || 0), 0);
-    return weekly > 0 ? weekly : data.totalXp;
-  }, [data.weeklyHistory, data.totalXp]);
+  // This week's XP from C-rank+ gates (E-rank doesn't count) and the target for the current mode.
+  // The old panel hard-coded 300 and fell back to LIFETIME XP when the week was empty.
+  const weeklyTotal = data.weekly_xp;
+  const weeklyTarget = data.weekly_target;
+  const weeklyMet = weeklyTarget === null || weeklyTotal >= weeklyTarget;
+  const weeklyChartTotal = useMemo(
+    () => data.weeklyHistory.reduce((sum, day) => sum + (day.daily_points || 0), 0),
+    [data.weeklyHistory],
+  );
 
-  const toggleTaskCompletion = async (taskId: string, isCompleted: boolean) => {
-    if (!supabase) return;
-    if (!isCompleted) {
-      const now = Date.now();
-      const lastCompletions = JSON.parse(localStorage.getItem("lastCompletions") || "[]");
-      const updated = [...lastCompletions, now].slice(-5);
-      localStorage.setItem("lastCompletions", JSON.stringify(updated));
+  /** Conquer from the dashboard — through the engine, so it actually pays XP (it used to just flip a flag). */
+  const conquer = async (taskId: string) => {
+    if (busyIds.current.has(taskId)) return;
+    busyIds.current.add(taskId);
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, is_completed: true } : t)));   // optimistic
+    try {
+      const result = await game.complete(taskId);
+      if (!result) setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, is_completed: false } : t)));
+      await loadData();
+    } finally {
+      busyIds.current.delete(taskId);
     }
-    setTasks(ts => ts.map(t => t.id === taskId ? { ...t, is_completed: !isCompleted } : t));
-    await supabase.from("tasks").update({ is_completed: !isCompleted, completed_at: !isCompleted ? new Date().toISOString() : null }).eq("id", taskId);
-    await loadData();
   };
 
-
-
+  /** Dying has a price: begin the ARISE ritual (a B-rank gate) instead of a free "revive" button. */
   const handleArise = async () => {
-    if (!supabase || !user) return;
-    setShowReawakening(false);
-    await supabase.from("user_profiles").update({ 
-      status: 'ACTIVE', 
-      last_heartbeat: new Date().toISOString(),
-      reawakened_at: new Date().toISOString()
-    }).eq("user_id", user.id);
+    try {
+      await SystemAPI.beginArise();
+      toast.info("The ritual begins", "Conquer any B-rank or higher gate to rise again.");
+      navigate("/dungeon-gate");
+    } catch (err) {
+      toast.fail(err, "Could not begin the ritual");
+    }
   };
+
+  if (!loaded) return <PageSkeleton />;
 
   return (
     <section className="page dashboard-page">
       <SeasonHUD mode={data.current_mode || 'Normal'} darkMana={data.dark_mana} endDate={data.season_end_date || null} />
-      <ZoneOverlay isActive={isZoneActive} onExit={() => setIsZoneActive(false)} />
+      <ZoneOverlay isActive={isZoneActive} onExit={() => setZoneDismissed(true)} />
       <div className="tactical-overlay" />
       {/* ── TOP LEVEL BAR ── */}
       <div className="page-header" style={{ marginBottom: 40, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -612,7 +499,7 @@ export function DashboardPage() {
       })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
-        {/* ── Weekly Activity Threshold (V5 Premium) ── */}
+        {/* ── Weekly Activity Threshold (target comes from the player's difficulty mode) ── */}
         <div className="panel ds-glass sovereign-panel" style={{ background: "linear-gradient(135deg, rgba(30,30,60,0.2) 0%, rgba(10,10,25,0.2) 100%)", border: "1px solid rgba(168,168,255,0.12)", padding: '24px 32px', borderRadius: 24, boxShadow: '0 16px 32px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
              <div>
@@ -620,28 +507,28 @@ export function DashboardPage() {
                  🛡️ Weekly Activity Threshold
                </h3>
                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#fff' }}>
-                 {weeklyTotal} <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>/ 300 XP</span>
+                 {weeklyTotal} <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>{weeklyTarget === null ? 'XP this week' : `/ ${weeklyTarget} XP`}</span>
                </div>
              </div>
-             <span style={{ fontSize: '0.75rem', fontWeight: 900, color: weeklyTotal >= 300 ? '#34d399' : '#fbbf24', background: weeklyTotal >= 300 ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)', padding: '4px 10px', borderRadius: 6, border: `1px solid ${weeklyTotal >= 300 ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}` }}>
-               {weeklyTotal >= 300 ? 'STABLE' : 'STAGNATION RISK'}
+             <span style={{ fontSize: '0.75rem', fontWeight: 900, color: weeklyMet ? '#34d399' : '#fbbf24', background: weeklyMet ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)', padding: '4px 10px', borderRadius: 6, border: `1px solid ${weeklyMet ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}` }}>
+               {weeklyTarget === null ? 'NO WEEKLY TARGET' : weeklyMet ? 'STABLE' : 'STAGNATION RISK'}
              </span>
           </div>
           <div style={{ height: 8, background: 'rgba(0,0,0,0.5)', borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
              <div className="sovereign-progress-fill" style={{ 
                height: '100%', 
-               width: `${Math.min(100, (weeklyTotal / 300) * 100)}%`, 
-               background: weeklyTotal >= 300 ? 'linear-gradient(90deg, #34d399, #10b981)' : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
-               boxShadow: weeklyTotal >= 300 ? '0 0 15px rgba(52,211,153,0.5)' : '0 0 15px rgba(251,191,36,0.5)',
+               width: `${weeklyTarget ? Math.min(100, (weeklyTotal / weeklyTarget) * 100) : 100}%`, 
+               background: weeklyMet ? 'linear-gradient(90deg, #34d399, #10b981)' : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+               boxShadow: weeklyMet ? '0 0 15px rgba(52,211,153,0.5)' : '0 0 15px rgba(251,191,36,0.5)',
                transition: 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
              }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p className="text-muted" style={{ fontSize: "0.6rem", fontWeight: 700, opacity: 0.5, margin: 0, textTransform: 'uppercase', letterSpacing: '1px' }}>
-              V5 Rule: C-Rank+ Only
+              {data.current_mode} mode · C-Rank+ only
             </p>
-            {weeklyTotal < 300 && (
-              <span className="animate-pulse" style={{ fontSize: '0.6rem', color: '#fbbf24', fontWeight: 800 }}>+{(300 - weeklyTotal)} XP REQUIRED</span>
+            {!weeklyMet && weeklyTarget !== null && (
+              <span className="animate-pulse" style={{ fontSize: '0.6rem', color: '#fbbf24', fontWeight: 800 }}>+{weeklyTarget - weeklyTotal} XP REQUIRED</span>
             )}
           </div>
         </div>
@@ -925,7 +812,7 @@ export function DashboardPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => toggleTaskCompletion(task.id, false)}
+                        onClick={() => conquer(task.id)}
                         style={{
                           background: 'rgba(255, 176, 32, 0.1)',
                           border: '1px solid rgba(255, 176, 32, 0.3)',
@@ -965,7 +852,7 @@ export function DashboardPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.9rem', fontWeight: 850, color: '#fff' }}>{directive.title}</span>
-                        <span style={{ fontSize: '0.55rem', background: 'rgba(168,168,255,0.1)', color: 'var(--accent-primary)', padding: '2px 6px', borderRadius: 4, fontWeight: 800 }}>+{directive.points} XP</span>
+                        <span style={{ fontSize: '0.55rem', background: 'rgba(168,168,255,0.1)', color: 'var(--accent-primary)', padding: '2px 6px', borderRadius: 4, fontWeight: 800 }}>+{TIER_XP[directive.xp_tier] ?? 5} XP</span>
                         <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>({directive.category})</span>
                       </div>
                       <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
@@ -1012,7 +899,7 @@ export function DashboardPage() {
             <div className="glass-panel purple-aura analytic-card" style={{ minHeight: 320 }}>
               <div className="chart-header">
                 <div className="chart-title">Weekly XP Tide</div>
-                <div className="chart-val">{weeklyTotal} Total XP</div>
+                <div className="chart-val">{weeklyChartTotal} Total XP</div>
               </div>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={data.weeklyHistory} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
@@ -1236,7 +1123,7 @@ export function DashboardPage() {
               You have <strong>{data.pendingCount}</strong> overdue quest{data.pendingCount > 1 ? "s" : ""} awaiting resolution.
             </p>
             <p className="text-xs text-muted">
-              Head to the <strong>Quests → Pending</strong> tab to either <em>Resolve</em> them (keep XP) or <em>Fail</em> them (take the penalty). Ignoring them won't make them disappear.
+              Head to <strong>Dungeon Gate → Pending</strong> to either <em>Resolve</em> them (keep XP) or <em>Fail</em> them (take the penalty). Ignoring them won't make them disappear.
             </p>
           </div>
         </div>
@@ -1259,7 +1146,7 @@ export function DashboardPage() {
                   padding: '24px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)',
                   display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden'
                 }}
-                onClick={() => toggleTaskCompletion(task.id, task.is_completed)}
+                onClick={() => { if (!task.is_completed) void conquer(task.id); }}
               >
                 <div className="db-quest-glow" />
                 <div className="db-quest-header" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
@@ -1411,8 +1298,8 @@ export function DashboardPage() {
             <div className="reawakening-glitch">CRITICAL_SYSTEM_FAILURE</div>
             <Skull size={80} className="reawakening-skull" />
             <h2>YOU HAVE DIED</h2>
-            <p>Your heartbeat ceased to resonate with the System.</p>
-            <p className="reawakening-hint">The Monarch does not permit such a pathetic end.</p>
+            <p>You went too long without conquering a gate.</p>
+            <p className="reawakening-hint">Conquer any B-rank or higher gate to rise again — half of your decayed XP returns with you.</p>
             
             <button className="reawakening-btn" onClick={handleArise}>
               ARISE

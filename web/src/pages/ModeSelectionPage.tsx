@@ -1,44 +1,30 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MODE_CONFIGS, type ModeType } from '../lib/modeConfig';
-import { supabase } from '../lib/supabase';
+import { SystemAPI } from '../services/SystemAPI';
+import { useAuth } from '../lib/authContext';
+import { useToast } from '../lib/toast';
 import { Zap, Skull, Activity, ChevronRight, Lock } from 'lucide-react';
 
 export const ModeSelectionPage: React.FC = () => {
   const navigate = useNavigate();
+  const toast = useToast();
+  const { profile, refreshProfile } = useAuth();
   const [loading, setLoading] = React.useState(false);
+  const isFirstPick = !!profile && !profile.mode_selected_at;
 
   const handleSelectMode = async (mode: ModeType) => {
+    if (loading) return;
     setLoading(true);
     try {
-      if (!supabase) {
-        throw new Error("Supabase client unavailable");
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
-
-      const seasonEndDate = mode === 'Hell' 
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        : null;
-
-      await supabase.from('user_profiles').update({
-        current_mode: mode,
-        season_end_date: seasonEndDate,
-        last_mode_switch: new Date().toISOString()
-      }).eq('user_id', user.id);
-
-      // Log season start
-      await supabase.from('season_records').insert({
-        user_id: user.id,
-        mode: mode,
-        start_date: new Date().toISOString(),
-        end_date: seasonEndDate
-      });
-
-      navigate('/');
+      // The server enforces the rules: free first pick, then a 7-day cooldown, and Hell is a
+      // 30-day lock-in. (Anyone used to be able to flip to Easy mid-penalty.)
+      const res = await SystemAPI.selectMode(mode);
+      await refreshProfile();
+      if (res.changed) toast.success(`${mode} mode engaged`, res.season_end_date ? `Season locked until ${new Date(res.season_end_date).toLocaleDateString()}.` : undefined);
+      navigate('/', { replace: true });
     } catch (err) {
-      console.error("Failed to select mode:", err);
-      alert("System Error: Failed to initialize mode.");
+      toast.fail(err, "Could not change mode");
     } finally {
       setLoading(false);
     }
@@ -54,6 +40,11 @@ export const ModeSelectionPage: React.FC = () => {
           <div className="system-tag">SYSTEM_INITIALIZATION_V5</div>
           <h1 className="main-title">Select Your Path</h1>
           <p className="main-subtitle">Choose the difficulty that matches your resonance. High-rank gates require absolute discipline.</p>
+          <p className="main-subtitle" style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: 6 }}>
+            {isFirstPick
+              ? "Your first choice is free. Afterwards you can switch once every 7 days, and Hell is a 30-day lock-in."
+              : `Current mode: ${profile?.current_mode ?? "Normal"}. You can switch once every 7 days; Hell locks you in for 30.`}
+          </p>
         </header>
 
         <div className="mode-grid">

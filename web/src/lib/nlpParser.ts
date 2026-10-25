@@ -1,3 +1,5 @@
+import { TIER_POINTS } from "./levelEngine";
+
 // Simple NLP parser for extracting tasks from text schedules
 // Handles common patterns from ChatGPT/Claude outputs
 
@@ -182,9 +184,24 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
+/**
+ * XP is derived from the tier on the server (E 5 · C 15 · B 25 · A 35 · S 50), so the parser's rough
+ * "points" estimate is mapped onto the nearest tier instead of being sent as a (now ignored) number.
+ */
+export function tierForPoints(points: number): "Low" | "Mid" | "High" | "Super" | "Legendary" {
+  if (points >= 50) return "Legendary";
+  if (points >= 35) return "Super";
+  if (points >= 25) return "High";
+  if (points >= 15) return "Mid";
+  return "Low";
+}
+
 function normalizeTask(task: ParsedTask): ParsedTask {
+  const xp_tier = task.xp_tier ?? tierForPoints(task.points);
   return {
     ...task,
+    xp_tier,
+    points: TIER_POINTS[xp_tier as keyof typeof TIER_POINTS] ?? 5,
     title: task.title.substring(0, 100),
     description: task.description?.substring(0, 500),
     subtasks: task.subtasks?.filter((s) => s.length > 2).slice(0, 10),

@@ -1,57 +1,32 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Button } from "../components/Button";
 import { Swords, Target, Timer, Trophy, ShieldAlert } from "lucide-react";
 
-type Challenge = {
-  id: string;
-  creator_id: string;
-  opponent_id: string;
-  target_points: number;
-  creator_start_pts: number;
-  opponent_start_pts: number;
-  expires_at: string;
-  status: string;
-  creator_name: string;
-  opponent_name: string;
-  creator_current_pts: number;
-  opponent_current_pts: number;
-};
+import { SystemAPI } from "../services/SystemAPI";
+import { useToast } from "../lib/toast";
+import type { DuelRow } from "../lib/gameTypes";
+
+// Progress is XP EARNED since the duel began (from the server's ledger) — spending XP can't lower it.
+type Challenge = DuelRow & { creator_current_pts: number; opponent_current_pts: number };
 
 export function ChallengesPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchChallenges = async () => {
-    if (!supabase || !user) return;
+    if (!user) { setLoading(false); return; }
     setLoading(true);
-    
-    const { data: chals } = await supabase
-      .from("challenges")
-      .select("*")
-      .or(`creator_id.eq.${user.id},opponent_id.eq.${user.id}`)
-      .eq("status", "active");
-
-    if (chals) {
-      const uids = Array.from(new Set(chals.flatMap(c => [c.creator_id, c.opponent_id])));
-      const { data: profs } = await supabase.from("user_profiles").select("user_id, name, total_points").in("user_id", uids);
-      
-      const merged = chals.map(c => {
-         const creator = profs?.find(p => p.user_id === c.creator_id);
-         const opponent = profs?.find(p => p.user_id === c.opponent_id);
-         return {
-            ...c,
-            creator_name: creator?.name || "Unknown",
-            opponent_name: opponent?.name || "Unknown",
-            creator_current_pts: (creator?.total_points || 0) - c.creator_start_pts,
-            opponent_current_pts: (opponent?.total_points || 0) - c.opponent_start_pts
-         };
-      });
-      setChallenges(merged);
+    try {
+      const rows = await SystemAPI.listChallenges();
+      setChallenges(rows.filter(c => c.status === "active").map(c => ({ ...c, creator_current_pts: c.creator_pts, opponent_current_pts: c.opponent_pts })));
+    } catch (err) {
+      toast.fail(err, "Could not load duels");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchChallenges(); }, [user]);
@@ -69,7 +44,7 @@ export function ChallengesPage() {
         <div className="flex gap-8 text-danger mb-8">
            <ShieldAlert size={16} /> <span className="text-xs font-800 uppercase tracking-widest">Brutal Point Protocol Active</span>
         </div>
-        <p className="text-xs text-muted">Points are extremely scarce. Only the most disciplined hunters will succeed in challenges. Standard tasks now yield <span className="points-brutal">10 XP</span> max.</p>
+        <p className="text-xs text-muted">Points are extremely scarce. Only the most disciplined hunters will succeed in challenges. Gates pay 5–50 base XP by rank (E–S), and E-rank work is capped at 15 XP a day.</p>
       </article>
 
       <div className="flex-col gap-16 mt-16">
@@ -131,8 +106,8 @@ export function ChallengesPage() {
          <ul className="text-xs text-muted" style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <li>Both hunters must earn the target amount of <strong>NEW</strong> points within the time limit.</li>
             <li>Points from completed Quests and Daily Missions count towards the total.</li>
-            <li>Using a <strong>Task Skip</strong> item counts as points gained.</li>
-            <li>The first hunter to reach the target wins the prestige.</li>
+            <li>Only XP <strong>earned</strong> counts — spending it on rewards never lowers your score.</li>
+            <li>The first hunter to reach the target wins; the System declares the result automatically.</li>
          </ul>
       </article>
     </section>

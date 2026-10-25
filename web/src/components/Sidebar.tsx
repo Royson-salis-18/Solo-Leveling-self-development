@@ -26,12 +26,13 @@ export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onTog
   const navigate = useNavigate();
 
   const displayName = profile?.name ?? user?.email?.split("@")[0] ?? "Hunter";
-  const xp          = (profile as any)?.total_points ?? 0;
-  const playerClass = (profile as any)?.player_class ?? "None";
-  const playerRank  = (profile as any)?.player_rank  ?? "E";
-  const level       = calcLevel(xp);
+  const standing    = profile?.standing_xp ?? 0;           // balance + spent: spending never de-levels you
+  const balance     = profile?.total_points ?? 0;
+  const playerClass = profile?.player_class ?? "None";
+  const playerRank  = profile?.player_rank ?? "E";
+  const level       = profile?.level ?? calcLevel(standing);
   const xpToNext    = xpForLevel(level);
-  const xpPct       = calcXpProgress(xp);
+  const xpPct       = calcXpProgress(standing);
 
   const handleLogout = async () => {
     await signOut();
@@ -114,9 +115,9 @@ export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onTog
                 <div className="sb-user-tags">
                   <span className="sb-tag sb-tag--class">{playerClass}</span>
                   <span className="sb-tag">{playerRank}-Rank</span>
-                  {(profile as any)?.streak_count > 0 && (
+                  {(profile?.streak_count ?? 0) > 0 && (
                     <span className="sb-tag sb-tag--streak">
-                      <Flame size={10} /> {(profile as any).streak_count}
+                      <Flame size={10} /> {profile?.streak_count}
                     </span>
                   )}
                 </div>
@@ -130,8 +131,8 @@ export function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean, onTog
               <div className="sb-xp-track" aria-hidden="true">
                 <div className="sb-xp-fill" style={{ width: `${xpPct}%` }} />
               </div>
-              <div className="sb-xp-text">
-                {xp.toLocaleString()} / {xpToNext.toLocaleString()} XP · Lv.{level}
+              <div className="sb-xp-text" title={`${balance.toLocaleString()} XP available to spend`}>
+                {standing.toLocaleString()} / {xpToNext.toLocaleString()} XP · Lv.{level}
               </div>
             </div>
           )}

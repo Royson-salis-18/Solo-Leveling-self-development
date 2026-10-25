@@ -1,12 +1,25 @@
 import { Suspense, useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider }      from "./lib/authContext";
+import type { ReactNode } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./lib/authContext";
+import { ToastProvider }     from "./lib/toast";
+import { ConfirmProvider }   from "./lib/confirm";
 import { NotificationProvider } from "./lib/notificationContext";
 import { ProtectedRoute }    from "./lib/ProtectedRoute";
 import { Sidebar }           from "./components/Sidebar";
 import { PageSkeleton }      from "./components/PageSkeleton";
 import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
+
+/** New hunters must choose a difficulty before anything else (first pick is free). */
+function ModeGate({ children }: { children: ReactNode }) {
+  const { profile } = useAuth();
+  const { pathname } = useLocation();
+  if (profile && !profile.mode_selected_at && pathname !== "/mode-selection") {
+    return <Navigate to="/mode-selection" replace />;
+  }
+  return <>{children}</>;
+}
 
 function AppContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -50,6 +63,7 @@ function AppContent() {
               <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
               <main className="content">
                 <Suspense fallback={<PageSkeleton />}>
+                  <ModeGate>
                   <Routes>
                     <Route path="/"            element={<Pages.Dashboard />} />
                     <Route path="/war-room"    element={<Pages.WarRoom />} />
@@ -66,6 +80,7 @@ function AppContent() {
                     <Route path="/notifications" element={<Pages.Notifications />} />
                     <Route path="*"            element={<Navigate to="/" replace />} />
                   </Routes>
+                  </ModeGate>
                 </Suspense>
               </main>
               <Suspense fallback={null}><OracleArchitect /></Suspense>
@@ -85,10 +100,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <AppContent />
-      </NotificationProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <ConfirmProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <AppContent />
+          </NotificationProvider>
+        </AuthProvider>
+      </ConfirmProvider>
+    </ToastProvider>
   );
 }

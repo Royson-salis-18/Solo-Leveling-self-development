@@ -54,29 +54,32 @@ export function WarRoomPage() {
   const fetchData = async () => {
     if (!supabase || !user) return;
     try {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const [profRes, guildRes, activeRes, shadowsRes, topHuntersRes, taskRes, selfRes] = await Promise.all([
-        supabase.from("user_profiles").select("user_id", { count: 'exact', head: true }),
-        supabase.from("guilds").select("id", { count: 'exact', head: true }),
-        supabase.from("tasks").select("id", { count: 'exact', head: true }).eq("is_active", true),
-        supabase.from("shadows").select("id", { count: 'exact', head: true }),
-        supabase.from("user_profiles").select("user_id, name, total_points, player_rank, level").order("total_points", { ascending: false }).limit(60),
-        supabase.from("tasks").select("user_id").eq("is_completed", true).gt("completed_at", sevenDaysAgo.toISOString()),
-        supabase.from("user_profiles").select("user_id, name, total_points, player_rank, level").eq("user_id", user.id).single()
+      // Other hunters come from the public view (score = standing: balance + spent) and the
+      // public_activity view (weekly completions). The old queries read tasks/profiles directly,
+      // so every hunter except you looked inactive.
+      const HUNTER_COLS = "user_id, name, total_points:standing_xp, player_rank, level";
+      const [profRes, guildRes, shadowsRes, topHuntersRes, selfRes] = await Promise.all([
+        supabase.from("public_profiles").select("user_id", { count: "exact", head: true }),
+        supabase.from("guilds").select("id", { count: "exact", head: true }),
+        supabase.from("shadows").select("id", { count: "exact", head: true }),
+        supabase.from("public_profiles").select(HUNTER_COLS).order("standing_xp", { ascending: false }).limit(60),
+        supabase.from("public_profiles").select(HUNTER_COLS).eq("user_id", user.id).maybeSingle(),
       ]);
 
-      const { data: allShadows } = await supabase.from("shadows").select("user_id, name, rarity");
+      let hunterData = [...(topHuntersRes.data || [])] as any[];
+      if (selfRes.data && !hunterData.find(h => h.user_id === user.id)) hunterData.push(selfRes.data);
+      const ids = hunterData.map(h => h.user_id);
 
-      let hunterData = [...(topHuntersRes.data || [])];
-      if (selfRes.data && !hunterData.find(h => h.user_id === user.id)) {
-        hunterData.push(selfRes.data);
-      }
+      const [actRes, shadowRows] = await Promise.all([
+        supabase.from("public_activity").select("user_id, completions_7d").in("user_id", ids),
+        supabase.from("shadows").select("user_id, name, rarity").in("user_id", ids),
+      ]);
+      const allShadows = shadowRows.data ?? [];
+      const activityOf = new Map((actRes.data ?? []).map((a: any) => [a.user_id, a.completions_7d as number]));
 
       const nodes: HunterNode[] = hunterData.map(h => {
         const userShadows = allShadows?.filter(s => s.user_id === h.user_id) || [];
-        const recentTasks = taskRes.data?.filter(t => t.user_id === h.user_id).length || 0;
+        const recentTasks = activityOf.get(h.user_id) ?? 0;
         const pos = seededRandom(h.user_id);
         
         return {
@@ -102,7 +105,7 @@ export function WarRoomPage() {
         activeHunters: profRes.count || 0,
         totalGuilds: guildRes.count || 0,
         manaPulse: 72 + Math.floor(Math.random() * 20),
-        systemStability: (activeRes.count || 0) > 10 ? "SYSTEM STRAIN" : "OPTIMIZED",
+        systemStability: (profRes.count || 0) > 0 && hunterData.reduce((n, h) => n + (activityOf.get(h.user_id) ?? 0), 0) > 50 ? "SYSTEM STRAIN" : "OPTIMIZED",
         totalShadows: shadowsRes.count || 0
       });
     } catch (err) {
@@ -114,7 +117,8 @@ export function WarRoomPage() {
 
   useEffect(() => { 
     if (user) fetchData();
-    const interval = setInterval(fetchData, 30000);
+    // Refresh every 30s, but never while the tab is hidden.
+    const interval = setInterval(() => { if (!document.hidden) void fetchData(); }, 30000);
     return () => clearInterval(interval);
   }, [user]);
 

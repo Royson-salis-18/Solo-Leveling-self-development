@@ -498,7 +498,7 @@ create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_class text := coalesce(new.raw_user_meta_data ->> 'player_class', 'Warrior');
 begin
-  if v_class not in ('Warrior','Mage','Assassin','Tank','Healer','Archer','Necromancer','Tamer','Craftsman','Scout') then
+  if v_class not in ('Warrior','Mage','Assassin','Tank','Healer','Archer','Ranger','Necromancer','Tamer','Craftsman','Scout') then
     v_class := 'Warrior';
   end if;
   insert into public.user_profiles (user_id, email, hunter_code, name, player_class, player_rank, player_title)

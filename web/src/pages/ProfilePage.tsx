@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { Edit3, Shield, Swords, Zap, Brain, Activity, Fingerprint, RefreshCw, QrCode, Crosshair, Wind, Flame, Droplet, Skull, Sparkles, Star, Sword, Hammer } from "lucide-react";
-import { calcTitle, calcLevel, calcXpProgress, calcRank, nextRankInfo } from "../lib/levelEngine";
+import { calcXpProgress, nextRankInfo } from "../lib/levelEngine";
+import { useToast } from "../lib/toast";
+import { SystemAPI } from "../services/SystemAPI";
+import { rpc } from "../lib/rpc";
 import { AuraCard } from "../components/AuraCard";
 import { PerformanceRadar } from "../components/PerformanceRadar";
 import { DomainRadar } from "../components/DomainRadar";
@@ -32,6 +35,7 @@ type Profile = {
   bio: string;
   level: number;
   total_points: number;
+  standing_xp?: number;
   player_class: string;
   player_rank: string;
   player_title: string;
@@ -74,7 +78,9 @@ const getSkillIcon = (type: string, isS: boolean, color: string) => {
 };
 
 export function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
@@ -109,17 +115,8 @@ export function ProfilePage() {
     
     if (profRes.data) {
       const prof = profRes.data;
-      const rankRes = await supabase.from("user_profiles").select("user_id", { count: "exact", head: true }).gt("total_points", prof.total_points || 0);
-
-      // Local System Sweep: Check if this profile should be DECEASED (7 Days Inactivity)
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const heartbeat = prof.last_heartbeat ? new Date(prof.last_heartbeat) : null;
-      
-      if (prof.status === 'ACTIVE' && (!heartbeat || heartbeat < sevenDaysAgo)) {
-        prof.status = 'DECEASED';
-        // Background update
-        supabase.from("user_profiles").update({ status: 'DECEASED' }).eq("user_id", user.id).then();
-      }
+      // Global rank = 1 + players with more STANDING (balance + spent), read from the public view.
+      const rankRes = await supabase.from("public_profiles").select("user_id", { count: "exact", head: true }).gt("standing_xp", prof.standing_xp ?? prof.total_points ?? 0);
 
       setProfile(prof);
       setEditData({
@@ -157,37 +154,26 @@ export function ProfilePage() {
   useEffect(() => { fetchProfile(); }, [user]);
 
   const handleCreateProfile = async () => {
-    if (!supabase || !user) return;
-    setSaving(true);
-    const { data } = await supabase.from("user_profiles").insert({
-      user_id: user.id,
-      name: user.email?.split("@")[0] || "Hunter",
-      player_class: "Warrior",
-      player_rank: "E",
-      age: 18,
-      weapon_of_choice: "Starter Blade",
-      gear_style: "Modern"
-    }).select().single();
-    if (data) setProfile(data);
-    setSaving(false);
-  };
-
-  const handleRevive = async () => {
-    if (!supabase || !user) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("user_profiles").update({ 
-        status: 'ACTIVE', 
-        last_heartbeat: new Date().toISOString(),
-        last_active_date: new Date().toISOString().split('T')[0]
-      }).eq("user_id", user.id);
-      
-      if (error) throw error;
-      
+      await rpc("ensure_profile");
       await fetchProfile();
-      alert("✨ SYSTEM: YOUR SHADOW HAS RE-AWAKENED. WELCOME BACK, MONARCH.");
     } catch (err) {
-      console.error("Revival Error:", err);
+      toast.fail(err, "Could not create your profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Reawakening has a price now: a B-rank gate. (A free client-side "revive" used to just set ACTIVE.)
+  const handleRevive = async () => {
+    setSaving(true);
+    try {
+      await SystemAPI.beginArise();
+      toast.info("The ritual begins", "Conquer any B-rank or higher gate to rise again.");
+      navigate("/dungeon-gate");
+    } catch (err) {
+      toast.fail(err, "Could not begin the ritual");
     } finally {
       setSaving(false);
     }
@@ -196,37 +182,34 @@ export function ProfilePage() {
   const handleSave = async () => {
     if (!supabase || !user || !editData.name.trim()) return;
     setSaving(true);
-    const newLevel = calcLevel(profile?.total_points || 0);
-    const newRank = calcRank(newLevel);
-    const newTitle = calcTitle(editData.player_class, profile?.total_points || 0);
-    const { data } = await supabase
+    // Cosmetics only. Level, rank, title, XP and guild title are server-owned (this used to
+    // recompute level/rank from raw XP on the client, which also demoted Easy/Normal players).
+    const { data, error } = await supabase
       .from("user_profiles")
       .update({
-        name: editData.name,
+        name: editData.name.trim(),
         bio: editData.bio,
         player_class: editData.player_class,
-        player_title: newTitle,
-        player_rank: newRank,
-        level: newLevel,
         avatar_url: editData.avatar_url,
         age: editData.age,
         weapon_of_choice: editData.weapon,
         gear_style: editData.style,
         guild_aura_card: editData.guild_aura_card,
-
-        guild_title: editData.guild_title,
         guild_logo: editData.guild_logo,
         player_job: editData.player_job,
-        monarch_allegiance: editData.monarch_allegiance
+        monarch_allegiance: editData.monarch_allegiance,
       })
       .eq("user_id", user.id)
       .select()
       .single();
+    setSaving(false);
+    if (error) { toast.fail(error, "Could not save your profile"); return; }
     if (data) {
       setProfile(data);
       await fetchProfile();
+      await refreshProfile();
+      toast.success("Profile updated");
     }
-    setSaving(false);
     setShowEdit(false);
   };
 
@@ -248,7 +231,7 @@ export function ProfilePage() {
     </section>
   );
 
-  const xpPct = calcXpProgress(profile.total_points);
+  const xpPct = calcXpProgress(profile.standing_xp ?? profile.total_points);
   const initial = profile.name.charAt(0).toUpperCase();
   const nextRank = nextRankInfo(profile.player_rank);
 
