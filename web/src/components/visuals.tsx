@@ -64,3 +64,24 @@ export function StatTile({ icon, label, value, foot, bar }: { icon?: ReactNode; 
     </article>
   );
 }
+
+/* ── Weekly XP bars (best day highlighted) ──────────────────────────────────── */
+export function WeekBars({ days }: { days: Array<{ date: string; daily_points: number }> }) {
+  const max = Math.max(1, ...days.map((d) => d.daily_points));
+  const best = days.reduce((bi, d, i, arr) => (d.daily_points > arr[bi].daily_points ? i : bi), 0);
+  return (
+    <div className="wb" role="img" aria-label="XP earned per day this week">
+      {days.map((d, i) => {
+        const h = Math.max(4, Math.round((Math.max(0, d.daily_points) / max) * 100));
+        const lbl = new Date(`${d.date}T12:00:00`).toLocaleDateString("en", { weekday: "short" }).slice(0, 2);
+        return (
+          <div key={d.date} className={`wb-col${i === best && d.daily_points > 0 ? " best" : ""}${i === days.length - 1 ? " today" : ""}`}>
+            <em>{i === best && d.daily_points > 0 ? d.daily_points : ""}</em>
+            <div className="wb-track"><i style={{ height: `${h}%` }} /></div>
+            <span>{lbl}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

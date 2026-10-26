@@ -92,3 +92,14 @@
 .mh-badges { display: flex; flex-wrap: wrap; gap: 8px; min-height: 34px; align-items: center; }
 .mh-badge { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-style: normal; font-size: .58rem; font-weight: 700; letter-spacing: .3px; color: #fff; background: color-mix(in srgb, var(--bc) 22%, transparent); border: 1px solid color-mix(in srgb, var(--bc) 60%, transparent); }
 @media (prefers-reduced-motion: reduce) { .mh-skel, .mh-spin, .mh-bar > i, .mh-xpbar i { animation: none !important; transition: none !important; } .mh-countdown { animation-duration: 2.6s; } }
+
+.mh-hint { font-size: .72rem; }
+.mh-big { font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 500; letter-spacing: -.5px; line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums; } .mh-big small { font-size: .85rem; color: var(--m-dim); margin-left: 6px; font-weight: 400; }
+.mh-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: -4px; }
+.mh-tile { display: grid; gap: 2px; align-content: start; text-align: left; padding: 14px 16px 14px; min-height: 118px; border-radius: 20px; font: inherit; color: var(--m-text); cursor: pointer; background: var(--m-card); border: 1px solid var(--m-line); position: relative; }
+.mh-tile header { display: flex; justify-content: space-between; align-items: center; color: var(--m-dim); height: 22px; } .mh-tile header em { font-style: normal; font-size: .62rem; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: rgba(10,10,15,.12); }
+.mh-tile b { font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 500; line-height: 1.1; margin-top: 6px; font-variant-numeric: tabular-nums; } .mh-tile span { font-size: .8rem; color: var(--m-dim); }
+.mh-tile i { display: block; height: 3px; margin-top: 10px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; } .mh-tile i u { display: block; height: 100%; background: var(--m-accent); border-radius: 3px; text-decoration: none; }
+.mh-tile.low { background: var(--m-accent); border-color: transparent; color: #0a0a0f; } .mh-tile.low header, .mh-tile.low span { color: rgba(10,10,15,.65); } .mh-tile.low i { background: rgba(10,10,15,.18); } .mh-tile.low i u { background: #0a0a0f; }
+.mh-tile:active { opacity: .85; }
+.mh-tile:last-child:nth-child(odd) { grid-column: span 2; min-height: 96px; }

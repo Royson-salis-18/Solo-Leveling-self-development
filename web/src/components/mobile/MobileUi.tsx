@@ -11,18 +11,19 @@ import "./sheets.css";
 
 export type EditableGate = { id: string; title: string; xp_tier?: string; category?: string; deadline?: string | null; is_recurring?: boolean; recurrence_type?: string; description?: string | null; priority?: string | null; start_time?: string | null; end_time?: string | null };
 
-type Ui = { openAdd: (gate?: EditableGate) => void };
+export type AddPreset = { category?: string };
+type Ui = { openAdd: (gate?: EditableGate, preset?: AddPreset) => void };
 const Ctx = createContext<Ui>({ openAdd: () => undefined });
 export const useMobileUi = () => useContext(Ctx);
 
 const CATEGORIES = ["General", "Work", "Fitness", "Health", "Learning", "Finance", "Creative", "Side Projects", "Social", "Family", "Mindfulness", "Errands", "Academics", "Wellness", "Spirituality", "Personal Development"];
 type When = "none" | "today" | "tomorrow" | "plus3" | "pick";
 
-function AddGateSheet({ gate, onClose }: { gate: EditableGate | null; onClose: () => void }) {
+function AddGateSheet({ gate, preset, onClose }: { gate: EditableGate | null; preset?: AddPreset; onClose: () => void }) {
   const toast = useToast();
   const editing = !!gate;
   const [title, setTitle] = useState(gate?.title ?? "");
-  const [category, setCategory] = useState(gate?.category ?? "General");
+  const [category, setCategory] = useState(gate?.category ?? preset?.category ?? "General");
   const now = useMemo(() => new Date(), []);
   const initialWhen: When = !gate ? "today" : gate.deadline ? "pick" : "none";
   const [when, setWhen] = useState<When>(initialWhen);
@@ -87,7 +88,7 @@ function AddGateSheet({ gate, onClose }: { gate: EditableGate | null; onClose: (
 
         <div className="sh-label">Category</div>
         <div className="sh-chips scroll" role="radiogroup" aria-label="Category">
-          {CATEGORIES.map((c) => <button key={c} type="button" role="radio" aria-checked={category === c} className={category === c ? "on" : ""} onClick={() => setCategory(c)}>{c}</button>)}
+          {[category, ...CATEGORIES.filter((c) => c !== category)].map((c) => <button key={c} type="button" role="radio" aria-checked={category === c} className={category === c ? "on" : ""} onClick={() => setCategory(c)}>{c}</button>)}
         </div>
 
         <div className="sh-label"><Repeat size={13} /> Repeat</div>
@@ -103,13 +104,13 @@ function AddGateSheet({ gate, onClose }: { gate: EditableGate | null; onClose: (
 }
 
 export function MobileUiProvider({ children }: { children: ReactNode }) {
-  const [sheet, setSheet] = useState<{ gate: EditableGate | null } | null>(null);
-  const openAdd = useCallback((gate?: EditableGate) => { haptic("tap"); setSheet({ gate: gate ?? null }); }, []);
+  const [sheet, setSheet] = useState<{ gate: EditableGate | null; preset?: AddPreset } | null>(null);
+  const openAdd = useCallback((gate?: EditableGate, preset?: AddPreset) => { haptic("tap"); setSheet({ gate: gate ?? null, preset }); }, []);
   const value = useMemo(() => ({ openAdd }), [openAdd]);
   return (
     <Ctx.Provider value={value}>
       {children}
-      {sheet && <AddGateSheet key={sheet.gate?.id ?? "new"} gate={sheet.gate} onClose={() => setSheet(null)} />}
+      {sheet && <AddGateSheet key={sheet.gate?.id ?? `new-${sheet.preset?.category ?? ""}`} gate={sheet.gate} preset={sheet.preset} onClose={() => setSheet(null)} />}
     </Ctx.Provider>
   );
 }

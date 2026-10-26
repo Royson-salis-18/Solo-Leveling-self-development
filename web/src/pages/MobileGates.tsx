@@ -11,6 +11,7 @@ import { RANK_OF, addDays, isoDay } from "../lib/gateRules";
 import { haptic } from "../lib/feedback";
 import { useArmed } from "../lib/useArmed";
 import { useMobileUi } from "../components/mobile/MobileUi";
+import { DOMAINS, domainOfCategory } from "../lib/domains";
 import type { EditableGate } from "../components/mobile/MobileUi";
 import "../components/mobile/mobile.css";
 import "../components/mobile/sheets.css";
@@ -44,6 +45,7 @@ export function MobileGates() {
   const [failed, setFailed] = useState(false);
   const [seg, setSeg] = useState<Seg>("active");
   const [open, setOpen] = useState<Gate | null>(null);
+  const [dom, setDom] = useState<string>("All");
   const [busy, setBusy] = useState(false);
   const today = useMemo(() => new Date(), []);
 
@@ -66,13 +68,13 @@ export function MobileGates() {
   }, [rows]);
 
   const lists = useMemo(() => {
-    const top = (rows ?? []).filter((r) => !r.parent_id);
+    const top = (rows ?? []).filter((r) => !r.parent_id && (dom === "All" || domainOfCategory(r.category) === dom));
     const active = top.filter((r) => !r.is_completed && !r.is_failed && !r.is_pending)
       .sort((a, b) => (a.deadline ?? "9999") < (b.deadline ?? "9999") ? -1 : 1);
     const pending = top.filter((r) => r.is_pending && !r.is_completed && !r.is_failed);
     const done = top.filter((r) => r.is_completed).sort((a, b) => ((a.completed_at ?? "") < (b.completed_at ?? "") ? 1 : -1)).slice(0, 40);
     return { active, pending, done };
-  }, [rows]);
+  }, [rows, dom]);
 
   const shown = lists[seg];
   const groups = useMemo(() => {
@@ -125,6 +127,10 @@ export function MobileGates() {
             {s === "active" ? "Active" : s === "pending" ? "Overdue" : "Done"}<i className={s === "pending" && counts.pending ? "warn" : ""}>{counts[s]}</i>
           </button>
         ))}
+      </div>
+
+      <div className="mg-pills" role="radiogroup" aria-label="Filter by domain">
+        {["All", ...DOMAINS.map((d) => d.name)].map((n) => <button key={n} role="radio" aria-checked={dom === n} className={dom === n ? "on" : ""} onClick={() => { setDom(n); haptic("tap"); }}>{n}</button>)}
       </div>
 
       {failed && !rows && <div className="ux-retry"><span>Couldn’t load your gates.</span><button onClick={() => void load()}>Retry</button></div>}

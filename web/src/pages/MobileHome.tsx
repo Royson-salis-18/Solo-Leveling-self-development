@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Swords, Trophy, Undo2 } from "lucide-react";
+import { Brain, Check, ChevronRight, Crown, Dumbbell, Gem, Gift, Hammer, Plus, Skull, Sparkles, Swords, Trophy, Undo2, Zap } from "lucide-react";
+import type { ComponentType } from "react";
 import { useAuth } from "../lib/authContext";
 import { useGameActions } from "../lib/gameActions";
 import { SystemAPI } from "../services/SystemAPI";
@@ -10,6 +11,7 @@ import { useEngagement } from "../lib/engagementContext";
 import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, percent, requestEngagementRefresh } from "../lib/engagement";
 import { Reveal } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
+import { WeekBars } from "../components/visuals";
 import { FirstSteps } from "../components/UxLayer";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
 import { XP_PER_LEVEL, nextRankInfo } from "../lib/levelEngine";
@@ -24,6 +26,7 @@ import "../components/mobile/mobile.css";
 import "./mobile-home.css";
 
 type View = "today" | "progress" | "rewards";
+const DOMAIN_ICON: Record<string, ComponentType<{ size?: number }>> = { Physical: Dumbbell, Mind: Brain, Soul: Sparkles, Execution: Zap, Builder: Hammer };
 const VIEWS: Array<[View, string]> = [["today", "Today"], ["progress", "Progress"], ["rewards", "Rewards"]];
 
 export function MobileHome() {
@@ -190,16 +193,21 @@ export function MobileHome() {
             </div>
           </section>
 
-          <section className="mh-card mh-domains" aria-label="Domains">
-            <div className="mh-eyebrow">Domains</div>
-            {stand.all.map((d) => (
-              <div key={d.name} className={`mh-domain${d.name === stand.lowest.name ? " low" : ""}`}>
-                <span>{d.name}{d.name === stand.lowest.name && <em>lagging</em>}</span>
-                <div className="mh-bar"><i style={{ width: `${Math.max(3, Math.min(100, d.value))}%` }} /></div>
-                <b>{d.value}</b>
-              </div>
-            ))}
-          </section>
+          <div className="mh-sec"><h2>Domains</h2><span className="mh-dim mh-hint">Tap to add a gate</span></div>
+          <div className="mh-tiles" aria-label="Domains">
+            {stand.all.map((d) => {
+              const Icon = DOMAIN_ICON[d.name];
+              const low = d.name === stand.lowest.name;
+              return (
+                <button key={d.name} className={`mh-tile${low ? " low" : ""}`} onClick={() => openAdd(undefined, { category: d.categories[0] })} aria-label={`Add a ${d.name} gate. ${d.name} is ${d.value}${low ? ", your weakest domain" : ""}`}>
+                  <header><Icon size={16} />{low && <em>Lagging</em>}</header>
+                  <b>{d.value}</b>
+                  <span>{d.name}</span>
+                  <i><u style={{ width: `${Math.max(3, Math.min(100, d.value))}%` }} /></i>
+                </button>
+              );
+            })}
+          </div>
 
           {e && !dismissed && (() => {
             const fs = firstSteps({ openGates: dash?.activeCount ?? 0, trophiesUnlocked: e.achievements.unlocked, chestClaimed: e.chest.claimed, conquestsToday: dash?.completedCount ?? 0 });
@@ -218,18 +226,10 @@ export function MobileHome() {
             <small className="mh-dim">{dash?.current_mode ?? "Normal"} mode · C-rank or higher counts</small>
           </section>
 
-          {e && (
-            <section className="mh-card mh-streak" aria-label="Daily streak">
-              <div className="mh-row"><h3>This week</h3><span className="mh-dim">{e.streak.freezes}/{e.streak.freeze_cap} freezes</span></div>
-              <div className="mh-days">
-                {week.map((d, i) => {
-                  const done = d.daily_points > 0;
-                  const lbl = new Date(`${d.date}T12:00:00`).toLocaleDateString("en", { weekday: "narrow" });
-                  return <div key={d.date} className={`mh-day${done ? " done" : ""}${i === week.length - 1 ? " today" : ""}`}><span>{lbl}</span><i>{done ? <Check size={14} strokeWidth={3} /> : null}</i></div>;
-                })}
-              </div>
-            </section>
-          )}
+          <section className="mh-card mh-week" aria-label="XP this week">
+            <div className="mh-row"><div><div className="mh-eyebrow">This week</div><div className="mh-big">{week.reduce((n, d) => n + Math.max(0, d.daily_points), 0).toLocaleString()}<small>XP</small></div></div>{e && <span className="mh-dim mh-hint">{e.streak.freezes}/{e.streak.freeze_cap} freezes</span>}</div>
+            <WeekBars days={week} />
+          </section>
 
           <ConquestRecord compact score={dash?.playmaker_rating ?? 0} streak={streak} />
 

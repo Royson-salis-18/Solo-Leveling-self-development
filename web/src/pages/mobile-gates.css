@@ -26,3 +26,7 @@
 .mg-tick:active, .mg-row.is-armed .mg-tick { color: #0a0a0f; }
 .mg-add { border-radius: 12px; }
 .mg-head h1 { font-family: 'Outfit', sans-serif; font-weight: 500; }
+
+.mg-pills { display: flex; gap: 8px; overflow-x: auto; margin: -4px -16px 0; padding: 2px 16px; scrollbar-width: none; } .mg-pills::-webkit-scrollbar { display: none; }
+.mg-pills button { flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: .8rem; color: var(--m-dim); background: transparent; border: 1px solid var(--m-line); cursor: pointer; }
+.mg-pills button.on { background: var(--m-accent); color: #0a0a0f; border-color: transparent; font-weight: 600; }
