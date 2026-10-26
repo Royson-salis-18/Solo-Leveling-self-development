@@ -426,7 +426,7 @@ export function DashboardPage() {
       </div>
 
       {/* ── ENGAGEMENT: streak, bounties, world boss, next trophy ── */}
-      <EngagementPanel />
+      <EngagementPanel openGates={data.activeCount} conquestsToday={data.completedCount} />
 
       {/* ── MONARCH TRANSMISSION (QUOTE) ── */}
       {(() => {

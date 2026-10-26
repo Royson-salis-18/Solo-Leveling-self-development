@@ -24,7 +24,7 @@
 /* floating tab pill */
 .m-tabs { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 60; display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 999px;
   background: rgba(22,20,36,.78); border: 1px solid var(--m-line); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); box-shadow: 0 18px 40px rgba(0,0,0,.55); }
-.m-tab { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--m-dim); transition: background .2s, color .2s, transform .2s; }
+.m-tab { position: relative; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--m-dim); transition: background .2s, color .2s, transform .2s; }
 .m-tab:active { transform: scale(.92); }
 .m-tab.is-active { color: #fff; background: var(--m-violet); box-shadow: 0 0 22px rgba(124,92,255,.55); }
 .m-tab.is-primary { width: 58px; height: 58px; color: #fff; border: 1px solid rgba(168,148,255,.55); background: radial-gradient(circle at 50% 30%, rgba(124,92,255,.35), rgba(124,92,255,.08)); }
@@ -157,3 +157,8 @@
 .m-content .page-header > div:first-child > div[style*="display: flex"] { flex-wrap: wrap; row-gap: 6px; }
 .m-content .collection-grid-v2 { padding: 14px !important; border-radius: 26px !important; margin: 0 -4px; }
 .m-content .collection-grid-v2 .monarch-hero-section { margin-left: 0; margin-right: 0; }
+
+.m-badge { position: absolute; top: 9px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #fb923c; box-shadow: 0 0 0 2px rgba(22,20,36,1), 0 0 10px rgba(251,146,60,.8); animation: mBadge 1.6s ease-in-out infinite; }
+@keyframes mBadge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+.m-content { overscroll-behavior-y: contain; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { .m-content { scroll-behavior: auto; } .m-badge { animation: none; } }

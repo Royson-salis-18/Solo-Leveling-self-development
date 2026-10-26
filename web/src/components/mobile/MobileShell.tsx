@@ -6,6 +6,8 @@ import { useAuth } from "../../lib/authContext";
 import { useNotifications } from "../../lib/notificationContext";
 import { links } from "../Sidebar";
 import { prefetchRoute } from "../../routes";
+import { useEngagement } from "../../lib/engagementContext";
+import { haptic } from "../../lib/feedback";
 import "./mobile.css";
 
 /** Home · War Room · [Gates] · Feats · Profile — the gate list is the app's primary action. */
@@ -37,6 +39,8 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
 }
 
 function TabBar() {
+  const { data: e } = useEngagement();
+  const homeAlert = !!e && (e.streak.at_risk || (!e.chest.claimed && e.chest.unlockable));
   return (
     <nav className="m-tabs" aria-label="Primary">
       {TABS.map(({ to, label, icon: Icon, ...rest }) => (
@@ -47,8 +51,10 @@ function TabBar() {
           aria-label={label}
           className={({ isActive }) => `m-tab${isActive ? " is-active" : ""}${"primary" in rest ? " is-primary" : ""}`}
           onTouchStart={() => prefetchRoute(to)}
+          onClick={() => haptic("tap")}
         >
           <Icon size={"primary" in rest ? 24 : 21} strokeWidth={1.8} />
+          {to === "/" && homeAlert && <i className="m-badge" aria-label="Something is waiting" />}
         </NavLink>
       ))}
     </nav>
@@ -90,7 +96,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
   return (
     <div className="m-shell">
       <TopBar onMenu={() => setMenu(true)} />
-      <main className="m-content" ref={scroller}>{children}</main>
+      <main className="m-content" id="main" ref={scroller}>{children}</main>
       <TabBar />
       <MenuSheet open={menu} onClose={() => setMenu(false)} />
     </div>

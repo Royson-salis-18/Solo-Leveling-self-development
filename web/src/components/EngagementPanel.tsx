@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Gift, Snowflake, Sparkles, Trophy as TrophyIcon } from "lucide-react";
-import { useEngagement } from "../lib/useEngagement";
+import { useEngagement } from "../lib/engagementContext";
 import type { RevealData } from "../lib/useEngagement";
 import {
   RARITY_COLOR, bountyPercent, chestHint, clock, nextBestAction, percent,
 } from "../lib/engagement";
+import { firstSteps } from "../lib/feedback";
+import { FirstSteps } from "./UxLayer";
 import "./engagement.css";
 
 /** Quest difficulty is shown as a gate rank, like everything else in the System. */
@@ -32,9 +34,10 @@ export function Reveal({ d, onClose }: { d: RevealData; onClose: () => void }) {
   );
 }
 
-export function EngagementPanel() {
+export function EngagementPanel({ openGates = 0, conquestsToday = 0 }: { openGates?: number; conquestsToday?: number }) {
   const navigate = useNavigate();
-  const { data: e, failed, busy, reveal, setReveal, secondsLeft, bossSeconds, openChest, claimBoss } = useEngagement();
+  const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("sl_first_steps") === "1"; } catch { return false; } });
+  const { data: e, failed, busy, reveal, setReveal, secondsLeft, bossSeconds, openChest, claimBoss, reload } = useEngagement();
 
   // A quiet cue in the tab title while something real is waiting.
   useEffect(() => {
@@ -45,7 +48,7 @@ export function EngagementPanel() {
     return () => { document.title = base; };
   }, [e]);
 
-  if (failed && !e) return null;
+  if (failed && !e) return <div className="ux-retry"><span>Couldn’t load today’s directives.</span><button onClick={() => void reload()}>Retry</button></div>;
   if (!e) {
     return <div className="dd" aria-busy="true"><div className="dd-grid">{[0, 1, 2].map((i) => (
       <div key={i} className="dd-panel ds-glass" style={{ minHeight: 230, opacity: .4 }} />))}</div></div>;
@@ -60,6 +63,10 @@ export function EngagementPanel() {
 
   return (
     <div className="dd">
+      {!dismissed && (() => {
+        const fs = firstSteps({ openGates, trophiesUnlocked: e.achievements.unlocked, chestClaimed: e.chest.claimed, conquestsToday });
+        return fs.complete ? null : <FirstSteps steps={fs.steps} onDismiss={() => { setDismissed(true); try { localStorage.setItem("sl_first_steps", "1"); } catch { /* ignore */ } }} />;
+      })()}
       <div className="dd-label">Daily Directives <b>RESET {clock(secondsLeft)}</b></div>
 
       <div className={`dd-directive ds-glass${action.kind === "streak" ? " is-urgent" : ""}`} role="status">

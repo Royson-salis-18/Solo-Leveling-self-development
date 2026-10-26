@@ -4,6 +4,7 @@ import { useAuth } from "./authContext";
 import { useToast } from "./toast";
 import { useGameActions } from "./gameActions";
 import { ENGAGEMENT_REFRESH_EVENT } from "./engagement";
+import { haptic } from "./feedback";
 import type { BossLootResult, ChestResult, Engagement } from "./gameTypes";
 
 export type RevealData = {
@@ -15,7 +16,7 @@ export type RevealData = {
  * Engagement state shared by the desktop panel and the mobile home: one RPC, refreshed on
  * focus / after conquests / every minute, with a local ticking countdown and loot actions.
  */
-export function useEngagement() {
+export function useEngagementState() {
   const toast = useToast();
   const { apply, announce } = useGameActions();
   const { refreshProfile } = useAuth();
@@ -77,6 +78,7 @@ export function useEngagement() {
     try {
       const r = await SystemAPI.claimBountyChest();
       afterLoot(r);
+      haptic("reward");
       setReveal({ tag: "QUEST CACHE OPENED", title: "Quest Cache", rarity: r.rarity, xp: r.xp, item: r.item, perfect: r.perfect, trophies: r.achievements });
     } catch (err) { toast.fail(err, "Cache sealed"); void load(); } finally { setBusy(false); }
   }, [busy, afterLoot, toast, load]);
@@ -87,6 +89,7 @@ export function useEngagement() {
     try {
       const r = await SystemAPI.claimBossReward(week);
       afterLoot(r);
+      haptic("reward");
       setReveal({ tag: "CALAMITY SLAIN", title: "Raid Spoils", rarity: "Epic", xp: r.xp, item: r.item, trophies: r.achievements });
     } catch (err) { toast.fail(err, "Could not claim spoils"); void load(); } finally { setBusy(false); }
   }, [busy, afterLoot, toast, load]);

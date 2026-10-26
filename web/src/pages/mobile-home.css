@@ -91,3 +91,12 @@
 .mh-badges { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; align-items: center; }
 .mh-badge { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-style: normal; font-size: .6rem; font-weight: 700; letter-spacing: .3px; color: #fff;
   background: color-mix(in srgb, var(--bc) 28%, rgba(255,255,255,.04)); border: 1px solid color-mix(in srgb, var(--bc) 70%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--bc) 35%, transparent); }
+
+.mh-ptr { display: grid; place-items: center; font-size: .78rem; color: var(--m-dim); overflow: hidden; margin: -4px 0 -8px; transition: height .2s; }
+.mh-row-item { position: relative; overflow: hidden; }
+.mh-row-item.is-armed { border-color: rgba(168,148,255,.6); background: rgba(124,92,255,.14); }
+.mh-row-item.is-armed .mh-tick { color: #fff; background: var(--m-violet); border-color: transparent; box-shadow: 0 0 18px rgba(124,92,255,.6); }
+.mh-undo { margin-left: auto; flex-shrink: 0; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--m-line); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.mh-countdown { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, #6a47f0, #a894ff); transform-origin: left; animation: mhCount 2.6s linear forwards; }
+@keyframes mhCount { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .mh-countdown { animation-duration: 2.6s; } }

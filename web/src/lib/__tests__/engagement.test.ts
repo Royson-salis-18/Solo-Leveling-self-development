@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bountyPercent, chestHint, clock, formatCountdown, nextBestAction, percent } from "../engagement";
 import { captureReferral, referralLink, storedReferral } from "../referral";
+import { firstSteps } from "../feedback";
 import type { Engagement } from "../gameTypes";
 
 const base = (over: Partial<Engagement> = {}): Engagement => ({
@@ -83,5 +84,29 @@ describe("referral links", () => {
     expect(() => captureReferral("?ref=ABCD1234")).not.toThrow();
     expect(() => captureReferral("?ref=<script>")).not.toThrow();
     expect(storedReferral()).toBeUndefined();
+  });
+});
+
+
+
+describe("firstSteps (starter checklist)", () => {
+  it("a brand-new hunter starts at 0 of 3 with the first step next", () => {
+    const r = firstSteps({ openGates: 0, trophiesUnlocked: 0, chestClaimed: false, conquestsToday: 0 });
+    expect(r.doneCount).toBe(0);
+    expect(r.steps.map((s) => s.done)).toEqual([false, false, false]);
+    expect(r.complete).toBe(false);
+  });
+  it("opening a gate completes step 1 only", () => {
+    const r = firstSteps({ openGates: 1, trophiesUnlocked: 0, chestClaimed: false, conquestsToday: 0 });
+    expect(r.steps.map((s) => s.done)).toEqual([true, false, false]);
+  });
+  it("a conquest implies the gate step even if the gate is already closed", () => {
+    const r = firstSteps({ openGates: 0, trophiesUnlocked: 1, chestClaimed: false, conquestsToday: 0 });
+    expect(r.steps.map((s) => s.done)).toEqual([true, true, false]);
+  });
+  it("is complete once the first cache is opened", () => {
+    const r = firstSteps({ openGates: 0, trophiesUnlocked: 3, chestClaimed: true, conquestsToday: 2 });
+    expect(r.complete).toBe(true);
+    expect(r.doneCount).toBe(3);
   });
 });

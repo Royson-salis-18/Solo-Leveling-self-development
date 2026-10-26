@@ -4,6 +4,7 @@ import { useToast } from "./toast";
 import { SystemAPI } from "../services/SystemAPI";
 import { describeCompletion, describeFailure } from "./gameFormat";
 import { requestEngagementRefresh } from "./engagement";
+import { announceXp, haptic } from "./feedback";
 import type { CompleteResult, FailResult, ProfileSnapshot, Progression } from "./gameTypes";
 
 /** Window event the app shell listens to for the level-up rain effect. */
@@ -35,6 +36,8 @@ export function useGameActions() {
       apply(r.profile);
       announce(r.progression);
       requestEngagementRefresh();
+      haptic(r.progression?.leveled_up ? "reward" : "success");
+      if (!r.already) announceXp(r.xp?.applied ?? 0);
       const f = describeCompletion(r);
       toast.toast({ title: f.title, message: f.message, type: f.kind });
       return r;

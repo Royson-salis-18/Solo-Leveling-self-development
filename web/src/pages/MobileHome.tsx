@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Sparkles, Swords, Trophy } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -8,10 +8,12 @@ import { useToast } from "../lib/toast";
 import { useGameActions } from "../lib/gameActions";
 import { SystemAPI } from "../services/SystemAPI";
 import type { DashboardData } from "../lib/gameTypes";
-import { useEngagement } from "../lib/useEngagement";
+import { useEngagement } from "../lib/engagementContext";
 import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, nextBestAction, percent } from "../lib/engagement";
 import { Reveal } from "../components/EngagementPanel";
 import { XP_PER_LEVEL } from "../lib/levelEngine";
+import { firstSteps, haptic } from "../lib/feedback";
+import { FirstSteps } from "../components/UxLayer";
 import "../components/mobile/mobile.css";
 import "./mobile-home.css";
 
@@ -69,6 +71,11 @@ export function MobileHome() {
   const [tier, setTier] = useState<(typeof TIERS)[number]["id"]>("Mid");
   const [adding, setAdding] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
+  const [armed, setArmed] = useState<string | null>(null);          // conquest waiting out its undo window
+  const armTimer = useRef<number | undefined>(undefined);
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("sl_first_steps") === "1"; } catch { return false; } });
   const [gear, setGear] = useState<Array<{ name: string; rarity: string; item_category: string }>>([]);
 
   const loadDash = useCallback(async () => {
@@ -109,6 +116,7 @@ export function MobileHome() {
     try {
       await SystemAPI.saveGate({ title: t, category: "General", priority: "MEDIUM", xp_tier: tier }, null);
       setTitle("");
+      haptic("success");
       toast.success("Gate opened", `${t} · ${RANK_OF[tier]}-rank`);
       void loadDash();
     } catch (err) { toast.fail(err, "Could not open gate"); } finally { setAdding(false); }
@@ -120,6 +128,38 @@ export function MobileHome() {
     try { await actions.complete(id); void loadDash(); } finally { setCompleting(null); }
   };
 
+  // A tap starts a short undo window instead of committing instantly: conquests can't be reversed
+  // server-side, and a stray tap while scrolling is the most common mobile mistake.
+  const arm = (id: string) => {
+    if (armed || completing) return;
+    haptic("tap");
+    setArmed(id);
+    window.setTimeout(() => document.getElementById(`gate-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 30);
+    armTimer.current = window.setTimeout(() => { setArmed(null); void conquer(id); }, 2600);
+  };
+  const undo = () => { window.clearTimeout(armTimer.current); setArmed(null); haptic("tap"); };
+  useEffect(() => () => window.clearTimeout(armTimer.current), []);
+
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadDash(), eng.reload()]);
+    setRefreshing(false);
+  }, [loadDash, eng]);
+
+  // Pull down from the top to refresh.
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(".m-content");
+    if (!el) return;
+    let y0 = 0, active = false, last = 0;
+    const start = (ev: TouchEvent) => { if (el.scrollTop <= 0) { y0 = ev.touches[0].clientY; active = true; last = 0; } };
+    const move = (ev: TouchEvent) => { if (!active) return; const dy = ev.touches[0].clientY - y0; last = Math.max(0, Math.min(dy * 0.5, 90)); setPull(last); };
+    const end = () => { if (active && last >= 60) { haptic("tap"); void refreshAll(); } active = false; setPull(0); };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: true });
+    el.addEventListener("touchend", end);
+    return () => { el.removeEventListener("touchstart", start); el.removeEventListener("touchmove", move); el.removeEventListener("touchend", end); };
+  }, [refreshAll]);
+
   const tasks = (dash?.activeTasks ?? []).filter((t: { is_pending?: boolean }) => !t.is_pending).slice(0, 4);
   const army = (dash?.shadows ?? []) as Array<{ name: string; rarity: string; bonus_value?: number }>;
   const owned = gear.filter((g) => ITEM_CATALOG.some((c) => c.name === g.name));
@@ -130,6 +170,7 @@ export function MobileHome() {
 
   return (
     <div className="mh">
+      {(pull > 0 || refreshing) && <div className="mh-ptr" style={{ height: refreshing ? 44 : pull }} aria-live="polite">{refreshing ? "Refreshing…" : pull >= 60 ? "Release to refresh" : "Pull to refresh"}</div>}
       <section className="mh-hero">
         <div className="mh-hi"><Sparkles size={12} /> {greeting()}, {name}</div>
         <h1 className="mh-title">{headline}</h1>
@@ -146,6 +187,12 @@ export function MobileHome() {
           </button>
         ))}
       </div>
+
+      {e && !dismissed && (() => {
+        const fs = firstSteps({ openGates: dash?.activeCount ?? 0, trophiesUnlocked: e.achievements.unlocked, chestClaimed: e.chest.claimed, conquestsToday: dash?.completedCount ?? 0 });
+        return fs.complete ? null : <FirstSteps mobile steps={fs.steps} onDismiss={() => { setDismissed(true); try { localStorage.setItem("sl_first_steps", "1"); } catch { /* ignore */ } }} />;
+      })()}
+      {!e && eng.failed && <div className="ux-retry"><span>Couldn’t load today’s directives.</span><button onClick={() => void eng.reload()}>Retry</button></div>}
 
       <div className="mh-sec"><h2>Your activity</h2><button onClick={() => navigate("/overview")} aria-label="Open full overview"><ChevronRight size={18} /></button></div>
       <div className="mh-rail">
@@ -241,11 +288,12 @@ export function MobileHome() {
         {dash && tasks.length === 0 && <p className="mh-dim mh-note" style={{ padding: "6px 4px" }}>No open gates. Add one above and start.</p>}
         {!dash && [0, 1, 2].map((i) => <div key={i} className="mh-row-item mh-skel" />)}
         {tasks.map((t: { id: string; title: string; xp_tier?: string; category: string; points: number }) => (
-          <div key={t.id} className="mh-row-item">
-            <button className="mh-tick" disabled={completing === t.id} onClick={() => conquer(t.id)} aria-label={`Conquer ${t.title}`}>
+          <div key={t.id} id={`gate-${t.id}`} className={`mh-row-item${armed === t.id ? " is-armed" : ""}`}>
+            <button className="mh-tick" disabled={completing === t.id || (!!armed && armed !== t.id)} onClick={() => (armed === t.id ? undo() : arm(t.id))} aria-label={armed === t.id ? `Undo conquering ${t.title}` : `Conquer ${t.title}`}>
               {completing === t.id ? <i className="mh-spin" /> : <Check size={15} strokeWidth={3} />}
             </button>
-            <div className="mh-row-main"><span>{t.title}</span><small>{RANK_OF[t.xp_tier ?? "Low"] ?? "E"}-rank · {t.category} · {t.points} XP</small></div>
+            <div className="mh-row-main"><span>{t.title}</span><small>{armed === t.id ? "Conquering… tap to undo" : `${RANK_OF[t.xp_tier ?? "Low"] ?? "E"}-rank · ${t.category} · ${t.points} XP`}</small></div>
+            {armed === t.id && <><button className="mh-undo" onClick={undo}>Undo</button><i className="mh-countdown" aria-hidden="true" /></>}
           </div>
         ))}
       </div>

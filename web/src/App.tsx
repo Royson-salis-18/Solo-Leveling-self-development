@@ -12,6 +12,8 @@ import { ErrorBoundary }     from "./components/ErrorBoundary";
 import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
 import { captureReferral } from "./lib/referral";
+import { EngagementProvider } from "./lib/engagementContext";
+import { XpFloat, ConnectionBanner } from "./components/UxLayer";
 import { useIsMobile } from "./lib/useMedia";
 import { MobileShell } from "./components/mobile/MobileShell";
 
@@ -33,6 +35,8 @@ function AppContent() {
 
   useEffect(() => { prefetchCommonRoutes(); }, []);
   useEffect(() => { captureReferral(); }, []);
+  const { pathname } = useLocation();
+  useEffect(() => { document.querySelector(".content")?.scrollTo({ top: 0 }); }, [pathname]);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -92,6 +96,10 @@ function AppContent() {
         path="/*"
         element={
           <ProtectedRoute>
+            <EngagementProvider>
+            <a href="#main" className="skip-link">Skip to content</a>
+            <ConnectionBanner />
+            <XpFloat />
             {isMobile ? (
               <>
                 <MobileShell>
@@ -106,7 +114,7 @@ function AppContent() {
             <div className={`layout ${isCollapsed ? 'sb-collapsed' : ''}`}>
               <div className="system-bg-overlay"></div>
               <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
-              <main className="content">
+              <main className="content" id="main">
                 <Suspense fallback={<PageSkeleton />}>
                   <ModeGate>
                   {appRoutes}
@@ -122,6 +130,7 @@ function AppContent() {
               />
             </div>
             )}
+            </EngagementProvider>
           </ProtectedRoute>
         }
       />
