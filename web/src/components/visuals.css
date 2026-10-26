@@ -10,10 +10,10 @@
 .hm-col { display: grid; grid-template-rows: repeat(7, var(--hm-cell)); gap: var(--hm-gap); }
 .hm-cell { width: var(--hm-cell); height: var(--hm-cell); border-radius: 4px; display: block; background: rgba(168,168,255,.07); transition: transform .15s; }
 .hm-cell.pad { background: transparent; }
-.hm-cell.l1 { background: rgba(124,92,255,.32); }
-.hm-cell.l2 { background: rgba(124,92,255,.55); }
-.hm-cell.l3 { background: rgba(150,120,255,.8); box-shadow: 0 0 8px rgba(124,92,255,.35); }
-.hm-cell.l4 { background: #c4b5ff; box-shadow: 0 0 12px rgba(168,148,255,.7); }
+.hm-cell.l1 { background: rgba(168,168,255,.22); }
+.hm-cell.l2 { background: rgba(168,168,255,.45); }
+.hm-cell.l3 { background: rgba(168,168,255,.7); }
+.hm-cell.l4 { background: #d6d6ff; }
 .hm-cell.today { outline: 1.5px solid rgba(255,255,255,.85); outline-offset: 1px; }
 .hm-col .hm-cell:hover { transform: scale(1.25); }
 .hm-legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: .62rem; color: rgba(255,255,255,.4); }
@@ -21,45 +21,24 @@
 
 .ag { margin: 0; display: grid; justify-items: center; }
 .ag svg { width: 100%; max-width: 240px; overflow: visible; }
-.ag-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 16; stroke-linecap: round; }
-.ag-fill { fill: none; stroke: url(#agGrad); stroke-width: 16; stroke-linecap: round; }
-.ag-knob { fill: #fff; filter: drop-shadow(0 0 8px rgba(168,148,255,.9)); } .ag-knob-core { fill: #6a47f0; }
+.ag-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 12; stroke-linecap: round; }
+.ag-fill { fill: none; stroke: #a8a8ff; stroke-width: 12; stroke-linecap: round; }
+.ag-knob { fill: #fff; } .ag-knob-core { fill: #0a0a0f; }
 .ag figcaption { display: grid; justify-items: center; gap: 2px; margin-top: -58px; text-align: center; }
 .ag figcaption b { font-family: 'Outfit', sans-serif; font-size: 2.6rem; font-weight: 500; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
 .ag figcaption b small { font-size: 1rem; color: rgba(255,255,255,.45); margin-left: 2px; }
 .ag figcaption span { font-size: .78rem; color: rgba(255,255,255,.55); }
-.ag figcaption em { font-style: normal; font-size: .68rem; padding: 3px 10px; border-radius: 99px; margin-top: 6px; color: #d8d0ff; background: rgba(124,92,255,.2); border: 1px solid rgba(168,148,255,.3); }
+.ag figcaption em { font-style: normal; font-size: .68rem; padding: 3px 10px; border-radius: 99px; margin-top: 6px; color: #c9c9ff; border: 1px solid rgba(168,168,255,.3); }
 
 .st { position: relative; overflow: hidden; border-radius: 24px; padding: 16px 18px; display: grid; gap: 10px; min-width: 0;
-  background: radial-gradient(120% 90% at 85% 90%, rgba(124,92,255,.18), transparent 60%), linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border: 1px solid rgba(255,255,255,.09); }
+  background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); }
 .st header { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: rgba(255,255,255,.65); }
 .st header svg { color: #a894ff; }
 .st b { font-family: 'Outfit', sans-serif; font-size: 2.4rem; font-weight: 500; line-height: 1; letter-spacing: -.5px; color: #fff; font-variant-numeric: tabular-nums; }
 .st b small { font-size: .8rem; color: rgba(255,255,255,.45); margin-left: 4px; font-weight: 400; }
 .st footer { font-size: .7rem; color: rgba(255,255,255,.45); }
 .st-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
-.st-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #6a47f0, #c4b5ff); box-shadow: 0 0 10px rgba(124,92,255,.6); }
-
-.qa { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 10px 10px; border-radius: 28px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09); backdrop-filter: blur(16px); }
-.qa-btn { display: grid; justify-items: center; gap: 8px; background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; min-height: 44px; }
-.qa-btn span { position: relative; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: #e6e0ff; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); transition: transform .15s, background .2s; }
-.qa-btn:active span { transform: scale(.92); }
-.qa-btn.primary span { color: #fff; background: radial-gradient(circle at 50% 25%, #8f73ff, #5b3fd6); border-color: transparent; box-shadow: 0 8px 22px rgba(124,92,255,.5); }
-.qa-btn em { font-style: normal; font-size: .72rem; color: rgba(255,255,255,.7); }
-.qa-dot { position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fb923c; box-shadow: 0 0 0 2px #15122a; }
-
-.po { position: relative; margin: 0 auto; display: grid; place-items: center; }
-.po canvas { position: absolute; inset: 0; }
-.po-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.po-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 5; }
-.po-prog { fill: none; stroke: #c4b5ff; stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(168,148,255,.9)); transition: stroke-dasharray 1s cubic-bezier(.2,.9,.3,1); }
-.po-btn { position: relative; width: 62%; aspect-ratio: 1; border-radius: 50%; display: grid; place-content: center; gap: 2px; text-align: center; color: #fff; cursor: pointer; border: 1px solid rgba(255,255,255,.18);
-  background: radial-gradient(circle at 50% 22%, #9a7fff 0%, #6a47f0 48%, #3a2490 100%); box-shadow: 0 0 40px rgba(124,92,255,.55), inset 0 2px 8px rgba(255,255,255,.25), inset 0 -8px 20px rgba(20,8,70,.5); transition: transform .2s; font: inherit; }
-.po-btn:active { transform: scale(.96); }
-.po-btn strong { font-family: 'Outfit', sans-serif; font-size: 2.4rem; font-weight: 500; line-height: 1; }
-.po-btn span { font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
-.po-btn small { font-size: .62rem; opacity: .7; }
-@media (prefers-reduced-motion: reduce) { .po-prog { transition: none; } }
+.st-bar i { display: block; height: 100%; border-radius: 99px; background: #a8a8ff; }
 
 /* Conquest record layout */
 .cr { margin-bottom: 40px; display: grid; gap: 20px; }

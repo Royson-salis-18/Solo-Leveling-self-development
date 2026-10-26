@@ -5,6 +5,7 @@ import { SystemAPI } from "../services/SystemAPI";
 import { describeCompletion, describeFailure } from "./gameFormat";
 import { requestEngagementRefresh } from "./engagement";
 import { announceXp, haptic } from "./feedback";
+import { domainOfCategory } from "./domains";
 import type { CompleteResult, FailResult, ProfileSnapshot, Progression } from "./gameTypes";
 
 /** Window event the app shell listens to for the level-up rain effect. */
@@ -30,7 +31,7 @@ export function useGameActions() {
     }
   }, []);
 
-  const complete = useCallback(async (taskId: string): Promise<CompleteResult | null> => {
+  const complete = useCallback(async (taskId: string, meta?: { category?: string }): Promise<CompleteResult | null> => {
     try {
       const r = await SystemAPI.completeGate(taskId);
       apply(r.profile);
@@ -39,7 +40,8 @@ export function useGameActions() {
       haptic(r.progression?.leveled_up ? "reward" : "success");
       if (!r.already) announceXp(r.xp?.applied ?? 0);
       const f = describeCompletion(r);
-      toast.toast({ title: f.title, message: f.message, type: f.kind });
+      const dom = !r.already ? domainOfCategory(meta?.category) : null;     // the identity payoff: which part of you just grew
+      toast.toast({ title: f.title, message: dom ? `${f.message ? f.message + " · " : ""}+1 ${dom}` : f.message, type: f.kind });
       return r;
     } catch (e) {
       toast.fail(e, "Conquest failed");

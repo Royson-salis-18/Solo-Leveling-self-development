@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Sparkles, Swords, Trophy, Undo2, Zap } from "lucide-react";
+import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Swords, Trophy, Undo2 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { useGameActions } from "../lib/gameActions";
 import { SystemAPI } from "../services/SystemAPI";
 import { supabase } from "../lib/supabase";
 import type { DashboardData } from "../lib/gameTypes";
 import { useEngagement } from "../lib/engagementContext";
-import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, nextBestAction, percent } from "../lib/engagement";
+import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, percent, requestEngagementRefresh } from "../lib/engagement";
 import { Reveal } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
 import { FirstSteps } from "../components/UxLayer";
-import { PowerOrb } from "../components/visuals";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
-import { XP_PER_LEVEL } from "../lib/levelEngine";
+import { XP_PER_LEVEL, nextRankInfo } from "../lib/levelEngine";
+import { directiveOfTheDay, directivePayload, domainStandings, stripEmoji } from "../lib/domains";
+import { addDays, isoDay } from "../lib/gateRules";
+import { useToast } from "../lib/toast";
 import { firstSteps, haptic } from "../lib/feedback";
 import { RANK_OF } from "../lib/gateRules";
 import { useArmed } from "../lib/useArmed";
@@ -24,32 +26,11 @@ import "./mobile-home.css";
 type View = "today" | "progress" | "rewards";
 const VIEWS: Array<[View, string]> = [["today", "Today"], ["progress", "Progress"], ["rewards", "Rewards"]];
 
-function greeting(d = new Date()) {
-  const h = d.getHours();
-  return h < 5 ? "Still up" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-}
-
-/** Area sparkline: pure SVG, no chart library on the home screen. */
-function Spark({ values }: { values: number[] }) {
-  const w = 120, h = 48, pad = 3;
-  const max = Math.max(1, ...values);
-  const pts = values.map((v, i) => [pad + (i * (w - pad * 2)) / Math.max(1, values.length - 1), h - pad - (v / max) * (h - pad * 2)] as const);
-  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const last = pts[pts.length - 1];
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="mh-spark" aria-hidden="true">
-      <defs><linearGradient id="mhg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#a894ff" stopOpacity=".55" /><stop offset="1" stopColor="#7c5cff" stopOpacity="0" /></linearGradient></defs>
-      <path d={`${line} L${last[0]},${h} L${pts[0][0]},${h} Z`} fill="url(#mhg)" />
-      <path d={line} fill="none" stroke="#c4b5ff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={last[0]} cy={last[1]} r="3" fill="#fff" />
-    </svg>
-  );
-}
-
 export function MobileHome() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const actions = useGameActions();
+  const toast = useToast();
   const eng = useEngagement();
   const { openAdd } = useMobileUi();
   const e = eng.data;
@@ -76,7 +57,12 @@ export function MobileHome() {
     supabase.from("inventory").select("name,rarity,item_category").eq("user_id", profile.user_id).then(({ data }) => { if (data) setGear(data); });
   }, [profile?.user_id]);
 
-  const { armed, running, arm, undo } = useArmed(async (id) => { await actions.complete(id); await loadDash(); });
+  const [arising, setArising] = useState(false);
+  const { armed, running, arm, undo } = useArmed(async (id) => {
+    const cat = (dash?.activeTasks ?? []).find((t: { id: string; category?: string }) => t.id === id)?.category;
+    await actions.complete(id, { category: cat });
+    await loadDash();
+  });
 
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
@@ -110,23 +96,32 @@ export function MobileHome() {
     return () => { el.removeEventListener("touchstart", start); el.removeEventListener("touchmove", move); el.removeEventListener("touchend", end); };
   }, [refreshAll]);
 
-  const name = (profile?.name ?? "Hunter").split(" ")[0];
   const standing = dash?.standing_xp ?? profile?.standing_xp ?? 0;
   const level = dash?.level ?? profile?.level ?? 1;
   const toNext = XP_PER_LEVEL - (Math.max(standing, 0) % XP_PER_LEVEL);
   const week = dash?.weeklyHistory ?? [];
-  const weekPts = week.map((d) => d.daily_points);
   const streak = e?.streak.count ?? dash?.streak_count ?? 0;
-  const flow = dash?.flow ?? { count: 0, active: false };
 
-  const headline = useMemo(() => {
-    if (e?.streak.at_risk) return <>Hold your <b>{streak}-day</b> streak today.</>;
-    if (streak > 0) return <>You’re on a <b>{streak}-day</b> streak.</>;
-    return <>Start your streak <b>today</b>.</>;
-  }, [e?.streak.at_risk, streak]);
+  const stand = domainStandings({ domain_physical: dash?.domain_physical, domain_mind: dash?.domain_mind, domain_soul: dash?.domain_soul, domain_execution: dash?.domain_execution, domain_builder: dash?.domain_builder });
+  const directive = directiveOfTheDay(stand.lowest.name);
+  const rank = dash?.player_rank ?? profile?.player_rank ?? "E";
+  const nr = nextRankInfo(rank);
+  const weeklyTarget = dash?.weekly_target ?? null;
+  const weeklyXp = dash?.weekly_xp ?? 0;
+  const dateLine = new Date().toLocaleDateString("en", { weekday: "long", day: "numeric", month: "short" });
+
+  const arise = async () => {
+    if (arising) return;
+    setArising(true);
+    try {
+      await SystemAPI.saveGate(directivePayload(directive, stand.lowest.name, isoDay(addDays(new Date(), 1))) as never, null);
+      haptic("success");
+      toast.success("Directive added", "Clear it by tomorrow to lift your " + stand.lowest.name + ".");
+      requestEngagementRefresh();
+    } catch (err) { toast.fail(err, "Couldn't add the directive"); } finally { setArising(false); }
+  };
 
   const tasks = (dash?.activeTasks ?? []).filter((t: { is_pending?: boolean }) => !t.is_pending).slice(0, 4);
-  const action = e ? nextBestAction(e) : null;
   const cacheReady = !!e && !e.chest.claimed && e.chest.unlockable;
   const raidReady = !!e && e.boss.claimable.length > 0;
   const b = e?.boss;
@@ -148,36 +143,32 @@ export function MobileHome() {
 
       {view === "today" && (
         <div className="mh-pane" key="today">
-          <section className="mh-hero">
-            <div className="mh-hi"><Sparkles size={12} /> {greeting()}, {name}</div>
-            <h1 className="mh-title">{headline}</h1>
-          </section>
+          <header className="mh-id">
+            <div className="mh-eyebrow">{dateLine}</div>
+            <h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1>
+            <p>{rank}-Rank · Level {level}</p>
+            <div className="mh-xpbar" role="progressbar" aria-valuenow={Math.round((1 - toNext / XP_PER_LEVEL) * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${(1 - toNext / XP_PER_LEVEL) * 100}%` }} /></div>
+            <small>{toNext.toLocaleString()} XP to level {level + 1}{nr ? ` · ${nr.rank}-Rank at level ${nr.minLevel}` : ""}</small>
+          </header>
 
-          <PowerOrb progress={1 - toNext / XP_PER_LEVEL} title={level} caption="Level" sub={`${toNext.toLocaleString()} XP to next`} onPress={() => navigate("/dungeon-gate")} size={188} />
+          <div className="mh-today" aria-label="Today at a glance">
+            <button onClick={() => setView("rewards")}><b>{e ? `${e.bounties_done}/3` : "–"}</b><span>Quests</span></button>
+            <button onClick={() => setView("progress")}><b>{weeklyXp}{weeklyTarget ? <i>/{weeklyTarget}</i> : null}</b><span>Week XP</span></button>
+            <button onClick={() => setView("progress")}><b>{streak}</b><span>Streak</span></button>
+          </div>
 
-          {e && !dismissed && (() => {
-            const fs = firstSteps({ openGates: dash?.activeCount ?? 0, trophiesUnlocked: e.achievements.unlocked, chestClaimed: e.chest.claimed, conquestsToday: dash?.completedCount ?? 0 });
-            return fs.complete ? null : <FirstSteps mobile steps={fs.steps} onDismiss={() => { setDismissed(true); try { localStorage.setItem("sl_first_steps", "1"); } catch { /* ignore */ } }} />;
-          })()}
-          {!e && eng.failed && <div className="ux-retry"><span>Couldn’t load today’s directives.</span><button onClick={() => void eng.reload()}>Retry</button></div>}
+          {e?.streak.at_risk && <p className="mh-alert">Your {streak}-day streak ends in {Math.floor(eng.secondsLeft / 3600)}h {Math.floor((eng.secondsLeft % 3600) / 60)}m. One conquest keeps it.</p>}
 
-          {action && action.kind !== "start" && (
-            <section className={`mh-card mh-insight${action.kind === "streak" ? " warn" : ""}`}>
-              <div className="mh-insight-ico"><Sparkles size={18} /></div>
-              <div><h4>{action.kind === "streak" ? "Streak at risk" : action.kind === "chest" ? "Reward ready" : "Next up"}</h4><p>{action.text}</p></div>
-            </section>
-          )}
-
-          <div className="mh-sec"><h2>Up next</h2><button onClick={() => navigate("/dungeon-gate")} aria-label="All gates"><ChevronRight size={18} /></button></div>
+          <div className="mh-sec"><h2>Up next</h2><button onClick={() => navigate("/dungeon-gate")}>All gates<ChevronRight size={15} /></button></div>
           <div className="mh-list">
             {dash && tasks.length === 0 && (
-              <div className="mh-empty"><p>No open gates.</p><button className="mh-cta hot" onClick={() => openAdd()}><Plus size={16} /> Open a gate</button></div>
+              <div className="mh-empty"><p>No open gates.</p><button className="mh-btn" onClick={() => openAdd()}><Plus size={16} /> New gate</button></div>
             )}
             {!dash && [0, 1, 2].map((i) => <div key={i} className="mh-row-item mh-skel" />)}
             {tasks.map((t: { id: string; title: string; xp_tier?: string; category: string; points: number }) => (
               <div key={t.id} id={`gate-${t.id}`} className={`mh-row-item${armed === t.id ? " is-armed" : ""}`}>
                 <button className="mh-tick" disabled={running === t.id || (!!armed && armed !== t.id)} onClick={() => (armed === t.id ? undo() : arm(t.id))} aria-label={armed === t.id ? `Undo conquering ${t.title}` : `Conquer ${t.title}`}>
-                  {running === t.id ? <i className="mh-spin" /> : armed === t.id ? <Undo2 size={15} /> : <Check size={15} strokeWidth={3} />}
+                  {running === t.id ? <i className="mh-spin" /> : armed === t.id ? <Undo2 size={15} /> : <Check size={15} strokeWidth={2.5} />}
                 </button>
                 <div className="mh-row-main"><span>{t.title}</span><small>{armed === t.id ? "Conquering… tap to undo" : `${RANK_OF[t.xp_tier ?? "Low"] ?? "E"}-rank · ${t.category} · ${t.points} XP`}</small></div>
                 {armed === t.id && <><button className="mh-undo" onClick={undo}>Undo</button><i className="mh-countdown" aria-hidden="true" /></>}
@@ -185,31 +176,47 @@ export function MobileHome() {
             ))}
           </div>
 
-          <section className="mh-card mh-momentum" aria-label="Momentum">
-            <div className="mh-prog-top"><span><Zap size={14} style={{ verticalAlign: -2, color: "#c4b5ff" }} /> Momentum</span><em>{flow.active ? "×2.5 XP active" : `${Math.min(flow.count, 5)}/5`}</em></div>
-            <div className="mh-pips">{[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < flow.count || flow.active ? "on" : ""} />)}</div>
-            <small>{flow.active ? "Keep going — every C-rank+ gate now pays 2.5×." : flow.count > 0 ? `${5 - flow.count} more C-rank+ gate${5 - flow.count === 1 ? "" : "s"} within the hour unlock ×2.5 XP.` : "Conquer 5 gates of C-rank or higher in 90 minutes for ×2.5 XP."}</small>
+          <section className="mh-card mh-cal" aria-label="Core calibration">
+            <div className="mh-eyebrow">Core calibration</div>
+            <p className="mh-cal-line"><b>{stand.lowest.name}</b> is your weakest domain — {stand.lowest.value} against {stand.highest.value} in {stand.highest.name}.</p>
+            <div className="mh-directive">
+              <b>{stripEmoji(directive.title).replace(/^[^:]*:\s*/, "")}</b>
+              <small>{directive.description}</small>
+              <em>+{directive.points} XP · {directive.category}</em>
+            </div>
+            <div className="mh-cal-actions">
+              <button className="mh-btn" onClick={arise} disabled={arising}>{arising ? "Adding…" : "Arise"}</button>
+              <button className="mh-btn ghost" onClick={() => navigate("/overview")}>More directives</button>
+            </div>
           </section>
 
+          <section className="mh-card mh-domains" aria-label="Domains">
+            <div className="mh-eyebrow">Domains</div>
+            {stand.all.map((d) => (
+              <div key={d.name} className={`mh-domain${d.name === stand.lowest.name ? " low" : ""}`}>
+                <span>{d.name}{d.name === stand.lowest.name && <em>lagging</em>}</span>
+                <div className="mh-bar"><i style={{ width: `${Math.max(3, Math.min(100, d.value))}%` }} /></div>
+                <b>{d.value}</b>
+              </div>
+            ))}
+          </section>
+
+          {e && !dismissed && (() => {
+            const fs = firstSteps({ openGates: dash?.activeCount ?? 0, trophiesUnlocked: e.achievements.unlocked, chestClaimed: e.chest.claimed, conquestsToday: dash?.completedCount ?? 0 });
+            return fs.complete ? null : <FirstSteps mobile steps={fs.steps} onDismiss={() => { setDismissed(true); try { localStorage.setItem("sl_first_steps", "1"); } catch { /* ignore */ } }} />;
+          })()}
+          {!e && eng.failed && <div className="ux-retry"><span>Couldn’t load today’s directives.</span><button onClick={() => void eng.reload()}>Retry</button></div>}
         </div>
       )}
 
       {view === "progress" && (
         <div className="mh-pane" key="progress">
-          <div className="mh-rail">
-            <article className="mh-card mh-stat" onClick={() => navigate("/overview")}>
-              <header><span>Experience</span><ChevronRight size={14} /></header>
-              <small>This week</small>
-              <Spark values={weekPts.length ? weekPts : [0, 0, 0, 0, 0, 0, 0]} />
-              <footer><b>{(dash?.totalXp ?? profile?.total_points ?? 0).toLocaleString()}</b><em>XP</em></footer>
-            </article>
-            <article className="mh-card mh-stat" onClick={() => navigate("/me")}>
-              <header><span>Level</span><ChevronRight size={14} /></header>
-              <small>{toNext.toLocaleString()} XP to next</small>
-              <div className="mh-ring" style={{ ["--p" as string]: `${100 - percent(toNext, XP_PER_LEVEL)}%` }} aria-hidden="true" />
-              <footer><b>{level}</b><em>{dash?.player_rank ?? profile?.player_rank ?? "E"}-RANK</em></footer>
-            </article>
-          </div>
+          <section className="mh-card" aria-label="Weekly threshold">
+            <div className="mh-eyebrow">Weekly activity</div>
+            <div className="mh-prog-top"><span>{weeklyXp} XP{weeklyTarget ? ` of ${weeklyTarget}` : " this week"}</span><em>{weeklyTarget === null ? "No target" : weeklyXp >= weeklyTarget ? "On track" : `${weeklyTarget - weeklyXp} to go`}</em></div>
+            <div className={`mh-bar${weeklyTarget !== null && weeklyXp >= weeklyTarget ? " done" : ""}`}><i style={{ width: `${weeklyTarget ? Math.min(100, (weeklyXp / weeklyTarget) * 100) : 100}%` }} /></div>
+            <small className="mh-dim">{dash?.current_mode ?? "Normal"} mode · C-rank or higher counts</small>
+          </section>
 
           {e && (
             <section className="mh-card mh-streak" aria-label="Daily streak">

@@ -185,3 +185,38 @@ describe("gate creation rules (mirror of the server)", () => {
     expect(repeatPayload("weekly", today)).toMatchObject({ recurrence_type: "weekly", recurrence_days: [1] });   // Monday
   });
 });
+
+import { DOMAINS, SYSTEM_DIRECTIVES, directiveOfTheDay, directivePayload, domainOfCategory, domainStandings } from "../domains";
+
+describe("domains", () => {
+  it("maps categories to the domain they build", () => {
+    expect(domainOfCategory("Fitness")).toBe("Physical");
+    expect(domainOfCategory("Learning")).toBe("Mind");
+    expect(domainOfCategory("Family")).toBe("Soul");
+    expect(domainOfCategory("Errands")).toBe("Execution");
+    expect(domainOfCategory("Creative")).toBe("Builder");
+    expect(domainOfCategory("Nonsense")).toBeNull();
+  });
+  it("every category belongs to exactly one domain", () => {
+    const all = DOMAINS.flatMap((d) => d.categories);
+    expect(new Set(all).size).toBe(all.length);
+  });
+  it("finds the weakest and strongest domain and the gap", () => {
+    const s = domainStandings({ domain_physical: 40, domain_mind: 55, domain_soul: 20, domain_execution: 35, domain_builder: 25 });
+    expect([s.lowest.name, s.highest.name, s.gap]).toEqual(["Soul", "Mind", 35]);
+  });
+  it("treats missing values as the starting 10", () => {
+    expect(domainStandings({}).all.every((d) => d.value === 10)).toBe(true);
+  });
+  it("gives a stable directive per day, from the right domain", () => {
+    const d = new Date("2026-10-26T10:00:00Z");
+    expect(directiveOfTheDay("Soul", d)).toBe(directiveOfTheDay("Soul", new Date("2026-10-26T20:00:00Z")));
+    expect(SYSTEM_DIRECTIVES.Soul).toContain(directiveOfTheDay("Soul", d));
+  });
+  it("builds an Arise payload without emoji", () => {
+    const p = directivePayload(SYSTEM_DIRECTIVES.Soul[0], "Soul", "2026-10-27");
+    expect(p.title.startsWith("[DIRECTIVE] ")).toBe(true);
+    expect(p.title).not.toMatch(/🧘/);
+    expect(p.deadline).toBe("2026-10-27");
+  });
+});

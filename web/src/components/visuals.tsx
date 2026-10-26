@@ -1,8 +1,6 @@
-import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { arcPoint, buildHeatGrid, scoreLabel } from "../lib/visuals";
 import type { ActivityDay } from "../lib/gameTypes";
-import { prefersReducedMotion } from "../lib/feedback";
 import "./visuals.css";
 
 /* ── Conquest heatmap ───────────────────────────────────────────────────────── */
@@ -64,72 +62,5 @@ export function StatTile({ icon, label, value, foot, bar }: { icon?: ReactNode; 
       {bar !== undefined && <div className="st-bar"><i style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} /></div>}
       {foot && <footer>{foot}</footer>}
     </article>
-  );
-}
-
-/* ── Quick actions row ──────────────────────────────────────────────────────── */
-export function QuickActions({ items }: { items: Array<{ icon: ReactNode; label: string; onClick: () => void; primary?: boolean; dot?: boolean }> }) {
-  return (
-    <nav className="qa" aria-label="Quick actions">
-      {items.map((it) => (
-        <button key={it.label} className={`qa-btn${it.primary ? " primary" : ""}`} onClick={it.onClick}>
-          <span>{it.icon}{it.dot && <i className="qa-dot" />}</span>
-          <em>{it.label}</em>
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-/* ── Power orb: dotted particle ring around a press target ──────────────────── */
-export function PowerOrb({ progress, title, caption, sub, onPress, size = 232 }: {
-  progress: number; title: ReactNode; caption: string; sub?: string; onPress: () => void; size?: number;
-}) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = size * dpr; canvas.height = size * dpr;
-    ctx.scale(dpr, dpr);
-    const N = 520, cx = size / 2, cy = size / 2, base = size * 0.36;
-    const dots = Array.from({ length: N }, (_, i) => ({ a: (i / N) * Math.PI * 2, j: Math.random(), k: Math.random() }));
-    const still = prefersReducedMotion();
-    let raf = 0, t = 0;
-    const draw = () => {
-      ctx.clearRect(0, 0, size, size);
-      for (const d of dots) {
-        const wave = Math.sin(d.a * 3 + t) * 0.06 + Math.sin(d.a * 5 - t * 1.3) * 0.04 + Math.cos(d.a * 2 + t * 0.7) * 0.05;
-        const spread = (d.j - 0.5) * size * 0.1 * (0.6 + Math.sin(t + d.a * 2) * 0.4);
-        const r = base * (1 + wave) + spread;
-        const x = cx + Math.cos(d.a) * r, y = cy + Math.sin(d.a) * r;
-        const alpha = 0.25 + d.k * 0.6;
-        ctx.fillStyle = d.k > 0.82 ? `rgba(235,228,255,${alpha})` : `rgba(168,148,255,${alpha})`;
-        ctx.beginPath(); ctx.arc(x, y, 0.7 + d.k * 1.1, 0, Math.PI * 2); ctx.fill();
-      }
-      if (!still && document.visibilityState === "visible") { t += 0.012; raf = requestAnimationFrame(draw); }
-      else if (!still) raf = window.setTimeout(() => { raf = requestAnimationFrame(draw); }, 400) as unknown as number;
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); clearTimeout(raf); };
-  }, [size]);
-
-  const p = Math.max(0, Math.min(1, progress));
-  const R = size * 0.235, C = 2 * Math.PI * R;
-  return (
-    <div className="po" style={{ width: size, height: size }}>
-      <canvas ref={ref} style={{ width: size, height: size }} aria-hidden="true" />
-      <svg className="po-ring" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={R} className="po-track" />
-        <circle cx={size / 2} cy={size / 2} r={R} className="po-prog" strokeDasharray={`${C * p} ${C}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      </svg>
-      <button className="po-btn" onClick={onPress} aria-label={`${caption}. ${sub ?? ""}`}>
-        <strong>{title}</strong>
-        <span>{caption}</span>
-        {sub && <small>{sub}</small>}
-      </button>
-    </div>
   );
 }

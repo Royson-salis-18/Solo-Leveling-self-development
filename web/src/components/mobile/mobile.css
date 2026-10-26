@@ -1,46 +1,51 @@
-/* Mobile shell — dark violet glass, soft glow, floating tab pill. Scoped to .m-* and .m-shell. */
+/* Mobile shell — calm, near-black, one accent. Same visual language as the web app:
+   hairline glass panels, small tracked caps labels, accent used sparingly. Scoped to .m-* / .m-shell. */
 .m-shell {
-  --m-bg: #0b0a14; --m-card: rgba(255,255,255,.045); --m-line: rgba(255,255,255,.09);
-  --m-violet: #7c5cff; --m-violet-2: #a894ff; --m-text: #f4f2ff; --m-dim: rgba(244,242,255,.55);
+  --m-bg: #0a0a0f; --m-card: rgba(255,255,255,.035); --m-line: rgba(255,255,255,.08);
+  --m-accent: #a8a8ff; --m-violet: #a8a8ff; --m-text: #ececf4; --m-dim: rgba(236,236,244,.55);
   position: fixed; inset: 0; display: flex; flex-direction: column; color: var(--m-text);
-  font-family: 'Outfit', 'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent;
-  background:
-    radial-gradient(120% 55% at 0% 0%, rgba(111,60,255,.42), transparent 58%),
-    radial-gradient(90% 45% at 100% 100%, rgba(111,60,255,.22), transparent 62%),
-    var(--m-bg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent;
+  background: radial-gradient(90% 38% at 50% -8%, rgba(168,168,255,.07), transparent 70%), var(--m-bg);
 }
-.m-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 16px 8px; flex-shrink: 0; }
+.m-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(8px + env(safe-area-inset-top)) 12px 6px; flex-shrink: 0; }
 .m-icon-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--m-text); background: transparent; border: 0; cursor: pointer; }
 .m-icon-btn:active { background: var(--m-card); }
-.m-dot { position: absolute; top: 10px; right: 11px; width: 9px; height: 9px; border-radius: 50%; background: var(--m-violet-2); box-shadow: 0 0 0 2px var(--m-bg); }
-.m-chip { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; color: var(--m-text); font: inherit; font-size: .9rem; font-weight: 500;
-  background: var(--m-card); border: 1px solid var(--m-line); backdrop-filter: blur(16px); cursor: pointer; }
-.m-chip em { font-style: normal; font-size: .58rem; letter-spacing: 1.5px; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--m-line); color: var(--m-dim); }
+.m-dot { position: absolute; top: 11px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); }
 
-.m-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
-.m-content > * { animation: mIn .35s both; }
-@keyframes mIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.m-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(84px + env(safe-area-inset-bottom)); overscroll-behavior-y: contain; }
+.m-content > * { animation: mIn .25s both; }
+@keyframes mIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/* floating tab pill */
-.m-tabs { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 60; display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 999px;
-  background: rgba(22,20,36,.78); border: 1px solid var(--m-line); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); box-shadow: 0 18px 40px rgba(0,0,0,.55); }
-.m-tab { position: relative; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--m-dim); transition: background .2s, color .2s, transform .2s; }
-.m-tab:active { transform: scale(.92); }
-.m-tab.is-active { color: #fff; background: rgba(124,92,255,.3); box-shadow: inset 0 0 0 1px rgba(168,148,255,.45); }
-.m-tab.is-primary { width: 58px; height: 58px; color: #fff; border: 1px solid rgba(168,148,255,.55); background: radial-gradient(circle at 50% 30%, rgba(124,92,255,.35), rgba(124,92,255,.08)); }
-.m-tab.is-primary.is-active { background: var(--m-violet); border-color: transparent; }
+/* streak chip (top bar) */
+.m-streak { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px 0 11px; border-radius: 999px; color: var(--m-text); font: inherit; font-size: .8rem; cursor: pointer; background: var(--m-card); border: 1px solid var(--m-line); }
+.m-streak svg { color: var(--m-accent); } .m-streak b { font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; } .m-streak span { color: var(--m-dim); }
+.m-streak.cold svg { color: var(--m-dim); }
+.m-streak.risk { border-color: rgba(251,191,36,.45); } .m-streak.risk svg, .m-streak.risk span { color: #fbbf24; }
+
+/* docked tab bar */
+.m-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  background: rgba(10,10,15,.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--m-line); }
+.m-tab { position: relative; display: grid; justify-items: center; gap: 3px; padding: 6px 0 4px; min-height: 48px; color: var(--m-dim); background: transparent; border: 0; font: inherit; cursor: pointer; text-decoration: none; }
+.m-tab span { font-size: .62rem; letter-spacing: .02em; }
+.m-tab.is-active { color: var(--m-accent); }
+.m-tab.is-primary { justify-self: center; width: 46px; height: 46px; padding: 0; margin-top: -2px; border-radius: 50%; color: #0a0a0f; background: var(--m-accent); display: grid; place-items: center; }
+.m-tab:active { opacity: .7; }
+.m-badge { position: absolute; top: 5px; right: calc(50% - 16px); width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); }
 
 /* menu sheet */
-.m-sheet-bg { position: fixed; inset: 0; z-index: 80; background: rgba(5,4,12,.7); backdrop-filter: blur(6px); display: flex; align-items: flex-end; animation: mFade .2s both; }
-.m-sheet { width: 100%; max-height: 82vh; overflow-y: auto; border-radius: 28px 28px 0 0; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); background: #12101f; border-top: 1px solid var(--m-line); animation: mUp .3s cubic-bezier(.2,.9,.3,1) both; }
+.m-sheet-bg { position: fixed; inset: 0; z-index: 80; background: rgba(5,5,10,.7); display: flex; align-items: flex-end; animation: mFade .2s both; }
+.m-sheet { width: 100%; max-height: 82vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); background: #101016; border-top: 1px solid var(--m-line); animation: mUp .28s cubic-bezier(.2,.9,.3,1) both; }
 .m-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px; }
-.m-sheet-name { font-size: 1.25rem; font-weight: 500; } .m-sheet-sub { font-size: .8rem; color: var(--m-dim); margin-top: 2px; }
-.m-sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.m-sheet-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 6px; border-radius: 20px; font-size: .78rem; color: var(--m-dim); background: var(--m-card); border: 1px solid var(--m-line); text-decoration: none; text-align: center; }
-.m-sheet-item.is-active { color: #fff; border-color: rgba(168,148,255,.5); background: rgba(124,92,255,.16); }
+.m-sheet-name { font-size: 1.15rem; font-weight: 500; } .m-sheet-sub { font-size: .8rem; color: var(--m-dim); margin-top: 2px; }
+.m-sheet-mode { color: var(--m-accent); text-decoration: underline; text-underline-offset: 3px; }
+.m-sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.m-sheet-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 6px; border-radius: 16px; font: inherit; font-size: .76rem; color: var(--m-dim); background: var(--m-card); border: 1px solid var(--m-line); text-decoration: none; text-align: center; cursor: pointer; }
+.m-sheet-item.is-active { color: var(--m-accent); border-color: rgba(168,168,255,.35); }
 .m-sheet-out { margin: 16px auto 0; display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim); font: inherit; cursor: pointer; }
 @keyframes mFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes mUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes mUp { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* the Oracle opens from the menu on phones; the floating button is retired here */
+.oracle-trigger { display: none !important; }
 
 /* ── Other pages inside the mobile shell: calmer, single column, thumb-sized ── */
 .m-content .page, .m-content .content-inner { padding: 8px 16px 24px !important; }
@@ -53,8 +58,6 @@
 .m-content .modal, .m-content [role="dialog"] { max-width: 100vw; }
 .m-content .dd-panel, .m-content .panel, .m-content .glass-panel { padding: 18px !important; border-radius: 22px !important; }
 .m-content .dd-grid, .m-content .hf-grid, .m-content .lp-grid { grid-template-columns: 1fr !important; }
-.oracle-trigger { bottom: calc(96px + env(safe-area-inset-bottom)) !important; right: 16px !important; width: 44px !important; height: 44px !important; opacity: .92; z-index: 50 !important; }
-.oracle-trigger svg { width: 20px; height: 20px; }
 /* inline two/three-column grids from the desktop pages collapse to one column */
 .m-content [style*="grid-template-columns"]:not(.mh-days):not(.m-sheet-grid):not(.hm-grid):not(.hm-months) { grid-template-columns: 1fr !important; }
 .m-content [style*="min-width"] { min-width: 0 !important; }
@@ -158,19 +161,4 @@
 .m-content .collection-grid-v2 { padding: 14px !important; border-radius: 26px !important; margin: 0 -4px; }
 .m-content .collection-grid-v2 .monarch-hero-section { margin-left: 0; margin-right: 0; }
 
-.m-badge { position: absolute; top: 9px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #fb923c; box-shadow: 0 0 0 2px rgba(22,20,36,1), 0 0 10px rgba(251,146,60,.8); animation: mBadge 1.6s ease-in-out infinite; }
-@keyframes mBadge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.25); } }
-.m-content { overscroll-behavior-y: contain; scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { .m-content { scroll-behavior: auto; } .m-badge { animation: none; } }
-
-/* streak chip (top bar centre) */
-.m-streak { display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px 0 12px; border-radius: 999px; color: #fff; font: inherit; cursor: pointer; background: var(--m-card); border: 1px solid var(--m-line); backdrop-filter: blur(16px); }
-.m-streak svg { color: #fb923c; filter: drop-shadow(0 0 6px rgba(251,146,60,.7)); } .m-streak b { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; } .m-streak span { font-size: .75rem; color: var(--m-dim); }
-.m-streak.cold svg { color: var(--m-dim); filter: none; }
-.m-streak.risk { border-color: rgba(251,146,60,.55); background: rgba(251,146,60,.1); } .m-streak.risk span { color: #fdba74; } .m-streak.risk svg { animation: mBadge 1.4s ease-in-out infinite; }
-.m-sheet-mode { color: #c4b5ff; text-decoration: underline; text-underline-offset: 3px; }
-button.m-sheet-item { font: inherit; cursor: pointer; }
-/* the Oracle opens from the menu on phones; the floating button is retired here */
-.oracle-trigger { display: none !important; }
-.m-tab.is-primary { width: 56px; height: 56px; margin: 0 2px; color: #fff; border: 0; background: linear-gradient(145deg, #9a7fff, #6a47f0); box-shadow: 0 8px 24px rgba(124,92,255,.6), inset 0 1px 1px rgba(255,255,255,.35); cursor: pointer; }
-.m-tab.is-primary:active { transform: scale(.92); }
+@media (prefers-reduced-motion: reduce) { .m-content > *, .m-sheet, .m-sheet-bg { animation: none !important; } }

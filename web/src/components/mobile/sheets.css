@@ -1,29 +1,32 @@
 /* Bottom sheets + shared mobile form controls */
-.sh-bg { position: fixed; inset: 0; z-index: 85; background: rgba(5,4,12,.72); backdrop-filter: blur(6px); display: flex; align-items: flex-end; animation: mFade .2s both; font-family: 'Outfit', 'Inter', sans-serif; color: #f4f2ff; }
-.sh { width: 100%; max-height: 92vh; overflow-y: auto; border-radius: 28px 28px 0 0; padding: 10px 18px calc(20px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, #1a1630, #0f0d1c); border-top: 1px solid rgba(255,255,255,.1); animation: mUp .32s cubic-bezier(.2,.9,.3,1) both; display: grid; gap: 10px; }
+.sh-bg { position: fixed; inset: 0; z-index: 85; background: rgba(5,4,12,.72); backdrop-filter: blur(6px); display: flex; align-items: flex-end; animation: mFade .2s both; font-family: 'Inter', -apple-system, sans-serif; color: #f4f2ff; }
+.sh { width: 100%; max-height: 92vh; overflow-y: auto; border-radius: 28px 28px 0 0; padding: 10px 18px calc(20px + env(safe-area-inset-bottom)); background: #101016; border-top: 1px solid rgba(255,255,255,.1); animation: mUp .32s cubic-bezier(.2,.9,.3,1) both; display: grid; gap: 10px; }
 .sh-grab { width: 40px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.18); margin: 0 auto 4px; }
 .sh-head { display: flex; align-items: center; justify-content: space-between; } .sh-head h2 { margin: 0; font-size: 1.3rem; font-weight: 500; }
 .sh-title { width: 100%; height: 54px; border-radius: 18px; padding: 0 18px; font: inherit; font-size: 1.05rem; color: #fff; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); outline: 0; }
-.sh-title:focus, .sh-date:focus { border-color: rgba(168,148,255,.7); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
-.sh-label { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: .78rem; color: rgba(244,242,255,.6); } .sh-label em { margin-left: auto; font-style: normal; color: #c4b5ff; }
+.sh-title:focus, .sh-date:focus { border-color: rgba(168,148,255,.7); }
+.sh-label { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: .78rem; color: rgba(244,242,255,.6); } .sh-label em { margin-left: auto; font-style: normal; color: var(--m-accent, #a8a8ff); }
 .sh-chips { display: flex; flex-wrap: wrap; gap: 8px; } .sh-chips.scroll { flex-wrap: nowrap; overflow-x: auto; margin: 0 -18px; padding: 0 18px; scrollbar-width: none; } .sh-chips.scroll::-webkit-scrollbar { display: none; }
 .sh-chips button { flex-shrink: 0; height: 40px; padding: 0 15px; border-radius: 999px; font: inherit; font-size: .85rem; color: rgba(244,242,255,.7); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); cursor: pointer; }
-.sh-chips button.on { color: #fff; background: rgba(124,92,255,.26); border-color: rgba(168,148,255,.65); }
+.sh-chips button.on { color: #fff; background: rgba(168,168,255,.16); border-color: rgba(168,148,255,.65); }
 .sh-date { height: 48px; border-radius: 14px; padding: 0 14px; font: inherit; color: #fff; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); outline: 0; color-scheme: dark; }
 .sh-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .sh-ranks button { height: 64px; border-radius: 18px; display: grid; place-content: center; gap: 2px; font: inherit; color: rgba(244,242,255,.7); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); cursor: pointer; }
 .sh-ranks b { font-size: 1.25rem; font-weight: 600; color: #fff; } .sh-ranks span { font-size: .68rem; opacity: .7; }
-.sh-ranks button.on { background: linear-gradient(160deg, rgba(143,115,255,.4), rgba(106,71,240,.3)); border-color: rgba(168,148,255,.8); box-shadow: 0 0 18px rgba(124,92,255,.35); }
+.sh-ranks button.on { background: linear-gradient(160deg, rgba(143,115,255,.4), rgba(106,71,240,.3)); border-color: rgba(168,148,255,.8); }
 .sh-ranks button:disabled { opacity: .32; cursor: not-allowed; }
 .sh-hint { margin: -2px 0 0; font-size: .74rem; color: #fbbf24; }
 .sh-seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); }
 .sh-seg button { height: 38px; border-radius: 999px; border: 0; background: transparent; font: inherit; font-size: .85rem; color: rgba(244,242,255,.6); cursor: pointer; }
-.sh-seg button.on { background: rgba(124,92,255,.35); color: #fff; } .sh-seg button:disabled { opacity: .35; }
-.sh-go { height: 56px; margin-top: 8px; border-radius: 999px; border: 0; font: inherit; font-size: 1.02rem; font-weight: 600; color: #fff; cursor: pointer; background: linear-gradient(135deg, #8f73ff, #6a47f0); box-shadow: 0 10px 30px rgba(124,92,255,.45); }
+.sh-seg button.on { background: rgba(168,168,255,.18); color: #fff; } .sh-seg button:disabled { opacity: .35; }
+.sh-go { height: 56px; margin-top: 8px; border-radius: 999px; border: 0; font: inherit; font-size: 1.02rem; font-weight: 600; color: #0a0a0f; cursor: pointer; background: #a8a8ff; }
 .sh-go:disabled { opacity: .4; box-shadow: none; }
 .sh-actions { display: grid; gap: 10px; }
 .sh-act { height: 52px; border-radius: 18px; display: flex; align-items: center; gap: 12px; padding: 0 18px; font: inherit; font-size: .95rem; color: #f4f2ff; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); cursor: pointer; text-align: left; }
-.sh-act.hot { background: linear-gradient(135deg, #8f73ff, #6a47f0); border: 0; font-weight: 600; box-shadow: 0 8px 26px rgba(124,92,255,.4); }
+.sh-act.hot { background: #a8a8ff; border: 0; font-weight: 600; }
 .sh-act.danger { color: #ff8b8b; border-color: rgba(239,68,68,.3); } .sh-act:disabled { opacity: .45; }
 .sh-meta { display: flex; flex-wrap: wrap; gap: 8px; } .sh-meta span { font-size: .75rem; padding: 5px 11px; border-radius: 99px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09); color: rgba(244,242,255,.75); }
 @media (prefers-reduced-motion: reduce) { .sh, .sh-bg { animation: none !important; } }
+.sh-act.hot { color: #0a0a0f; }
+.sh-go:disabled { opacity: .4; }
+.sh-ranks button.on b { color: #fff; }

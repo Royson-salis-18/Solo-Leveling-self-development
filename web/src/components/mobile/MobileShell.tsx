@@ -52,13 +52,14 @@ function TabBar() {
       {TABS.map(({ to, label, icon: Icon, ...rest }) => {
         const primary = "primary" in rest;
         if (to === "__add") {
-          return <button key={to} className="m-tab is-primary" onClick={() => openAdd()} aria-label={label}><Icon size={26} strokeWidth={2} /></button>;
+          return <button key={to} className="m-tab is-primary" onClick={() => openAdd()} aria-label={label}><Icon size={22} strokeWidth={2.2} /></button>;
         }
         return (
           <NavLink key={to} to={to} end={"end" in rest} aria-label={label}
             className={({ isActive }) => `m-tab${isActive ? " is-active" : ""}${primary ? " is-primary" : ""}`}
             onTouchStart={() => prefetchRoute(to)} onClick={() => haptic("tap")}>
-            <Icon size={21} strokeWidth={1.8} />
+            <Icon size={20} strokeWidth={1.7} />
+            <span>{label}</span>
             {to === "/" && homeAlert && <i className="m-badge" aria-label="Something is waiting" />}
           </NavLink>
         );
