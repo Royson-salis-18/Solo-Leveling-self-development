@@ -7,6 +7,10 @@ import { useEngagement } from "../lib/engagementContext";
 import { referralLink } from "../lib/referral";
 import { XP_PER_LEVEL } from "../lib/levelEngine";
 import { haptic } from "../lib/feedback";
+import { AURAS, isUnlocked } from "../lib/theme";
+import { useAuraState } from "../components/mobile/ThemeContext";
+import { Lock } from "lucide-react";
+import { useEffect } from "react";
 import "../components/mobile/mobile.css";
 import "./mobile-me.css";
 
@@ -30,6 +34,9 @@ export function MobileMe() {
   const toast = useToast();
   const { profile, signOut } = useAuth();
   const { data: e } = useEngagement();
+  const { aura, choose, unseen, markSeen } = useAuraState();
+  const rankNow = profile?.player_rank ?? "E";
+  useEffect(() => { if (unseen.length) { const t = window.setTimeout(markSeen, 4000); return () => window.clearTimeout(t); } }, [unseen.length, markSeen]);
   const standing = profile?.standing_xp ?? 0;
   const level = profile?.level ?? 1;
   const into = Math.max(standing, 0) % XP_PER_LEVEL;
@@ -77,6 +84,22 @@ export function MobileMe() {
         <Row icon={<Swords size={18} />} label="Arena" onClick={() => navigate("/arena")} />
         <Row icon={<Users size={18} />} label="Friends & guilds" onClick={() => navigate("/social")} />
         {e && <Row icon={<Share2 size={18} />} label="Invite a friend" value={e.referral.recruited ? `${e.referral.active}/${e.referral.recruited} active` : "Earn Surge Crystals"} onClick={invite} />}
+      </div>
+
+      <h2 className="me-h">Monarch aura</h2>
+      <div className="me-auras" role="radiogroup" aria-label="Monarch aura">
+        {AURAS.map((a) => {
+          const open = isUnlocked(a, rankNow);
+          return (
+            <button key={a.id} role="radio" aria-checked={aura === a.id} disabled={!open} className={`me-aura${aura === a.id ? " on" : ""}${open ? "" : " locked"}`}
+              style={{ ["--sw" as string]: a.swatch[0], ["--sb" as string]: a.swatch[1] }}
+              onClick={() => { if (open) { choose(a.id); haptic("tap"); } }}>
+              <i>{open ? null : <Lock size={13} />}</i>
+              <b>{a.name}{unseen.includes(a.id) && <em>New</em>}</b>
+              <span>{open ? a.lore : `Unlocks at ${a.rank}-Rank`}</span>
+            </button>
+          );
+        })}
       </div>
 
       <h2 className="me-h">Account</h2>

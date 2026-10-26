@@ -118,7 +118,6 @@ export function MobileGates() {
     <div className="mg">
       <header className="mg-head">
         <h1>Gates</h1>
-        <button className="mg-add" onClick={() => openAdd()} aria-label="New gate"><Plus size={18} /> New</button>
       </header>
 
       <div className="mg-seg" role="tablist" aria-label="Gate status">
@@ -150,6 +149,7 @@ export function MobileGates() {
       {groups.map((grp) => (
         <section key={grp.title || "all"} className="mg-group">
           {grp.title && <h2>{grp.title}<em>{grp.items.length}</em></h2>}
+          <div className="mg-list">
           {grp.items.map((g) => {
             const rank = RANK_OF[g.xp_tier ?? "Low"] ?? "E";
             const due = dueLabel(g, today);
@@ -178,6 +178,7 @@ export function MobileGates() {
               </div>
             );
           })}
+          </div>
         </section>
       ))}
 

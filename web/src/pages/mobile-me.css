@@ -20,3 +20,23 @@
 
 .me-tile b { color: var(--m-text); } .me-tile:first-child b { color: var(--m-gold); }
 .me-card, .me-tile, .me-group { background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); }
+
+.me-auras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.me-aura { display: grid; gap: 4px; align-content: start; text-align: left; padding: 12px; border-radius: 18px; font: inherit; color: var(--m-text); cursor: pointer; background: var(--sb); border: 1px solid var(--m-line); }
+.me-aura i { width: 100%; height: 34px; border-radius: 10px; margin-bottom: 6px; display: grid; place-items: center; color: rgba(255,255,255,.75);
+  background: radial-gradient(120% 140% at 0% 0%, var(--sw), transparent 70%), var(--sb); border: 1px solid rgba(255,255,255,.06); }
+.me-aura b { font-size: .82rem; font-weight: 500; display: flex; align-items: center; gap: 6px; } .me-aura b em { font-style: normal; font-size: .58rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 99px; color: var(--m-ink); background: var(--m-gold); }
+.me-aura span { font-size: .7rem; color: var(--m-dim); line-height: 1.35; }
+.me-aura.on { border-color: var(--sw); box-shadow: inset 0 0 0 1px var(--sw); }
+.me-aura.locked { cursor: not-allowed; } .me-aura.locked i { background: rgba(255,255,255,.04); } .me-aura.locked b { color: var(--m-dim); }
+
+/* premium-minimal pass */
+.me { gap: 24px; padding: 4px 20px 16px; }
+.me-card { background: none !important; border: 0; padding: 8px 0 0; }
+.me-tiles { gap: 0; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); }
+.me-tile { background: none !important; border: 0; border-radius: 0; padding: 16px 0; justify-items: center; }
+.me-tile + .me-tile { border-left: 1px solid var(--m-line); }
+.me-group { background: var(--m-surface) !important; border-radius: 16px; }
+.me-h { margin: 8px 4px -16px; font-size: .75rem; font-weight: 500; letter-spacing: .12em; }
+.me-ico { background: transparent; width: 24px; color: var(--m-dim); }
+.me-row.danger .me-ico { background: transparent; }

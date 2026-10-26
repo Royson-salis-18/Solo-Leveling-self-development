@@ -9,6 +9,8 @@ import { prefetchRoute } from "../../routes";
 import { useEngagement } from "../../lib/engagementContext";
 import { haptic } from "../../lib/feedback";
 import { MobileUiProvider, useMobileUi } from "./MobileUi";
+import { useAura } from "../../lib/theme";
+import { AuraCtx, useAuraState } from "./ThemeContext";
 import "./theme.css";
 import "./mobile.css";
 
@@ -48,6 +50,7 @@ function TabBar() {
   const { data: e } = useEngagement();
   const { openAdd } = useMobileUi();
   const homeAlert = !!e && (e.streak.at_risk || (!e.chest.claimed && e.chest.unlockable));
+  const { unseen } = useAuraState();
   return (
     <nav className="m-tabs" aria-label="Primary">
       {TABS.map(({ to, label, icon: Icon, ...rest }) => {
@@ -62,6 +65,7 @@ function TabBar() {
             <Icon size={20} strokeWidth={1.7} />
             <span>{label}</span>
             {to === "/" && homeAlert && <i className="m-badge" aria-label="Something is waiting" />}
+            {to === "/me" && unseen.length > 0 && <i className="m-badge" aria-label="New aura unlocked" />}
           </NavLink>
         );
       })}
@@ -102,20 +106,20 @@ export function MobileShell({ children }: { children: ReactNode }) {
 }
 
 function ShellInner({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    document.documentElement.dataset.mTheme = "ashborn";
-    return () => { delete document.documentElement.dataset.mTheme; };
-  }, []);
+  const { profile } = useAuth();
+  const auraState = useAura(profile?.player_rank ?? "E");
   const [menu, setMenu] = useState(false);
   const { pathname } = useLocation();
   const scroller = useRef<HTMLElement>(null);
   useEffect(() => { setMenu(false); scroller.current?.scrollTo({ top: 0 }); }, [pathname]);
   return (
+    <AuraCtx.Provider value={auraState}>
     <div className="m-shell">
       <TopBar onMenu={() => setMenu(true)} />
       <main className="m-content" id="main" ref={scroller}>{children}</main>
       <TabBar />
       <MenuSheet open={menu} onClose={() => setMenu(false)} />
     </div>
+    </AuraCtx.Provider>
   );
 }

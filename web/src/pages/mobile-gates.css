@@ -35,3 +35,16 @@
 .mg-sub .dom { display: inline-flex; align-items: center; gap: 5px; } .mg-sub .dom::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--dc, var(--m-dim)); }
 .mg-row { background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); }
 .mg-seg i.warn { background: var(--m-flame); }
+
+/* premium-minimal pass */
+.mg { gap: 24px; padding: 4px 20px 16px; }
+.mg-head h1 { font-size: 2.125rem; letter-spacing: -.8px; }
+.mg-group { gap: 8px; } .mg-group h2 { margin: 0 4px; font-size: .75rem; font-weight: 500; letter-spacing: .12em; }
+.mg-group h2 em { color: var(--m-dim); }
+.mg-list { border-radius: 16px; overflow: hidden; background: var(--m-surface); border: 1px solid var(--m-line); }
+.mg-list > .mg-row { border: 0; border-radius: 0; background: transparent; min-height: 64px; }
+.mg-list > .mg-row + .mg-row { border-top: 1px solid var(--m-line); }
+.mg-sub b { color: var(--m-dim) !important; font-weight: 600; }
+.mg-seg i.warn { background: transparent; color: var(--m-flame); font-weight: 700; }
+.mg-sub .due.late { color: var(--m-flame); } .mg-sub .due.soon { color: var(--m-text); }
+.mg-xp { font-size: .9375rem; } .mg-chev { display: none; }

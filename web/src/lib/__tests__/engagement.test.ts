@@ -220,3 +220,25 @@ describe("domains", () => {
     expect(p.deadline).toBe("2026-10-27");
   });
 });
+
+import { AURAS, isUnlocked, resolveAura, unseenAuras } from "../theme";
+
+describe("monarch auras", () => {
+  it("unlock by rank, Shadow Monarch always available", () => {
+    const open = (r: string) => AURAS.filter((a) => isUnlocked(a, r)).map((a) => a.id);
+    expect(open("E")).toEqual(["shadow"]);
+    expect(open("C")).toEqual(["shadow", "system", "frost"]);
+    expect(open("S")).toHaveLength(6);
+  });
+  it("falls back to the Shadow Monarch when the chosen aura is locked or unknown", () => {
+    expect(resolveAura("destruction", "C")).toBe("shadow");
+    expect(resolveAura("frost", "C")).toBe("frost");
+    expect(resolveAura("nonsense", "S")).toBe("shadow");
+    expect(resolveAura(null, "S")).toBe("shadow");
+  });
+  it("marks newly unlocked auras until they are seen", () => {
+    expect(unseenAuras("C", [])).toEqual(["system", "frost"]);
+    expect(unseenAuras("C", ["system"])).toEqual(["frost"]);
+    expect(unseenAuras("E", [])).toEqual([]);
+  });
+});

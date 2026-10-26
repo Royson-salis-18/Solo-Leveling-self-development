@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Brain, Check, ChevronRight, Crown, Dumbbell, Gem, Gift, Hammer, Plus, Skull, Sparkles, Swords, Trophy, Undo2, Zap } from "lucide-react";
-import type { ComponentType } from "react";
+import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Swords, Trophy, Undo2 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { useGameActions } from "../lib/gameActions";
 import { SystemAPI } from "../services/SystemAPI";
@@ -26,7 +25,6 @@ import "../components/mobile/mobile.css";
 import "./mobile-home.css";
 
 type View = "today" | "progress" | "rewards";
-const DOMAIN_ICON: Record<string, ComponentType<{ size?: number }>> = { Physical: Dumbbell, Mind: Brain, Soul: Sparkles, Execution: Zap, Builder: Hammer };
 const VIEWS: Array<[View, string]> = [["today", "Today"], ["progress", "Progress"], ["rewards", "Rewards"]];
 
 export function MobileHome() {
@@ -163,7 +161,7 @@ export function MobileHome() {
           {e?.streak.at_risk && <p className="mh-alert">Your {streak}-day streak ends in {Math.floor(eng.secondsLeft / 3600)}h {Math.floor((eng.secondsLeft % 3600) / 60)}m. One conquest keeps it.</p>}
 
           <div className="mh-sec"><h2>Up next</h2><button onClick={() => navigate("/dungeon-gate")}>All gates<ChevronRight size={15} /></button></div>
-          <div className="mh-list">
+          <div className="mh-list mh-group">
             {dash && tasks.length === 0 && (
               <div className="mh-empty"><p>No open gates.</p><button className="mh-btn" onClick={() => openAdd()}><Plus size={16} /> New gate</button></div>
             )}
@@ -179,31 +177,25 @@ export function MobileHome() {
             ))}
           </div>
 
-          <section className="mh-card mh-cal" aria-label="Core calibration">
-            <div className="mh-eyebrow">Core calibration</div>
-            <p className="mh-cal-line"><b>{stand.lowest.name}</b> is your weakest domain — {stand.lowest.value} against {stand.highest.value} in {stand.highest.name}.</p>
-            <div className="mh-directive">
-              <b>{stripEmoji(directive.title).replace(/^[^:]*:\s*/, "")}</b>
-              <small>{directive.description}</small>
-              <em>+{directive.points} XP · {directive.category}</em>
-            </div>
-            <div className="mh-cal-actions">
-              <button className="mh-btn" onClick={arise} disabled={arising}>{arising ? "Adding…" : "Arise"}</button>
-              <button className="mh-btn ghost" onClick={() => navigate("/overview")}>More directives</button>
+          <section className="mh-cal" aria-label="Core calibration">
+            <div className="mh-sec"><h2>Today’s directive</h2><button onClick={() => navigate("/overview")}>More<ChevronRight size={15} /></button></div>
+            <h3>{stripEmoji(directive.title).replace(/^[^:]*:\s*/, "")}</h3>
+            <p>{directive.description}</p>
+            <div className="mh-cal-foot">
+              <span>Lifts <b>{stand.lowest.name}</b> · {stand.lowest.value} → your weakest · <em>+{directive.points} XP</em></span>
+              <button className="mh-btn" onClick={arise} disabled={arising}>{arising ? "…" : "Arise"}</button>
             </div>
           </section>
 
           <div className="mh-sec"><h2>Domains</h2><span className="mh-dim mh-hint">Tap to add a gate</span></div>
-          <div className="mh-tiles" aria-label="Domains">
+          <div className="mh-group" aria-label="Domains">
             {stand.all.map((d) => {
-              const Icon = DOMAIN_ICON[d.name];
               const low = d.name === stand.lowest.name;
               return (
-                <button key={d.name} className={`mh-tile${low ? " low" : ""}`} style={{ ["--dc" as string]: d.color }} onClick={() => openAdd(undefined, { category: d.categories[0] })} aria-label={`Add a ${d.name} gate. ${d.name} is ${d.value}${low ? ", your weakest domain" : ""}`}>
-                  <header><Icon size={16} />{low && <em>Lagging</em>}</header>
+                <button key={d.name} className={`mh-dom${low ? " low" : ""}`} style={{ ["--dc" as string]: d.color }} onClick={() => openAdd(undefined, { category: d.categories[0] })} aria-label={`Add a ${d.name} gate. ${d.name} is ${d.value}${low ? ", your weakest domain" : ""}`}>
+                  <span className="mh-dom-name"><i />{d.name}</span>
+                  <span className="mh-dom-bar"><u style={{ width: `${Math.max(2, Math.min(100, d.value))}%` }} /></span>
                   <b>{d.value}</b>
-                  <span>{d.name}</span>
-                  <i><u style={{ width: `${Math.max(3, Math.min(100, d.value))}%` }} /></i>
                 </button>
               );
             })}

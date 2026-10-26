@@ -1,11 +1,21 @@
-/* Mobile palette — Ashborn, the app's canonical Solo Leveling look. Tokens live on <html data-m-theme> (set only while the mobile shell is mounted)
-   so portalled sheets inherit them and the web app is untouched.
-   Meaning, not decoration:  accent = identity & actions · gold = XP & rewards · flame = streak
-                              good/bad = success/penalty   · domain colours = the five life domains */
+/* Monarch auras — the mobile palettes, each one a faction from the lore, unlocked by rank.
+   Tokens live on <html data-m-theme> (set only while the mobile shell is mounted) so portalled sheets
+   inherit them and the web app is untouched.
+   Meaning stays the same in every aura: accent = identity & actions · gold = XP & rewards ·
+   flame = streak · good/bad = success/penalty · domain colours = the five life domains. */
 :root[data-m-theme] {
   --m-gold: #f5c451; --m-flame: #ff8a3d; --m-good: #4ade80; --m-bad: #f87171; --m-warn: #fbbf24;
   --m-text: #f2f0fa; --m-dim: rgba(242,240,250,.58); --m-line: rgba(255,255,255,.09);
 }
-:root[data-m-theme="ashborn"] {
-  --m-bg: #0b0912; --m-surface: #15121f; --m-surface-2: #1b1729; --m-accent: #a78bfa; --m-ink: #170f2b; --m-glow: rgba(124,58,237,.30);
-}
+/* Shadow Monarch — the default */
+:root[data-m-theme="shadow"] { --m-bg: #0b0912; --m-surface: #15121f; --m-surface-2: #1b1729; --m-accent: #a78bfa; --m-ink: #170f2b; --m-glow: rgba(124,58,237,.30); }
+/* The System — the blue status window */
+:root[data-m-theme="system"] { --m-bg: #070b12; --m-surface: #0f1622; --m-surface-2: #141d2c; --m-accent: #4fb3ff; --m-ink: #031426; --m-glow: rgba(56,140,255,.26); }
+/* Frost Monarch */
+:root[data-m-theme="frost"] { --m-bg: #080c10; --m-surface: #101820; --m-surface-2: #152029; --m-accent: #9be3ff; --m-ink: #062030; --m-glow: rgba(155,227,255,.18); }
+/* Monarch of White Flames */
+:root[data-m-theme="whiteflame"] { --m-bg: #0d0b08; --m-surface: #191510; --m-surface-2: #211b14; --m-accent: #ffd9a0; --m-ink: #2a1a05; --m-glow: rgba(255,214,150,.20); }
+/* Beast Monarch */
+:root[data-m-theme="beast"] { --m-bg: #0d0808; --m-surface: #1a1010; --m-surface-2: #221414; --m-accent: #ff5a5a; --m-ink: #2a0808; --m-glow: rgba(239,68,68,.22); }
+/* Monarch of Destruction — the dragon */
+:root[data-m-theme="destruction"] { --m-bg: #0e0806; --m-surface: #1c110c; --m-surface-2: #24160f; --m-accent: #ff6a2b; --m-ink: #2a0e02; --m-glow: rgba(255,90,30,.26); --m-flame: #ffb02e; }
