@@ -56,6 +56,7 @@ function AppContent() {
   const appRoutes = (
                   <Routes>
                     <Route path="/"            element={isMobile ? <Pages.MobileHome /> : <Pages.Dashboard />} />
+                    <Route path="/overview"    element={<Pages.Dashboard />} />
                     <Route path="/war-room"    element={<Pages.WarRoom />} />
                     <Route path="/dungeon-gate" element={<Pages.DungeonGate />} />
                     <Route path="/collection"  element={<Pages.Collection />} />

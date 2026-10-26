@@ -147,9 +147,9 @@ export function MobileHome() {
         ))}
       </div>
 
-      <div className="mh-sec"><h2>Your activity</h2><button onClick={() => navigate("/profile")} aria-label="Open profile"><ChevronRight size={18} /></button></div>
+      <div className="mh-sec"><h2>Your activity</h2><button onClick={() => navigate("/overview")} aria-label="Open full overview"><ChevronRight size={18} /></button></div>
       <div className="mh-rail">
-        <article className="mh-card mh-stat" onClick={() => navigate("/profile")}>
+        <article className="mh-card mh-stat" onClick={() => navigate("/overview")}>
           <header><span>Experience</span><ChevronRight size={14} /></header>
           <small>This week</small>
           <Spark values={weekPts.length ? weekPts : [0, 0, 0, 0, 0, 0, 0]} />

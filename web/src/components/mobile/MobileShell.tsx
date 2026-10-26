@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Award, Bell, ChevronDown, Home, LogOut, Menu, ScrollText, Target, User, X } from "lucide-react";
+import { Award, Bell, ChevronDown, Home, LayoutDashboard, LogOut, Menu, ScrollText, Target, User, X } from "lucide-react";
 import { useAuth } from "../../lib/authContext";
 import { useNotifications } from "../../lib/notificationContext";
 import { links } from "../Sidebar";
@@ -69,7 +69,8 @@ function MenuSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
           <button className="m-icon-btn" onClick={onClose} aria-label="Close menu"><X size={20} /></button>
         </div>
         <div className="m-sheet-grid">
-          {links.map((l) => (
+          <NavLink to="/overview" onClick={onClose} className={({ isActive }) => `m-sheet-item${isActive ? " is-active" : ""}`}><LayoutDashboard size={20} strokeWidth={1.7} /><span>Overview</span></NavLink>
+          {links.filter((l) => l.to !== "/").map((l) => (
             <NavLink key={l.to} to={l.to} end={l.to === "/"} onClick={onClose} className={({ isActive }) => `m-sheet-item${isActive ? " is-active" : ""}`}>
               <l.icon size={20} strokeWidth={1.7} /><span>{l.label}</span>
             </NavLink>
