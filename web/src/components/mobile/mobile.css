@@ -1,11 +1,10 @@
 /* Mobile shell — calm, near-black, one accent. Same visual language as the web app:
    hairline glass panels, small tracked caps labels, accent used sparingly. Scoped to .m-* / .m-shell. */
 .m-shell {
-  --m-bg: #0a0a0f; --m-card: rgba(255,255,255,.035); --m-line: rgba(255,255,255,.08);
-  --m-accent: #a8a8ff; --m-violet: #a8a8ff; --m-text: #ececf4; --m-dim: rgba(236,236,244,.55);
+  --m-card: var(--m-surface); --m-violet: var(--m-accent);
   position: fixed; inset: 0; display: flex; flex-direction: column; color: var(--m-text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent;
-  background: radial-gradient(90% 38% at 50% -8%, rgba(168,168,255,.07), transparent 70%), var(--m-bg);
+  background: radial-gradient(110% 42% at 50% -10%, var(--m-glow), transparent 72%), var(--m-bg);
 }
 .m-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(8px + env(safe-area-inset-top)) 12px 6px; flex-shrink: 0; }
 .m-icon-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--m-text); background: transparent; border: 0; cursor: pointer; }
@@ -24,23 +23,23 @@
 
 /* docked tab bar */
 .m-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-  background: rgba(10,10,15,.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--m-line); }
+  background: color-mix(in srgb, var(--m-bg) 94%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--m-line); }
 .m-tab { position: relative; display: grid; justify-items: center; gap: 3px; padding: 6px 0 4px; min-height: 48px; color: var(--m-dim); background: transparent; border: 0; font: inherit; cursor: pointer; text-decoration: none; }
 .m-tab span { font-size: .62rem; letter-spacing: .02em; }
 .m-tab.is-active { color: var(--m-accent); }
-.m-tab.is-primary { justify-self: center; width: 46px; height: 46px; padding: 0; margin-top: -2px; border-radius: 50%; color: #0a0a0f; background: var(--m-accent); display: grid; place-items: center; }
+.m-tab.is-primary { justify-self: center; width: 46px; height: 46px; padding: 0; margin-top: -2px; border-radius: 50%; color: var(--m-ink); background: var(--m-accent); display: grid; place-items: center; }
 .m-tab:active { opacity: .7; }
 .m-badge { position: absolute; top: 5px; right: calc(50% - 16px); width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); }
 
 /* menu sheet */
 .m-sheet-bg { position: fixed; inset: 0; z-index: 80; background: rgba(5,5,10,.7); display: flex; align-items: flex-end; animation: mFade .2s both; }
-.m-sheet { width: 100%; max-height: 82vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); background: #101016; border-top: 1px solid var(--m-line); animation: mUp .28s cubic-bezier(.2,.9,.3,1) both; }
+.m-sheet { width: 100%; max-height: 82vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); background: var(--m-surface-2); border-top: 1px solid var(--m-line); animation: mUp .28s cubic-bezier(.2,.9,.3,1) both; }
 .m-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px; }
 .m-sheet-name { font-size: 1.15rem; font-weight: 500; } .m-sheet-sub { font-size: .8rem; color: var(--m-dim); margin-top: 2px; }
 .m-sheet-mode { color: var(--m-accent); text-decoration: underline; text-underline-offset: 3px; }
 .m-sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .m-sheet-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 6px; border-radius: 16px; font: inherit; font-size: .76rem; color: var(--m-dim); background: var(--m-card); border: 1px solid var(--m-line); text-decoration: none; text-align: center; cursor: pointer; }
-.m-sheet-item.is-active { color: var(--m-accent); border-color: rgba(168,168,255,.35); }
+.m-sheet-item.is-active { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 35%, transparent); }
 .m-sheet-out { margin: 16px auto 0; display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim); font: inherit; cursor: pointer; }
 @keyframes mFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes mUp { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }

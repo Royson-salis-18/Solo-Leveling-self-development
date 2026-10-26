@@ -7,6 +7,8 @@ import { useEngagement } from "../lib/engagementContext";
 import { referralLink } from "../lib/referral";
 import { XP_PER_LEVEL } from "../lib/levelEngine";
 import { haptic } from "../lib/feedback";
+import { THEMES } from "../lib/theme";
+import { useThemeState } from "../components/mobile/ThemeContext";
 import "../components/mobile/mobile.css";
 import "./mobile-me.css";
 
@@ -30,6 +32,7 @@ export function MobileMe() {
   const toast = useToast();
   const { profile, signOut } = useAuth();
   const { data: e } = useEngagement();
+  const { theme, setTheme } = useThemeState();
   const standing = profile?.standing_xp ?? 0;
   const level = profile?.level ?? 1;
   const into = Math.max(standing, 0) % XP_PER_LEVEL;
@@ -77,6 +80,11 @@ export function MobileMe() {
         <Row icon={<Swords size={18} />} label="Arena" onClick={() => navigate("/arena")} />
         <Row icon={<Users size={18} />} label="Friends & guilds" onClick={() => navigate("/social")} />
         {e && <Row icon={<Share2 size={18} />} label="Invite a friend" value={e.referral.recruited ? `${e.referral.active}/${e.referral.recruited} active` : "Earn Surge Crystals"} onClick={invite} />}
+      </div>
+
+      <h2 className="me-h">Appearance</h2>
+      <div className="me-theme" role="radiogroup" aria-label="Colour theme">
+        {THEMES.map((t) => <button key={t.id} role="radio" aria-checked={theme === t.id} className={theme === t.id ? "on" : ""} onClick={() => { setTheme(t.id); haptic("tap"); }}><i style={{ ["--sw" as string]: t.swatch }} />{t.label}</button>)}
       </div>
 
       <h2 className="me-h">Account</h2>

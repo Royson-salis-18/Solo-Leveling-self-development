@@ -199,7 +199,7 @@ export function MobileHome() {
               const Icon = DOMAIN_ICON[d.name];
               const low = d.name === stand.lowest.name;
               return (
-                <button key={d.name} className={`mh-tile${low ? " low" : ""}`} onClick={() => openAdd(undefined, { category: d.categories[0] })} aria-label={`Add a ${d.name} gate. ${d.name} is ${d.value}${low ? ", your weakest domain" : ""}`}>
+                <button key={d.name} className={`mh-tile${low ? " low" : ""}`} style={{ ["--dc" as string]: d.color }} onClick={() => openAdd(undefined, { category: d.categories[0] })} aria-label={`Add a ${d.name} gate. ${d.name} is ${d.value}${low ? ", your weakest domain" : ""}`}>
                   <header><Icon size={16} />{low && <em>Lagging</em>}</header>
                   <b>{d.value}</b>
                   <span>{d.name}</span>

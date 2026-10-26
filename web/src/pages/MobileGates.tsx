@@ -166,7 +166,7 @@ export function MobileGates() {
                   <span className="mg-title">{g.title}</span>
                   <span className="mg-sub">
                     <b style={{ color: rankColor[rank] }}>{rank}</b>
-                    <span>{g.category ?? "General"}</span>
+                    <span className="dom" style={{ ["--dc" as string]: DOMAINS.find((d) => d.name === domainOfCategory(g.category))?.color }}>{g.category ?? "General"}</span>
                     {seg !== "done" && <span className={`due ${due.tone}`}><Clock size={11} /> {due.text}</span>}
                     {sub && <span>{sub.done}/{sub.total} stages</span>}
                     {g.is_recurring && <span>↻</span>}

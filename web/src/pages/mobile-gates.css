@@ -1,32 +1,37 @@
 .mg { padding: 4px 16px 8px; display: grid; gap: 14px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text, #f4f2ff); }
 .mg-head { display: flex; align-items: center; justify-content: space-between; } .mg-head h1 { margin: 0; font-size: 2rem; font-weight: 400; letter-spacing: -.5px; }
-.mg-add { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 18px; border-radius: 999px; border: 0; font: inherit; font-weight: 600; font-size: .9rem; color: #0a0a0f; cursor: pointer; background: #a8a8ff; }
+.mg-add { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 18px; border-radius: 999px; border: 0; font: inherit; font-weight: 600; font-size: .9rem; color: var(--m-ink); cursor: pointer; background: var(--m-accent); }
 .mg-seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
 .mg-seg button { height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: .9rem; color: rgba(244,242,255,.6); cursor: pointer; transition: background .2s, color .2s; }
-.mg-seg button.on { background: rgba(168,168,255,.16); color: #fff; }
+.mg-seg button.on { background: color-mix(in srgb, var(--m-accent) 16%, transparent); color: #fff; }
 .mg-seg i { font-style: normal; font-size: .72rem; min-width: 20px; padding: 2px 6px; border-radius: 99px; background: rgba(255,255,255,.09); } .mg-seg i.warn { background: #fb923c; color: #1b0d00; font-weight: 700; }
 .mg-note { margin: -4px 0 0; font-size: .8rem; color: #fdba74; }
-.mg-group { display: grid; gap: 10px; } .mg-group h2 { margin: 6px 4px 0; font-size: .78rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: rgba(244,242,255,.5); display: flex; gap: 8px; } .mg-group h2 em { font-style: normal; color: var(--m-accent, #a8a8ff); }
-.mg-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 12px 10px 12px; border-radius: 22px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.09); }
-.mg-row.is-armed { border-color: rgba(168,148,255,.6); background: rgba(168,168,255,.08); } .mg-row.is-done { opacity: .75; }
+.mg-group { display: grid; gap: 10px; } .mg-group h2 { margin: 6px 4px 0; font-size: .78rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: rgba(244,242,255,.5); display: flex; gap: 8px; } .mg-group h2 em { font-style: normal; color: var(--m-accent); }
+.mg-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 12px 10px 12px; border-radius: 22px; background: var(--m-surface); border: 1px solid rgba(255,255,255,.09); }
+.mg-row.is-armed { border-color: rgba(168,148,255,.6); background: color-mix(in srgb, var(--m-accent) 8%, transparent); } .mg-row.is-done { opacity: .75; }
 .mg-skel { background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.07), rgba(255,255,255,.03)); background-size: 200% 100%; animation: mShim 1.4s linear infinite; }
 .mg-tick { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; color: rgba(255,255,255,.5); background: transparent; border: 1.5px solid rgba(255,255,255,.22); cursor: pointer; transition: all .2s; }
-.mg-tick:active, .mg-row.is-armed .mg-tick { color: #fff; background: var(--m-accent, #a8a8ff); border-color: transparent; } .mg-tick.done { color: #04261a; background: #34d399; border-color: transparent; cursor: default; }
+.mg-tick:active, .mg-row.is-armed .mg-tick { color: #fff; background: var(--m-accent); border-color: transparent; } .mg-tick.done { color: #04261a; background: #34d399; border-color: transparent; cursor: default; }
 .mg-tick:disabled { opacity: .4; }
 .mg-main { flex: 1; min-width: 0; display: grid; gap: 4px; text-align: left; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 44px; align-content: center; }
 .mg-title { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mg-sub { display: flex; align-items: center; gap: 10px; font-size: .75rem; color: rgba(244,242,255,.55); flex-wrap: nowrap; overflow: hidden; white-space: nowrap; } .mg-sub b { font-weight: 700; }
-.mg-sub .due { display: inline-flex; align-items: center; gap: 3px; } .mg-sub .due.late { color: #fb923c; } .mg-sub .due.soon { color: var(--m-accent, #a8a8ff); }
+.mg-sub .due { display: inline-flex; align-items: center; gap: 3px; } .mg-sub .due.late { color: #fb923c; } .mg-sub .due.soon { color: var(--m-accent); }
 .mg-xp { display: grid; justify-items: end; font-size: 1rem; font-weight: 500; color: #e6e0ff; font-variant-numeric: tabular-nums; } .mg-xp small { font-size: .6rem; opacity: .55; letter-spacing: .1em; }
 .mg-chev { color: rgba(255,255,255,.3); flex-shrink: 0; margin-left: -4px; }
 .mg-empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 48px 24px; border-radius: 28px; border: 1px dashed rgba(255,255,255,.14); }
-.mg-empty-ico { width: 56px; height: 56px; border-radius: 20px; display: grid; place-items: center; color: var(--m-accent, #a8a8ff); background: rgba(168,168,255,.1); } .mg-empty h3 { margin: 6px 0 0; font-size: 1.15rem; font-weight: 500; } .mg-empty p { margin: 0 0 8px; font-size: .85rem; color: rgba(244,242,255,.55); }
+.mg-empty-ico { width: 56px; height: 56px; border-radius: 20px; display: grid; place-items: center; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 10%, transparent); } .mg-empty h3 { margin: 6px 0 0; font-size: 1.15rem; font-weight: 500; } .mg-empty p { margin: 0 0 8px; font-size: .85rem; color: rgba(244,242,255,.55); }
 .mg-desc { margin: 0; font-size: .88rem; line-height: 1.55; color: rgba(244,242,255,.7); }
 @media (prefers-reduced-motion: reduce) { .mg-skel { animation: none; } }
-.mg-tick:active, .mg-row.is-armed .mg-tick { color: #0a0a0f; }
+.mg-tick:active, .mg-row.is-armed .mg-tick { color: var(--m-ink); }
 .mg-add { border-radius: 12px; }
 .mg-head h1 { font-family: 'Outfit', sans-serif; font-weight: 500; }
 
 .mg-pills { display: flex; gap: 8px; overflow-x: auto; margin: -4px -16px 0; padding: 2px 16px; scrollbar-width: none; } .mg-pills::-webkit-scrollbar { display: none; }
 .mg-pills button { flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: .8rem; color: var(--m-dim); background: transparent; border: 1px solid var(--m-line); cursor: pointer; }
-.mg-pills button.on { background: var(--m-accent); color: #0a0a0f; border-color: transparent; font-weight: 600; }
+.mg-pills button.on { background: var(--m-accent); color: var(--m-ink); border-color: transparent; font-weight: 600; }
+
+.mg-xp { color: var(--m-gold); } .mg-xp small { color: var(--m-gold); opacity: .6; }
+.mg-sub .dom { display: inline-flex; align-items: center; gap: 5px; } .mg-sub .dom::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--dc, var(--m-dim)); }
+.mg-row { background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); }
+.mg-seg i.warn { background: var(--m-flame); }

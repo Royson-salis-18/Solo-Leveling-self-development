@@ -1,0 +1,20 @@
+/* Mobile colour themes. Tokens live on <html data-m-theme=…> (set only while the mobile shell is mounted)
+   so portalled sheets inherit them and the web app is untouched.
+   Meaning, not decoration:  accent = identity & actions · gold = XP & rewards · flame = streak
+                              good/bad = success/penalty   · domain colours = the five life domains */
+:root[data-m-theme] {
+  --m-gold: #f5c451; --m-flame: #ff8a3d; --m-good: #4ade80; --m-bad: #f87171; --m-warn: #fbbf24;
+  --m-text: #f2f0fa; --m-dim: rgba(242,240,250,.58); --m-line: rgba(255,255,255,.09);
+}
+:root[data-m-theme="ashborn"] {
+  --m-bg: #0b0912; --m-surface: #15121f; --m-surface-2: #1b1729; --m-accent: #a78bfa; --m-ink: #170f2b; --m-glow: rgba(124,58,237,.30);
+}
+:root[data-m-theme="ember"] {
+  --m-bg: #0e0907; --m-surface: #1a1310; --m-surface-2: #221813; --m-accent: #ff7a2f; --m-ink: #1c0d03; --m-glow: rgba(255,106,43,.24); --m-flame: #ffb02e;
+}
+:root[data-m-theme="crimson"] {
+  --m-bg: #0c0709; --m-surface: #171013; --m-surface-2: #201519; --m-accent: #ff5a7a; --m-ink: #20090f; --m-glow: rgba(244,63,94,.24);
+}
+:root[data-m-theme="mint"] {
+  --m-bg: #070f0e; --m-surface: #0f1b19; --m-surface-2: #142421; --m-accent: #5eead4; --m-ink: #03201b; --m-glow: rgba(45,212,191,.2);
+}

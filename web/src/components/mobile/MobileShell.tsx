@@ -9,7 +9,10 @@ import { prefetchRoute } from "../../routes";
 import { useEngagement } from "../../lib/engagementContext";
 import { haptic } from "../../lib/feedback";
 import { MobileUiProvider, useMobileUi } from "./MobileUi";
+import "./theme.css";
 import "./mobile.css";
+import { useMobileTheme } from "../../lib/theme";
+import { ThemeCtx } from "./ThemeContext";
 
 /** Home · Gates · [+ new gate] · Army · Me — the gate list and creating gates are the core loop. */
 const TABS = [
@@ -101,16 +104,19 @@ export function MobileShell({ children }: { children: ReactNode }) {
 }
 
 function ShellInner({ children }: { children: ReactNode }) {
+  const themeState = useMobileTheme();
   const [menu, setMenu] = useState(false);
   const { pathname } = useLocation();
   const scroller = useRef<HTMLElement>(null);
   useEffect(() => { setMenu(false); scroller.current?.scrollTo({ top: 0 }); }, [pathname]);
   return (
+    <ThemeCtx.Provider value={themeState}>
     <div className="m-shell">
       <TopBar onMenu={() => setMenu(true)} />
       <main className="m-content" id="main" ref={scroller}>{children}</main>
       <TabBar />
       <MenuSheet open={menu} onClose={() => setMenu(false)} />
     </div>
+    </ThemeCtx.Provider>
   );
 }

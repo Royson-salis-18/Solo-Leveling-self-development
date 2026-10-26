@@ -1,11 +1,11 @@
 /* Shared UX layer: focus, feedback, empty/first-run, offline. Uses the app's own colour tokens. */
-:focus-visible { outline: 2px solid var(--accent-primary, #a8a8ff); outline-offset: 2px; border-radius: 8px; }
+:focus-visible { outline: 2px solid var(--m-accent, var(--accent-primary, #a8a8ff)); outline-offset: 2px; border-radius: 8px; }
 button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
-.skip-link { position: fixed; left: 12px; top: -48px; z-index: 10000; padding: 10px 16px; border-radius: 10px; background: var(--accent-primary, #a8a8ff); color: #000; font-weight: 700; transition: top .2s; }
+.skip-link { position: fixed; left: 12px; top: -48px; z-index: 10000; padding: 10px 16px; border-radius: 10px; background: var(--m-accent, var(--accent-primary, #a8a8ff)); color: #000; font-weight: 700; transition: top .2s; }
 .skip-link:focus { top: 12px; }
 
 .ux-xpfloat { position: fixed; left: 0; right: 0; bottom: 34%; z-index: 9500; pointer-events: none; display: grid; justify-items: center; gap: 6px; }
-.ux-xpfloat span { font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 700; color: #fff; text-shadow: 0 0 22px rgba(168,168,255,.9), 0 4px 20px rgba(0,0,0,.6); animation: uxRise 1.4s cubic-bezier(.2,.8,.2,1) forwards; }
+.ux-xpfloat span { font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 700; color: #fff; text-shadow: 0 0 22px color-mix(in srgb, var(--m-accent, #a8a8ff) 90%, transparent), 0 4px 20px rgba(0,0,0,.6); animation: uxRise 1.4s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes uxRise { 0% { opacity: 0; transform: translateY(18px) scale(.8); } 15% { opacity: 1; transform: translateY(0) scale(1.08); } 100% { opacity: 0; transform: translateY(-70px) scale(1); } }
 
 .ux-conn { position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 9800; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; font-size: .8rem; font-weight: 600; max-width: calc(100vw - 24px);
@@ -20,15 +20,15 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 .ux-first header button { background: transparent; border: 0; color: rgba(255,255,255,.5); font: inherit; font-size: .78rem; cursor: pointer; padding: 8px; min-height: 36px; }
 .ux-first header button:hover { color: #fff; }
 .ux-first-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
-.ux-first-bar i { display: block; height: 100%; border-radius: 99px; background: #a8a8ff; transition: width .6s ease; }
+.ux-first-bar i { display: block; height: 100%; border-radius: 99px; background: var(--m-accent, #a8a8ff); transition: width .6s ease; }
 .ux-first ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ux-first li { display: flex; gap: 12px; align-items: flex-start; font-size: .88rem; color: rgba(255,255,255,.5); }
 .ux-first li i { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid rgba(255,255,255,.25); color: #fff; margin-top: 1px; }
 .ux-first li strong { font-weight: 600; } .ux-first li small { display: block; margin-top: 2px; font-size: .76rem; color: rgba(255,255,255,.6); }
 .ux-first li.done { color: rgba(255,255,255,.4); } .ux-first li.done strong { text-decoration: line-through; text-decoration-color: rgba(255,255,255,.25); }
 .ux-first li.done i { background: #34d399; border-color: transparent; color: #04261a; }
-.ux-first li.next { color: #fff; } .ux-first li.next i { border-color: var(--accent-primary, #a8a8ff); }
+.ux-first li.next { color: #fff; } .ux-first li.next i { border-color: var(--m-accent, var(--accent-primary, #a8a8ff)); }
 
 .ux-retry { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-radius: 20px; margin-bottom: 24px; border: 1px dashed rgba(255,255,255,.18); background: rgba(255,255,255,.03); font-size: .85rem; color: rgba(255,255,255,.65); }
-.ux-retry button { flex-shrink: 0; padding: 9px 16px; min-height: 40px; border-radius: 999px; border: 1px solid rgba(168,168,255,.4); background: rgba(168,168,255,.1); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.ux-retry button { flex-shrink: 0; padding: 9px 16px; min-height: 40px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--m-accent, #a8a8ff) 40%, transparent); background: color-mix(in srgb, var(--m-accent, #a8a8ff) 10%, transparent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .ux-xpfloat span, .ux-conn, .ux-first-bar i { animation: none !important; transition: none !important; } }
