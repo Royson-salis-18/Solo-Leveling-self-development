@@ -20,7 +20,3 @@
 
 .me-tile b { color: var(--m-text); } .me-tile:first-child b { color: var(--m-gold); }
 .me-card, .me-tile, .me-group { background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); }
-.me-theme { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px; border-radius: 24px; border: 1px solid var(--m-line); background: var(--m-surface); }
-.me-theme button { display: grid; justify-items: center; gap: 8px; padding: 6px 0; background: transparent; border: 0; color: var(--m-dim); font: inherit; font-size: .72rem; cursor: pointer; }
-.me-theme i { width: 40px; height: 40px; border-radius: 50%; background: var(--sw); border: 2px solid transparent; outline: 2px solid transparent; outline-offset: 2px; transition: outline-color .2s; }
-.me-theme button.on { color: var(--m-text); } .me-theme button.on i { outline-color: var(--sw); }
