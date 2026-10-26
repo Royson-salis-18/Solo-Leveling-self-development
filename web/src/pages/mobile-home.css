@@ -82,3 +82,12 @@
 .mh-raid { display: grid; gap: 10px; } .mh-raid .mh-row { margin-bottom: 0; }
 .mh-next { width: 100%; display: grid; gap: 10px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .mh-skel, .mh-spin, .mh-bar > i { animation: none !important; transition: none !important; } }
+
+.mh-spoils { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: -4px; }
+.mh-spoil { display: grid; gap: 14px; padding: 16px; cursor: pointer; align-content: start; }
+.mh-spoil header { display: flex; justify-content: space-between; align-items: baseline; }
+.mh-spoil header span { display: inline-flex; align-items: center; gap: 6px; font-size: .92rem; }
+.mh-spoil header b { font-size: 1.5rem; font-weight: 400; } .mh-spoil header em { font-style: normal; font-size: .72rem; color: var(--m-dim); margin-left: 2px; }
+.mh-badges { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; align-items: center; }
+.mh-badge { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-style: normal; font-size: .6rem; font-weight: 700; letter-spacing: .3px; color: #fff;
+  background: color-mix(in srgb, var(--bc) 28%, rgba(255,255,255,.04)); border: 1px solid color-mix(in srgb, var(--bc) 70%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--bc) 35%, transparent); }

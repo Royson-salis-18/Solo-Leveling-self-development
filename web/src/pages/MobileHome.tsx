@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Crown, Gift, Plus, Sparkles, Trophy } from "lucide-react";
+import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Sparkles, Swords, Trophy } from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
 import { useAuth } from "../lib/authContext";
 import { useToast } from "../lib/toast";
 import { useGameActions } from "../lib/gameActions";
@@ -67,6 +69,7 @@ export function MobileHome() {
   const [tier, setTier] = useState<(typeof TIERS)[number]["id"]>("Mid");
   const [adding, setAdding] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
+  const [gear, setGear] = useState<Array<{ name: string; rarity: string; item_category: string }>>([]);
 
   const loadDash = useCallback(async () => {
     try { setDash(await SystemAPI.fetchDashboardData()); } catch { /* skeleton stays; engagement is independent */ }
@@ -77,6 +80,12 @@ export function MobileHome() {
     window.addEventListener(ENGAGEMENT_REFRESH_EVENT, on);
     return () => window.removeEventListener(ENGAGEMENT_REFRESH_EVENT, on);
   }, [loadDash]);
+
+  useEffect(() => {
+    if (!supabase || !profile?.user_id) return;
+    supabase.from("inventory").select("name,rarity,item_category").eq("user_id", profile.user_id)
+      .then(({ data }) => { if (data) setGear(data); });
+  }, [profile?.user_id]);
 
   const name = (profile?.name ?? "Hunter").split(" ")[0];
   const standing = dash?.standing_xp ?? profile?.standing_xp ?? 0;
@@ -112,6 +121,9 @@ export function MobileHome() {
   };
 
   const tasks = (dash?.activeTasks ?? []).filter((t: { is_pending?: boolean }) => !t.is_pending).slice(0, 4);
+  const army = (dash?.shadows ?? []) as Array<{ name: string; rarity: string; bonus_value?: number }>;
+  const owned = gear.filter((g) => ITEM_CATALOG.some((c) => c.name === g.name));
+  const badgeColor = (rarity: string) => RARITY_COLORS[rarity.toUpperCase()] ?? "#7c5cff";
   const action = e ? nextBestAction(e) : null;
   const cacheReady = !!e && !e.chest.claimed && e.chest.unlockable;
   const b = e?.boss;
@@ -205,6 +217,24 @@ export function MobileHome() {
           )}
         </section>
       )}
+
+      <div className="mh-sec"><h2>Spoils of war</h2><button onClick={() => navigate("/collection")} aria-label="Open collection"><ChevronRight size={18} /></button></div>
+      <div className="mh-spoils">
+        <button className="mh-card mh-spoil" onClick={() => navigate("/collection")}>
+          <header><span><Skull size={15} /> Army</span><b>{army.length}<em>/{SHADOW_CATALOG.length}</em></b></header>
+          <div className="mh-badges">
+            {army.slice(0, 5).map((a) => <i key={a.name} className="mh-badge" style={{ ["--bc" as string]: badgeColor(a.rarity) }} title={`${a.name} · ${a.rarity}`}>{a.name.slice(0, 3).toUpperCase()}</i>)}
+            {army.length === 0 && <small className="mh-dim">Win gates to extract shadows.</small>}
+          </div>
+        </button>
+        <button className="mh-card mh-spoil" onClick={() => navigate("/collection")}>
+          <header><span><Swords size={15} /> Arsenal</span><b>{owned.length}<em>/{ITEM_CATALOG.length}</em></b></header>
+          <div className="mh-badges">
+            {owned.slice(0, 5).map((g) => <i key={g.name} className="mh-badge" style={{ ["--bc" as string]: badgeColor(g.rarity) }} title={`${g.name} · ${g.rarity}`}>{g.item_category === "Weapon" ? <Swords size={15} /> : <Gem size={15} />}</i>)}
+            {owned.length === 0 && <small className="mh-dim">Claim the daily gift to start.</small>}
+          </div>
+        </button>
+      </div>
 
       <div className="mh-sec"><h2>Up next</h2><button onClick={() => navigate("/dungeon-gate")} aria-label="All gates"><ChevronRight size={18} /></button></div>
       <div className="mh-list">

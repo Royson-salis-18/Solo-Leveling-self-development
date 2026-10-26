@@ -209,9 +209,9 @@ export function CollectionPage() {
                         <div className="h-stat">
                           <span className="h-stat-lbl">RESONANCE</span>
                           <span className="h-stat-val" style={{ color: "var(--accent-primary)" }}>
-                            +{shadows.filter(s => s.collected).reduce((acc, s) => acc + (
+                            +{Math.min(25, shadows.filter(s => s.collected).reduce((acc, s) => acc + (
                               s.rarity === 'Mythic' ? 20 : s.rarity === 'Legendary' ? 10 : s.rarity === 'Epic' ? 5 : s.rarity === 'Rare' ? 3 : 1
-                            ), 0)}% PASSIVE XP
+                            ), 0))}% PASSIVE XP
                           </span>
                         </div>
                       </div>
