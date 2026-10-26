@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Gift, Snowflake, Sparkles, Trophy as TrophyIcon } from "lucide-react";
 import { useEngagement } from "../lib/engagementContext";
@@ -15,7 +16,7 @@ const RANK = { 1: "E", 2: "C", 3: "B" } as const;
 
 export function Reveal({ d, onClose }: { d: RevealData; onClose: () => void }) {
   const color = RARITY_COLOR[d.rarity as keyof typeof RARITY_COLOR] ?? "#a8a8ff";
-  return (
+  return createPortal(
     <div className="dd-reveal-bg" onClick={onClose} role="dialog" aria-modal="true" aria-label={d.title}>
       <div className="dd-reveal" style={{ ["--rc" as string]: color }} onClick={(e) => e.stopPropagation()}>
         <div className="dd-tag">[SYSTEM] {d.tag}</div>
@@ -30,7 +31,8 @@ export function Reveal({ d, onClose }: { d: RevealData; onClose: () => void }) {
         </div>
         <button className="dd-btn hot" onClick={onClose} autoFocus>Acquire</button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

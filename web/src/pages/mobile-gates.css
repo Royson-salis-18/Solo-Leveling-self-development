@@ -1,0 +1,25 @@
+.mg { padding: 4px 16px 8px; display: grid; gap: 14px; font-family: 'Outfit', 'Inter', sans-serif; color: var(--m-text, #f4f2ff); }
+.mg-head { display: flex; align-items: center; justify-content: space-between; } .mg-head h1 { margin: 0; font-size: 2rem; font-weight: 400; letter-spacing: -.5px; }
+.mg-add { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 18px; border-radius: 999px; border: 0; font: inherit; font-weight: 600; font-size: .9rem; color: #fff; cursor: pointer; background: linear-gradient(135deg, #8f73ff, #6a47f0); box-shadow: 0 8px 22px rgba(124,92,255,.4); }
+.mg-seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
+.mg-seg button { height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: .9rem; color: rgba(244,242,255,.6); cursor: pointer; transition: background .2s, color .2s; }
+.mg-seg button.on { background: rgba(124,92,255,.32); color: #fff; box-shadow: 0 0 18px rgba(124,92,255,.25); }
+.mg-seg i { font-style: normal; font-size: .72rem; min-width: 20px; padding: 2px 6px; border-radius: 99px; background: rgba(255,255,255,.09); } .mg-seg i.warn { background: #fb923c; color: #1b0d00; font-weight: 700; }
+.mg-note { margin: -4px 0 0; font-size: .8rem; color: #fdba74; }
+.mg-group { display: grid; gap: 10px; } .mg-group h2 { margin: 6px 4px 0; font-size: .78rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: rgba(244,242,255,.5); display: flex; gap: 8px; } .mg-group h2 em { font-style: normal; color: #c4b5ff; }
+.mg-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 12px 10px 12px; border-radius: 22px; background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.025)); border: 1px solid rgba(255,255,255,.09); }
+.mg-row.is-armed { border-color: rgba(168,148,255,.6); background: rgba(124,92,255,.14); } .mg-row.is-done { opacity: .75; }
+.mg-skel { background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.07), rgba(255,255,255,.03)); background-size: 200% 100%; animation: mShim 1.4s linear infinite; }
+.mg-tick { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; color: rgba(255,255,255,.5); background: transparent; border: 1.5px solid rgba(255,255,255,.22); cursor: pointer; transition: all .2s; }
+.mg-tick:active, .mg-row.is-armed .mg-tick { color: #fff; background: #7c5cff; border-color: transparent; box-shadow: 0 0 18px rgba(124,92,255,.6); } .mg-tick.done { color: #04261a; background: #34d399; border-color: transparent; cursor: default; }
+.mg-tick:disabled { opacity: .4; }
+.mg-main { flex: 1; min-width: 0; display: grid; gap: 4px; text-align: left; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 44px; align-content: center; }
+.mg-title { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-sub { display: flex; align-items: center; gap: 10px; font-size: .75rem; color: rgba(244,242,255,.55); flex-wrap: nowrap; overflow: hidden; white-space: nowrap; } .mg-sub b { font-weight: 700; }
+.mg-sub .due { display: inline-flex; align-items: center; gap: 3px; } .mg-sub .due.late { color: #fb923c; } .mg-sub .due.soon { color: #c4b5ff; }
+.mg-xp { display: grid; justify-items: end; font-size: 1rem; font-weight: 500; color: #e6e0ff; font-variant-numeric: tabular-nums; } .mg-xp small { font-size: .6rem; opacity: .55; letter-spacing: .1em; }
+.mg-chev { color: rgba(255,255,255,.3); flex-shrink: 0; margin-left: -4px; }
+.mg-empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 48px 24px; border-radius: 28px; border: 1px dashed rgba(255,255,255,.14); }
+.mg-empty-ico { width: 56px; height: 56px; border-radius: 20px; display: grid; place-items: center; color: #c4b5ff; background: rgba(124,92,255,.16); } .mg-empty h3 { margin: 6px 0 0; font-size: 1.15rem; font-weight: 500; } .mg-empty p { margin: 0 0 8px; font-size: .85rem; color: rgba(244,242,255,.55); }
+.mg-desc { margin: 0; font-size: .88rem; line-height: 1.55; color: rgba(244,242,255,.7); }
+@media (prefers-reduced-motion: reduce) { .mg-skel { animation: none; } }

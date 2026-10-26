@@ -146,3 +146,42 @@ describe("heatmap + gauge helpers", () => {
     expect(scoreLabel(90)).toBe("Elite consistency");
   });
 });
+
+import { addDays, clampTier, isoDay, minutesLeft, repeatPayload, tierStates } from "../gateRules";
+
+describe("gate creation rules (mirror of the server)", () => {
+  const noon = new Date(2026, 9, 26, 12, 0, 0);          // Mon 26 Oct 2026, 12:00 local
+  const today = isoDay(noon);
+  it("no deadline allows only E-rank", () => {
+    const s = tierStates(null, noon);
+    expect(s.map((t) => t.ok)).toEqual([true, false, false, false, false]);
+    expect(s[1].reason).toMatch(/deadline/);
+  });
+  it("today at noon fits up to S (11h59m left ≥ 8h)", () => {
+    expect(tierStates(today, noon).every((t) => t.ok)).toBe(true);
+  });
+  it("late in the day, the big ranks drop out with a reason", () => {
+    const late = new Date(2026, 9, 26, 21, 30, 0);       // 2h29m left
+    const s = tierStates(today, late);
+    expect(s.map((t) => t.ok)).toEqual([true, true, true, false, false]);
+    expect(s[3].reason).toMatch(/A-rank needs 4h/);
+  });
+  it("a past deadline allows nothing", () => {
+    expect(tierStates(isoDay(addDays(noon, -1)), noon).some((t) => t.ok)).toBe(false);
+  });
+  it("tomorrow always fits everything", () => {
+    expect(tierStates(isoDay(addDays(noon, 1)), new Date(2026, 9, 26, 23, 50)).every((t) => t.ok)).toBe(true);
+  });
+  it("clampTier steps down to the best allowed rank", () => {
+    expect(clampTier("Legendary", null, noon)).toBe("Low");
+    expect(clampTier("Legendary", today, new Date(2026, 9, 26, 21, 30))).toBe("High");
+    expect(clampTier("Mid", today, noon)).toBe("Mid");
+  });
+  it("minutesLeft is measured to 23:59", () => expect(minutesLeft(today, new Date(2026, 9, 26, 23, 0))).toBe(59));
+  it("repeat payloads", () => {
+    expect(repeatPayload("none", today)).toEqual({ is_recurring: false, recurrence_type: "none" });
+    expect(repeatPayload("daily", null)).toEqual({ is_recurring: false, recurrence_type: "none" });   // needs a deadline
+    expect(repeatPayload("daily", today)).toMatchObject({ is_recurring: true, recurrence_type: "daily" });
+    expect(repeatPayload("weekly", today)).toMatchObject({ recurrence_type: "weekly", recurrence_days: [1] });   // Monday
+  });
+});

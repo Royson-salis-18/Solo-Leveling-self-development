@@ -26,7 +26,7 @@
   background: rgba(22,20,36,.78); border: 1px solid var(--m-line); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); box-shadow: 0 18px 40px rgba(0,0,0,.55); }
 .m-tab { position: relative; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--m-dim); transition: background .2s, color .2s, transform .2s; }
 .m-tab:active { transform: scale(.92); }
-.m-tab.is-active { color: #fff; background: var(--m-violet); box-shadow: 0 0 22px rgba(124,92,255,.55); }
+.m-tab.is-active { color: #fff; background: rgba(124,92,255,.3); box-shadow: inset 0 0 0 1px rgba(168,148,255,.45); }
 .m-tab.is-primary { width: 58px; height: 58px; color: #fff; border: 1px solid rgba(168,148,255,.55); background: radial-gradient(circle at 50% 30%, rgba(124,92,255,.35), rgba(124,92,255,.08)); }
 .m-tab.is-primary.is-active { background: var(--m-violet); border-color: transparent; }
 
@@ -162,3 +162,15 @@
 @keyframes mBadge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.25); } }
 .m-content { overscroll-behavior-y: contain; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { .m-content { scroll-behavior: auto; } .m-badge { animation: none; } }
+
+/* streak chip (top bar centre) */
+.m-streak { display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px 0 12px; border-radius: 999px; color: #fff; font: inherit; cursor: pointer; background: var(--m-card); border: 1px solid var(--m-line); backdrop-filter: blur(16px); }
+.m-streak svg { color: #fb923c; filter: drop-shadow(0 0 6px rgba(251,146,60,.7)); } .m-streak b { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; } .m-streak span { font-size: .75rem; color: var(--m-dim); }
+.m-streak.cold svg { color: var(--m-dim); filter: none; }
+.m-streak.risk { border-color: rgba(251,146,60,.55); background: rgba(251,146,60,.1); } .m-streak.risk span { color: #fdba74; } .m-streak.risk svg { animation: mBadge 1.4s ease-in-out infinite; }
+.m-sheet-mode { color: #c4b5ff; text-decoration: underline; text-underline-offset: 3px; }
+button.m-sheet-item { font: inherit; cursor: pointer; }
+/* the Oracle opens from the menu on phones; the floating button is retired here */
+.oracle-trigger { display: none !important; }
+.m-tab.is-primary { width: 56px; height: 56px; margin: 0 2px; color: #fff; border: 0; background: linear-gradient(145deg, #9a7fff, #6a47f0); box-shadow: 0 8px 24px rgba(124,92,255,.6), inset 0 1px 1px rgba(255,255,255,.35); cursor: pointer; }
+.m-tab.is-primary:active { transform: scale(.92); }

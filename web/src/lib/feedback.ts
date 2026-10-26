@@ -28,7 +28,7 @@ export type FirstStep = { key: "gate" | "conquer" | "cache"; title: string; hint
 export function firstSteps(input: { openGates: number; trophiesUnlocked: number; chestClaimed: boolean; conquestsToday: number }): { steps: FirstStep[]; complete: boolean; doneCount: number } {
   const conquered = input.trophiesUnlocked > 0 || input.conquestsToday > 0;       // "First Gate" trophy / any conquest today
   const steps: FirstStep[] = [
-    { key: "gate", title: "Open your first gate", hint: "Type a task above and pick its rank.", done: input.openGates > 0 || conquered },
+    { key: "gate", title: "Open your first gate", hint: "Add a task and pick its rank.", done: input.openGates > 0 || conquered },
     { key: "conquer", title: "Conquer it", hint: "Tap the circle when it's done to earn XP.", done: conquered },
     { key: "cache", title: "Clear 2 daily quests", hint: "Then open your first quest cache.", done: input.chestClaimed },
   ];

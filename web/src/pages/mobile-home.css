@@ -100,3 +100,17 @@
 .mh-countdown { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, #6a47f0, #a894ff); transform-origin: left; animation: mhCount 2.6s linear forwards; }
 @keyframes mhCount { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .mh-countdown { animation-duration: 2.6s; } }
+
+/* ── home segments ── */
+.mh-views { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; border-radius: 999px; background: rgba(18,16,32,.82); backdrop-filter: blur(16px); border: 1px solid var(--m-line); }
+.mh-views button { position: relative; height: 40px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: .9rem; color: var(--m-dim); cursor: pointer; transition: background .2s, color .2s; }
+.mh-views button.on { background: rgba(124,92,255,.32); color: #fff; box-shadow: 0 0 18px rgba(124,92,255,.25); }
+.mh-views i { position: absolute; top: 9px; right: calc(50% - 38px); width: 8px; height: 8px; border-radius: 50%; background: #fb923c; box-shadow: 0 0 8px rgba(251,146,60,.8); }
+.mh-pane { display: grid; gap: 16px; animation: mIn .3s both; }
+.mh-momentum { display: grid; gap: 10px; padding: 16px; }
+.mh-pips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.mh-pips i { height: 8px; border-radius: 99px; background: rgba(255,255,255,.08); transition: background .3s, box-shadow .3s; }
+.mh-pips i.on { background: linear-gradient(90deg, #6a47f0, #c4b5ff); box-shadow: 0 0 10px rgba(124,92,255,.7); }
+.mh-empty { display: grid; justify-items: center; gap: 10px; padding: 26px 16px; border-radius: 24px; border: 1px dashed var(--m-line); } .mh-empty p { margin: 0; color: var(--m-dim); font-size: .9rem; } .mh-empty .mh-cta { width: auto; padding: 0 22px; }
+.mh-hero { padding-top: 6px; }
+.mh .po { margin: -2px auto -6px; }
