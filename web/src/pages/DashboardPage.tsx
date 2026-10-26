@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EngagementPanel } from "../components/EngagementPanel";
+import { ConquestRecord } from "../components/ConquestRecord";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -427,6 +428,7 @@ export function DashboardPage() {
 
       {/* ── ENGAGEMENT: streak, bounties, world boss, next trophy ── */}
       <EngagementPanel openGates={data.activeCount} conquestsToday={data.completedCount} />
+      <ConquestRecord score={data.playmaker_rating} streak={data.streak_count} />
 
       {/* ── MONARCH TRANSMISSION (QUOTE) ── */}
       {(() => {

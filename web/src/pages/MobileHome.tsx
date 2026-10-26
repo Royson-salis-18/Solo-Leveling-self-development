@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Sparkles, Swords, Trophy } from "lucide-react";
+import { ConquestRecord } from "../components/ConquestRecord";
+import { PowerOrb, QuickActions } from "../components/visuals";
 import { supabase } from "../lib/supabase";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
 import { useAuth } from "../lib/authContext";
@@ -176,6 +178,20 @@ export function MobileHome() {
         <h1 className="mh-title">{headline}</h1>
       </section>
 
+      <PowerOrb
+        progress={1 - toNext / XP_PER_LEVEL}
+        title={level}
+        caption="Level"
+        sub={`${toNext.toLocaleString()} XP to next`}
+        onPress={() => navigate("/dungeon-gate")}
+      />
+      <QuickActions items={[
+        { icon: <Plus size={22} />, label: "New gate", primary: true, onClick: () => { const el = document.querySelector<HTMLInputElement>(".mh-add input"); el?.scrollIntoView({ block: "center", behavior: "smooth" }); window.setTimeout(() => el?.focus(), 250); } },
+        { icon: <Gift size={20} />, label: "Quests", dot: !!e && !e.chest.claimed && e.chest.unlockable, onClick: () => document.querySelector('[aria-label="Daily quests"]')?.scrollIntoView({ behavior: "smooth", block: "start" }) },
+        { icon: <Crown size={20} />, label: "Raid", dot: !!e && e.boss.claimable.length > 0, onClick: () => document.querySelector('[aria-label="World boss"]')?.scrollIntoView({ behavior: "smooth", block: "start" }) },
+        { icon: <Skull size={20} />, label: "Army", onClick: () => navigate("/collection") },
+      ]} />
+
       <form className="mh-add" onSubmit={addGate}>
         <input value={title} onChange={(ev) => setTitle(ev.target.value)} placeholder="Open a new gate…" maxLength={120} aria-label="New gate title" enterKeyHint="done" />
         <button type="submit" disabled={!title.trim() || adding} aria-label="Add gate"><Plus size={18} /></button>
@@ -234,6 +250,8 @@ export function MobileHome() {
           </div>
         </section>
       )}
+
+      <ConquestRecord compact score={dash?.playmaker_rating ?? 0} streak={streak} />
 
       {action && (
         <section className={`mh-card mh-insight${action.kind === "streak" ? " warn" : ""}`}>

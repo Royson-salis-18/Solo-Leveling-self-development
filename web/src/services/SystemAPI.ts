@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabase";
 import { rpc } from "../lib/rpc";
 import { OracleService } from "./OracleService";
 import type {
-  BossLootResult, ChestResult, CompleteResult, DashboardData, Engagement, Trophy, DuelRow, Entitlements, FailResult, GatePayload, PendingInvites, ProfileSnapshot,
+  Activity, BossLootResult, ChestResult, CompleteResult, DashboardData, Engagement, Trophy, DuelRow, Entitlements, FailResult, GatePayload, PendingInvites, ProfileSnapshot,
 } from "../lib/gameTypes";
 
 export type { DashboardData, GatePayload } from "../lib/gameTypes";
@@ -31,6 +31,7 @@ export const SystemAPI = {
   getEngagement: () => rpc<Engagement>("get_engagement"),
   claimBountyChest: () => rpc<ChestResult>("claim_bounty_chest"),
   claimBossReward: (week?: string) => rpc<BossLootResult>("claim_boss_reward", week ? { p_week: week } : {}),
+  getActivity: (days = 140) => rpc<Activity>("get_activity", { p_days: days }),
   getAchievements: () => rpc<Trophy[]>("get_achievements"),
 
   /* ─── Dashboard ─── one round trip (was ~25 sequential ones) */

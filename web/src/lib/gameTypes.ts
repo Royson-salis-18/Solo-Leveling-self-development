@@ -255,3 +255,10 @@ export type BossLootResult = {
   progression?: Progression;
   profile: ProfileSnapshot;
 };
+
+/* ─── Activity record (…_activity.sql) ─── */
+export type ActivityDay = { date: string; points: number; conquests: number };
+export type Activity = {
+  days: ActivityDay[];
+  totals: { conquests?: number; active_days?: number; avg_xp_active_day?: number; best_streak?: number; since?: string };
+};

@@ -110,3 +110,39 @@ describe("firstSteps (starter checklist)", () => {
     expect(r.doneCount).toBe(3);
   });
 });
+
+import { arcPoint, buildHeatGrid, heatLevel, scoreLabel } from "../visuals";
+
+describe("heatmap + gauge helpers", () => {
+  it("maps conquests to 0–4 intensity", () => {
+    expect([0, 1, 2, 3, 4, 5, 9].map(heatLevel)).toEqual([0, 1, 2, 3, 3, 4, 4]);
+  });
+  it("lays days out in Monday-first week columns, padded to full weeks", () => {
+    // 2026-10-26 is a Monday; 10 days → 2 columns (7 + 3 + 4 padding)
+    const days = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(26 + i).padStart(2, "0")}`.replace(/-(3[2-9]|[4-9]\d)$/, (_m, d) => `-${d}`), points: 0, conquests: i % 3 }));
+    const fixed = days.slice(0, 6).concat([{ date: "2026-11-01", points: 0, conquests: 1 }, { date: "2026-11-02", points: 0, conquests: 0 }, { date: "2026-11-03", points: 0, conquests: 2 }, { date: "2026-11-04", points: 0, conquests: 0 }]);
+    const g = buildHeatGrid(fixed, 10);
+    expect(g.columns).toHaveLength(2);
+    expect(g.columns.every((c) => c.length === 7)).toBe(true);
+    expect(g.columns[0][0]?.date).toBe("2026-10-26");          // Monday row first
+    expect(g.columns[1].filter(Boolean)).toHaveLength(3);      // 10 days → 7 + 3
+  });
+  it("pads the first column when the window starts mid-week", () => {
+    const g = buildHeatGrid([{ date: "2026-10-28", points: 0, conquests: 0 }, { date: "2026-10-29", points: 0, conquests: 1 }], 4);
+    expect(g.columns[0].slice(0, 2)).toEqual([null, null]);     // Wed start → Mon, Tue padded
+    expect(g.columns[0][2]?.date).toBe("2026-10-28");
+  });
+  it("returns nothing for no data", () => expect(buildHeatGrid([], 10).columns).toEqual([]));
+  it("places the gauge knob on the arc ends and apex", () => {
+    const a = arcPoint(0, 100, 100, 50), b = arcPoint(1, 100, 100, 50), m = arcPoint(0.5, 100, 100, 50);
+    expect([Math.round(a.x), Math.round(a.y)]).toEqual([50, 100]);
+    expect([Math.round(b.x), Math.round(b.y)]).toEqual([150, 100]);
+    expect([Math.round(m.x), Math.round(m.y)]).toEqual([100, 50]);
+  });
+  it("describes scores in plain language", () => {
+    expect(scoreLabel(0)).toBe("No data yet");
+    expect(scoreLabel(30)).toBe("Getting started");
+    expect(scoreLabel(70)).toBe("Strong");
+    expect(scoreLabel(90)).toBe("Elite consistency");
+  });
+});

@@ -56,7 +56,7 @@
 .oracle-trigger { bottom: calc(96px + env(safe-area-inset-bottom)) !important; right: 16px !important; width: 44px !important; height: 44px !important; opacity: .92; z-index: 50 !important; }
 .oracle-trigger svg { width: 20px; height: 20px; }
 /* inline two/three-column grids from the desktop pages collapse to one column */
-.m-content [style*="grid-template-columns"]:not(.mh-days):not(.m-sheet-grid) { grid-template-columns: 1fr !important; }
+.m-content [style*="grid-template-columns"]:not(.mh-days):not(.m-sheet-grid):not(.hm-grid):not(.hm-months) { grid-template-columns: 1fr !important; }
 .m-content [style*="min-width"] { min-width: 0 !important; }
 .m-content { overflow-wrap: break-word; }
 @media (prefers-reduced-motion: reduce) { .m-content > *, .m-sheet, .m-sheet-bg { animation: none !important; } }
