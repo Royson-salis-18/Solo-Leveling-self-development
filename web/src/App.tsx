@@ -64,7 +64,7 @@ function AppContent() {
                     <Route path="/war-room"    element={<Pages.WarRoom />} />
                     <Route path="/dungeon-gate" element={isMobile ? <Pages.MobileGates /> : <Pages.DungeonGate />} />
                     <Route path="/me" element={isMobile ? <Pages.MobileMe /> : <Navigate to="/profile" replace />} />
-                    <Route path="/collection"  element={<Pages.Collection />} />
+                    <Route path="/collection"  element={isMobile ? <Pages.MobileArmy /> : <Pages.Collection />} />
                     <Route path="/rewards"     element={<Pages.Rewards />} />
                     <Route path="/arena"       element={<Pages.Arena />} />
                     <Route path="/social"      element={<Pages.Social />} />

@@ -171,3 +171,18 @@
 :root[data-m-theme] .oracle-interface { left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; height: 82vh !important; border-radius: 24px 24px 0 0 !important; z-index: 90 !important; padding-bottom: env(safe-area-inset-bottom); }
 .oracle-close { display: none; }
 :root[data-m-theme] .oracle-close { display: grid; place-items: center; width: 36px; height: 36px; margin-left: 8px; border-radius: 50%; border: 0; background: rgba(255,255,255,.06); color: #fff; cursor: pointer; }
+
+/* overflow pass: nothing may be wider than the screen */
+.m-content .lp-plan-row, .m-content .lp-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 8px 0 16px; gap: 16px; max-width: 100%; overflow: visible !important; }
+.m-content .lp-plan, .m-content .lp-card { padding: 20px; min-width: 0; max-width: 100%; }
+.m-content .lp-plan *, .m-content .lp-card * { min-width: 0; overflow-wrap: anywhere; }
+.m-content .cartenon-guide { height: auto !important; min-height: 100%; padding: 16px !important; }
+.m-content .cartenon-guide .temple-container { height: auto !important; padding: 0; }
+.m-content .cartenon-guide .temple-header { margin-bottom: 20px; }
+.m-content .cartenon-guide .ancient-script { font-size: 1.5rem !important; letter-spacing: .04em; }
+.m-content .cartenon-guide .main-title, .m-content .cartenon-guide .temple-header h1 { font-size: 1.6rem !important; letter-spacing: .08em !important; line-height: 1.2; }
+.m-content .cartenon-guide .temple-subtitle, .m-content .cartenon-guide .temple-header p { font-size: .7rem !important; letter-spacing: .12em !important; }
+.m-content .cartenon-guide * { max-width: 100%; box-sizing: border-box; }
+.m-content img, .m-content canvas, .m-content video, .m-content table { max-width: 100%; }
+.m-content pre, .m-content code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.m-content .recharts-wrapper { max-width: 100%; }

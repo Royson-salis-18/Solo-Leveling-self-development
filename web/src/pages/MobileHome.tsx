@@ -10,7 +10,7 @@ import { useEngagement } from "../lib/engagementContext";
 import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, percent, requestEngagementRefresh } from "../lib/engagement";
 import { Reveal } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
-import { WeekBars } from "../components/visuals";
+import { DomainRadar, WeekBars, XpArea } from "../components/visuals";
 import { FirstSteps } from "../components/UxLayer";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
 import { XP_PER_LEVEL, nextRankInfo } from "../lib/levelEngine";
@@ -109,6 +109,10 @@ export function MobileHome() {
   const nr = nextRankInfo(rank);
   const weeklyTarget = dash?.weekly_target ?? null;
   const weeklyXp = dash?.weekly_xp ?? 0;
+  const weekTotal = week.reduce((n, d) => n + Math.max(0, d.daily_points), 0);
+  const month = dash?.monthlyHistory ?? [];
+  const prevWeek = month.length >= 14 ? month.slice(-14, -7).reduce((n, d) => n + Math.max(0, d.daily_points), 0) : null;
+  const weekDelta = prevWeek === null ? null : weekTotal - prevWeek;
   const dateLine = new Date().toLocaleDateString("en", { weekday: "long", day: "numeric", month: "short" });
 
   const arise = async () => {
@@ -160,6 +164,14 @@ export function MobileHome() {
 
           {e?.streak.at_risk && <p className="mh-alert">Your {streak}-day streak ends in {Math.floor(eng.secondsLeft / 3600)}h {Math.floor((eng.secondsLeft % 3600) / 60)}m. One conquest keeps it.</p>}
 
+          <section className="mh-card mh-trend" aria-label="XP over the last 7 days">
+            <div className="mh-row">
+              <div><div className="mh-eyebrow">Last 7 days</div><div className="mh-big">{weekTotal.toLocaleString()}<small>XP</small></div></div>
+              {weekDelta !== null && <span className={`mh-delta${weekDelta >= 0 ? " up" : " down"}`}>{weekDelta >= 0 ? "▲" : "▼"} {Math.abs(weekDelta)} vs last week</span>}
+            </div>
+            {week.length > 1 ? <XpArea days={week} pace={weeklyTarget ? Math.round(weeklyTarget / 7) : undefined} /> : <div className="mh-chart-skel" />}
+          </section>
+
           <div className="mh-sec"><h2>Up next</h2><button onClick={() => navigate("/dungeon-gate")}>All gates<ChevronRight size={15} /></button></div>
           <div className="mh-list mh-group">
             {dash && tasks.length === 0 && (
@@ -189,6 +201,7 @@ export function MobileHome() {
 
           <div className="mh-sec"><h2>Domains</h2><span className="mh-dim mh-hint">Tap to add a gate</span></div>
           <div className="mh-group" aria-label="Domains">
+            <div className="mh-radar"><DomainRadar axes={stand.all.map((d) => ({ name: d.name, value: d.value, color: d.color, low: d.name === stand.lowest.name }))} /></div>
             {stand.all.map((d) => {
               const low = d.name === stand.lowest.name;
               return (
@@ -219,7 +232,7 @@ export function MobileHome() {
           </section>
 
           <section className="mh-card mh-week" aria-label="XP this week">
-            <div className="mh-row"><div><div className="mh-eyebrow">This week</div><div className="mh-big">{week.reduce((n, d) => n + Math.max(0, d.daily_points), 0).toLocaleString()}<small>XP</small></div></div>{e && <span className="mh-dim mh-hint">{e.streak.freezes}/{e.streak.freeze_cap} freezes</span>}</div>
+            <div className="mh-row"><div><div className="mh-eyebrow">This week</div><div className="mh-big">{weekTotal.toLocaleString()}<small>XP</small></div></div>{e && <span className="mh-dim mh-hint">{e.streak.freezes}/{e.streak.freeze_cap} freezes</span>}</div>
             <WeekBars days={week} />
           </section>
 

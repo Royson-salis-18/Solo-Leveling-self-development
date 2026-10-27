@@ -44,6 +44,7 @@ export const Pages = {
   MobileGates: lazyPage(() => import("./pages/MobileGates"), "MobileGates"),
   MobileMe: lazyPage(() => import("./pages/MobileMe"), "MobileMe"),
   MobileHome: lazyPage(() => import("./pages/MobileHome"), "MobileHome"),
+  MobileArmy: lazyPage(() => import("./pages/MobileArmy"), "MobileArmy"),
   Achievements: lazyPage(() => import("./pages/AchievementsPage"), "AchievementsPage"),
   Notifications: lazyPage(() => import("./pages/NotificationsPage"), "NotificationsPage"),
 } as const;

@@ -65,3 +65,30 @@
 .wb-track i { display: block; width: 100%; border-radius: 10px; background: rgba(255,255,255,.22); transition: height .6s ease; }
 .wb-col.best .wb-track i { background: var(--m-accent, #a8a8ff); } .wb-col.today span { color: #ececf4; font-weight: 600; }
 .wb-col span { font-size: .68rem; color: rgba(236,236,244,.5); }
+
+/* XP area chart */
+.xa { width: 100%; height: auto; display: block; overflow: visible; }
+.xa-grid { stroke: var(--m-line, rgba(255,255,255,.08)); stroke-dasharray: 2 4; }
+.xa-base { stroke: var(--m-line, rgba(255,255,255,.1)); }
+.xa-pace { stroke: var(--m-gold, #f5c451); stroke-opacity: .5; stroke-dasharray: 4 4; }
+.xa-pace-t { fill: var(--m-gold, #f5c451); fill-opacity: .75; font-size: 9px; letter-spacing: .04em; }
+.xa-line { fill: none; stroke: var(--m-accent, #a78bfa); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.xa-halo { fill: var(--m-accent, #a78bfa); fill-opacity: .22; }
+.xa-dot { fill: var(--m-text, #fff); stroke: var(--m-accent, #a78bfa); stroke-width: 2; }
+.xa-val { fill: var(--m-text, #fff); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.xa-day { fill: var(--m-dim, rgba(255,255,255,.5)); font-size: 10px; } .xa-day.today { fill: var(--m-text, #fff); font-weight: 500; }
+
+/* Domain radar */
+.dr { width: 100%; max-width: 260px; height: auto; display: block; margin: 0 auto; overflow: visible; }
+.dr-ring { fill: none; stroke: var(--m-line, rgba(255,255,255,.08)); }
+.dr-spoke { stroke: var(--m-line, rgba(255,255,255,.08)); }
+.dr-shape { fill: color-mix(in srgb, var(--m-accent, #a78bfa) 22%, transparent); stroke: var(--m-accent, #a78bfa); stroke-width: 1.5; stroke-linejoin: round; }
+.dr-pt { stroke: var(--m-bg, #0b0912); stroke-width: 1.5; }
+.dr-pt.low { stroke: var(--m-text, #fff); }
+.dr-label { fill: var(--m-dim, rgba(255,255,255,.55)); font-size: 10.5px; }
+.dr-label.low { fill: var(--m-accent, #a78bfa); font-weight: 600; }
+.dr-num { fill: var(--m-text, #fff); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hm-main { display: grid; gap: 4px; min-width: max-content; }
+.hm-months { display: grid; height: 12px; gap: var(--hm-gap); }
+.hm-months span { white-space: nowrap; overflow: visible; }
+.hm-days { padding-top: 16px; }

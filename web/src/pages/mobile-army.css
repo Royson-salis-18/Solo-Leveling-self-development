@@ -1,0 +1,78 @@
+/* Mobile collection: Army / Arsenal / Vault. Same rhythm as Home: 8-pt spacing, hairlines, colour only for grade. */
+.ma { padding: 4px 20px 24px; display: grid; gap: 24px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text); }
+.ma-head { display: grid; gap: 6px; padding-top: 12px; }
+.ma-head h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
+.ma-head p { margin: 0; font-size: .875rem; line-height: 1.5; color: var(--m-dim); }
+
+.ma-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); }
+.ma-seg button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; border-radius: 10px; border: 0; background: transparent; color: var(--m-dim); font: inherit; font-size: .875rem; cursor: pointer; }
+.ma-seg button em { font-style: normal; font-size: .6875rem; min-width: 18px; padding: 1px 6px; border-radius: 99px; background: rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+.ma-seg button.on { background: var(--m-surface-2); color: var(--m-text); box-shadow: inset 0 0 0 1px var(--m-line); }
+.ma-seg button.on svg { color: var(--m-accent); }
+.ma-seg button.on em { background: color-mix(in srgb, var(--m-accent) 22%, transparent); color: var(--m-text); }
+
+.ma-sum { display: flex; gap: 20px; align-items: center; padding: 20px; border-radius: 16px; background: var(--m-surface); border: 1px solid var(--m-line); }
+.ma-ring { width: 84px; height: 84px; flex-shrink: 0; }
+.ma-ring-track { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 6; }
+.ma-ring-fill { fill: none; stroke: var(--m-accent); stroke-width: 6; stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+.ma-ring-num { fill: var(--m-text); font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 500; }
+.ma-ring-sub { fill: var(--m-dim); font-size: 9px; letter-spacing: .06em; }
+.ma-sum-body { display: grid; gap: 10px; min-width: 0; flex: 1; }
+.ma-sum-line { display: flex; align-items: baseline; gap: 6px; } .ma-sum-line b { font-family: 'Outfit', sans-serif; font-size: 1.75rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; } .ma-sum-line span { font-size: .8125rem; color: var(--m-dim); }
+.ma-sum-body small { font-size: .75rem; color: var(--m-dim); line-height: 1.4; } .ma-sum-body small b { font-weight: 500; }
+.ma-res { display: grid; gap: 6px; }
+.ma-res-top { display: flex; justify-content: space-between; font-size: .75rem; color: var(--m-dim); } .ma-res-top em { font-style: normal; color: var(--m-gold); font-variant-numeric: tabular-nums; }
+.ma-bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.07); overflow: hidden; } .ma-bar i { display: block; height: 100%; border-radius: 4px; background: var(--m-gold); }
+.ma-bar.low i { background: var(--m-flame); }
+.ma-gift { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; border-radius: 12px; border: 0; font: inherit; font-size: .875rem; font-weight: 500; cursor: pointer; color: var(--m-ink); background: var(--m-accent); }
+.ma-gift:disabled { opacity: .45; cursor: default; }
+
+.ma-filter { display: flex; gap: 8px; margin-bottom: -8px; }
+.ma-filter button { height: 32px; padding: 0 14px; border-radius: 99px; font: inherit; font-size: .8125rem; cursor: pointer; color: var(--m-dim); background: transparent; border: 1px solid var(--m-line); }
+.ma-filter button.on { color: var(--m-text); background: var(--m-surface-2); border-color: color-mix(in srgb, var(--m-accent) 40%, transparent); }
+
+.ma-tier { display: grid; gap: 10px; }
+.ma-tier-head { display: flex; align-items: baseline; justify-content: space-between; }
+.ma-tier-head h2 { margin: 0; font-size: .75rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--tc); }
+.ma-tier-head span { font-size: .75rem; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.ma-tier-bar { height: 2px; border-radius: 2px; background: rgba(255,255,255,.06); overflow: hidden; margin-bottom: 4px; } .ma-tier-bar i { display: block; height: 100%; background: var(--tc); }
+
+.ma-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ma-tile { position: relative; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 14px 8px 12px; min-height: 132px; border-radius: 16px; text-align: center; cursor: pointer; font: inherit; color: var(--m-text);
+  background: var(--m-surface); border: 1px solid var(--m-line); transition: transform .15s ease; }
+.ma-tile:active { transform: scale(.97); }
+.ma-tile.owned { background: radial-gradient(90% 70% at 50% 28%, color-mix(in srgb, var(--gc) 26%, transparent), transparent 70%), var(--m-surface);
+  border-color: color-mix(in srgb, var(--gc) 38%, transparent); }
+.ma-art { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; margin: 6px 0 4px; color: var(--gc); }
+.ma-tile.owned .ma-art { background: color-mix(in srgb, var(--gc) 14%, transparent); box-shadow: 0 0 24px color-mix(in srgb, var(--gc) 30%, transparent); }
+.ma-glyph { line-height: 1; font-family: 'Outfit', system-ui, sans-serif; }
+.ma-tile b { font-size: .8125rem; font-weight: 500; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.ma-tile small { font-size: .6875rem; color: var(--m-dim); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.ma-tile.locked .ma-art { color: rgba(255,255,255,.22); background: rgba(255,255,255,.03); }
+.ma-tile.locked b { color: var(--m-dim); } .ma-tile.locked small { opacity: .6; }
+.ma-chip { position: absolute; top: 8px; right: 8px; font-style: normal; font-size: .625rem; font-weight: 600; padding: 2px 6px; border-radius: 99px; color: var(--m-gold); background: color-mix(in srgb, var(--m-gold) 12%, transparent); font-variant-numeric: tabular-nums; }
+.ma-lock { position: absolute; top: 10px; right: 10px; color: rgba(255,255,255,.28); }
+.ma-dur { width: 70%; height: 3px; border-radius: 3px; margin-top: 4px; background: rgba(255,255,255,.08); overflow: hidden; } .ma-dur i { display: block; height: 100%; background: var(--m-good); } .ma-dur.low i { background: var(--m-flame); }
+.ma-skel { min-height: 132px; animation: maPulse 1.4s ease-in-out infinite; cursor: default; }
+@keyframes maPulse { 50% { opacity: .5; } }
+.ma-empty { padding: 24px 16px; border-radius: 16px; border: 1px dashed var(--m-line); text-align: center; } .ma-empty p { margin: 0; font-size: .875rem; color: var(--m-dim); line-height: 1.5; }
+
+.ma-sheet { gap: 0; }
+.ma-detail { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 0 4px 8px; }
+.ma-detail-art { width: 104px; height: 104px; display: grid; place-items: center; border-radius: 50%; color: var(--gc); margin-bottom: 8px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gc) 26%, transparent), transparent 70%); box-shadow: 0 0 48px color-mix(in srgb, var(--gc) 28%, transparent); }
+.ma-detail.locked .ma-detail-art { color: rgba(255,255,255,.25); background: rgba(255,255,255,.04); box-shadow: none; }
+.ma-grade { font-size: .6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--tc); }
+.ma-detail h2 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.625rem; font-weight: 500; letter-spacing: -.4px; }
+.ma-detail p { margin: 0; max-width: 32ch; font-size: .9375rem; line-height: 1.5; color: var(--m-dim); }
+.ma-detail .ma-res { width: 100%; margin-top: 12px; text-align: left; }
+.ma-facts { width: 100%; display: grid; grid-template-columns: 1fr 1fr; margin: 12px 0 0; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); }
+.ma-facts div { padding: 14px 0; display: grid; gap: 4px; } .ma-facts div + div { border-left: 1px solid var(--m-line); }
+.ma-facts dt { font-size: .6875rem; color: var(--m-dim); } .ma-facts dd { margin: 0; font-size: 1rem; font-weight: 500; } .ma-facts div:first-child dd { color: var(--m-gold); }
+.ma-how { margin-top: 8px; font-size: .75rem; color: var(--m-dim); line-height: 1.5; max-width: 34ch; }
+@media (prefers-reduced-motion: reduce) { .ma-skel { animation: none; } .ma-tile { transition: none; } }
+/* grid items center on max-content by default; keep them inside the tile */
+.ma-tile > * { min-width: 0; max-width: 100%; }
+.ma-tile small, .ma-tile b { width: 100%; }
+.ma-tile small { -webkit-line-clamp: 2; }
+.ma-tile small, .ma-tile b { white-space: normal; text-overflow: clip; }
