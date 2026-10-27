@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Bell, Bot, Flame, Home, LayoutDashboard, LogOut, Menu, Plus, ScrollText, Skull, User, X } from "lucide-react";
+import { Bell, ChevronLeft, Flame, Home, Plus, ScrollText, Skull, User } from "lucide-react";
 import { useAuth } from "../../lib/authContext";
 import { useNotifications } from "../../lib/notificationContext";
-import { links } from "../Sidebar";
 import { prefetchRoute } from "../../routes";
 import { useEngagement } from "../../lib/engagementContext";
 import { haptic } from "../../lib/feedback";
@@ -23,22 +22,33 @@ const TABS = [
   { to: "/me", label: "Me", icon: User },
 ] as const;
 
-function TopBar({ onMenu }: { onMenu: () => void }) {
+/** Tab roots show the streak; every other screen gets a back arrow (and an edge-swipe back). */
+const ROOTS = new Set(["/", "/dungeon-gate", "/collection", "/me"]);
+
+function goBack(navigate: ReturnType<typeof useNavigate>) {
+  const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+  if (idx > 0) navigate(-1); else navigate("/me");
+}
+
+function TopBar() {
   const { notifications } = useNotifications();
   const { data: e, secondsLeft } = useEngagement();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const root = ROOTS.has(pathname);
   const unread = notifications.filter((n) => !n.is_read).length;
   const st = e?.streak;
   const risk = !!st?.at_risk;
   const hrs = Math.floor(secondsLeft / 3600), mins = Math.floor((secondsLeft % 3600) / 60);
   return (
     <header className="m-top">
-      <button className="m-icon-btn" onClick={onMenu} aria-label="Open menu"><Menu size={20} /></button>
-      <button className={`m-streak${risk ? " risk" : ""}${st && st.count === 0 ? " cold" : ""}`} onClick={() => navigate("/")} aria-label={st ? `${st.count}-day streak${risk ? `, ends in ${hrs} hours` : ""}` : "Streak"}>
+      {root ? null : <button className="m-icon-btn m-back" onClick={() => { haptic("tap"); goBack(navigate); }} aria-label="Back"><ChevronLeft size={22} /></button>}
+      {root && <button className={`m-streak${risk ? " risk" : ""}${st && st.count === 0 ? " cold" : ""}`} onClick={() => navigate("/")} aria-label={st ? `${st.count}-day streak${risk ? `, ends in ${hrs} hours` : ""}` : "Streak"}>
         <Flame size={16} />
         <b>{st?.count ?? "–"}</b>
         <span>{risk ? `${hrs > 0 ? `${hrs}h ` : ""}${mins}m left` : st?.done_today ? "held today" : "day streak"}</span>
-      </button>
+      </button>}
+      <span className="m-top-gap" />
       <button className="m-icon-btn" onClick={() => navigate("/notifications")} aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}>
         <Bell size={20} />{unread > 0 && <i className="m-dot" />}
       </button>
@@ -73,34 +83,6 @@ function TabBar() {
   );
 }
 
-function MenuSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { signOut, profile } = useAuth();
-  if (!open) return null;
-  return (
-    <div className="m-sheet-bg" onClick={onClose}>
-      <div className="m-sheet" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
-        <div className="m-sheet-head">
-          <div>
-            <div className="m-sheet-name">{profile?.name ?? "Hunter"}</div>
-            <div className="m-sheet-sub">{profile?.player_rank ?? "E"}-Rank · Level {profile?.level ?? 1} · <NavLink to="/mode-selection" onClick={onClose} className="m-sheet-mode">{profile?.current_mode ?? "Normal"} mode</NavLink></div>
-          </div>
-          <button className="m-icon-btn" onClick={onClose} aria-label="Close menu"><X size={20} /></button>
-        </div>
-        <div className="m-sheet-grid">
-          <NavLink to="/overview" onClick={onClose} className={({ isActive }) => `m-sheet-item${isActive ? " is-active" : ""}`}><LayoutDashboard size={20} strokeWidth={1.7} /><span>Overview</span></NavLink>
-          <button className="m-sheet-item" onClick={() => { onClose(); window.setTimeout(() => document.querySelector<HTMLButtonElement>(".oracle-trigger")?.click(), 150); }}><Bot size={20} strokeWidth={1.7} /><span>Oracle</span></button>
-          {links.filter((l) => l.to !== "/" && l.to !== "/dungeon-gate" && l.to !== "/collection" && l.to !== "/profile").map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.to === "/"} onClick={onClose} className={({ isActive }) => `m-sheet-item${isActive ? " is-active" : ""}`}>
-              <l.icon size={20} strokeWidth={1.7} /><span>{l.label}</span>
-            </NavLink>
-          ))}
-        </div>
-        <button className="m-sheet-out" onClick={() => { onClose(); void signOut(); }}><LogOut size={16} /> Sign out</button>
-      </div>
-    </div>
-  );
-}
-
 export function MobileShell({ children }: { children: ReactNode }) {
   return <MobileUiProvider><ShellInner>{children}</ShellInner></MobileUiProvider>;
 }
@@ -108,17 +90,32 @@ export function MobileShell({ children }: { children: ReactNode }) {
 function ShellInner({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
   const auraState = useAura(profile?.player_rank ?? "E");
-  const [menu, setMenu] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const scroller = useRef<HTMLElement>(null);
-  useEffect(() => { setMenu(false); scroller.current?.scrollTo({ top: 0 }); }, [pathname]);
+  useEffect(() => { scroller.current?.scrollTo({ top: 0 }); }, [pathname]);
+
+  // Swipe right from the left edge to go back (sub-screens only).
+  useEffect(() => {
+    if (ROOTS.has(pathname)) return;
+    let x0 = -1, y0 = 0;
+    const start = (e: TouchEvent) => { const t = e.touches[0]; x0 = t.clientX <= 24 ? t.clientX : -1; y0 = t.clientY; };
+    const end = (e: TouchEvent) => {
+      if (x0 < 0) return;
+      const t = e.changedTouches[0];
+      if (t.clientX - x0 > 80 && Math.abs(t.clientY - y0) < 60) { haptic("tap"); goBack(navigate); }
+      x0 = -1;
+    };
+    window.addEventListener("touchstart", start, { passive: true });
+    window.addEventListener("touchend", end);
+    return () => { window.removeEventListener("touchstart", start); window.removeEventListener("touchend", end); };
+  }, [pathname, navigate]);
   return (
     <AuraCtx.Provider value={auraState}>
     <div className="m-shell">
-      <TopBar onMenu={() => setMenu(true)} />
+      <TopBar />
       <main className="m-content" id="main" ref={scroller}>{children}</main>
       <TabBar />
-      <MenuSheet open={menu} onClose={() => setMenu(false)} />
     </div>
     </AuraCtx.Provider>
   );

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Award, BookOpen, ChevronRight, Gauge, Gift, LogOut, Share2, Settings, Swords, Trophy, User, Users } from "lucide-react";
+import { Award, BookOpen, Bot, ChevronRight, Gauge, Gift, LogOut, Map as MapIcon, Share2, Settings, Swords, Trophy, User, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useAuth } from "../lib/authContext";
 import { useToast } from "../lib/toast";
@@ -76,12 +76,14 @@ export function MobileMe() {
         <Row icon={<Gift size={18} />} label="Rewards" onClick={() => navigate("/rewards")} />
         <Row icon={<Gauge size={18} />} label="Full overview" onClick={() => navigate("/overview")} />
         <Row icon={<User size={18} />} label="Hunter licence" onClick={() => navigate("/profile")} />
+        <Row icon={<Bot size={18} />} label="Ask the Oracle" value="AI coach" onClick={() => document.querySelector<HTMLButtonElement>(".oracle-trigger")?.click()} />
       </div>
 
       <h2 className="me-h">Community</h2>
       <div className="me-group">
         <Row icon={<Trophy size={18} />} label="Leaderboard" onClick={() => navigate("/leaderboard")} />
-        <Row icon={<Swords size={18} />} label="Arena" onClick={() => navigate("/arena")} />
+        <Row icon={<Swords size={18} />} label="Arena & duels" onClick={() => navigate("/arena")} />
+        <Row icon={<MapIcon size={18} />} label="War Room" onClick={() => navigate("/war-room")} />
         <Row icon={<Users size={18} />} label="Friends & guilds" onClick={() => navigate("/social")} />
         {e && <Row icon={<Share2 size={18} />} label="Invite a friend" value={e.referral.recruited ? `${e.referral.active}/${e.referral.recruited} active` : "Earn Surge Crystals"} onClick={invite} />}
       </div>

@@ -65,6 +65,7 @@ export function OracleArchitect() {
             <Activity size={12} />
             <span>Resonance: 98%</span>
           </div>
+          <button className="oracle-close" onClick={() => setIsOpen(false)} aria-label="Close the Oracle"><X size={18} /></button>
         </div>
 
         <div className="oracle-messages" ref={scrollRef}>

@@ -161,3 +161,13 @@
 .m-content .collection-grid-v2 .monarch-hero-section { margin-left: 0; margin-right: 0; }
 
 @media (prefers-reduced-motion: reduce) { .m-content > *, .m-sheet, .m-sheet-bg { animation: none !important; } }
+
+/* top bar: streak on the left at tab roots, back arrow on sub-screens */
+.m-top { justify-content: flex-start; padding-left: 16px; }
+.m-top .m-back { margin-left: -10px; }
+.m-top-gap { flex: 1; }
+
+/* Oracle on phones: a bottom sheet opened from Me, closed from its own header */
+:root[data-m-theme] .oracle-interface { left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; height: 82vh !important; border-radius: 24px 24px 0 0 !important; z-index: 90 !important; padding-bottom: env(safe-area-inset-bottom); }
+.oracle-close { display: none; }
+:root[data-m-theme] .oracle-close { display: grid; place-items: center; width: 36px; height: 36px; margin-left: 8px; border-radius: 50%; border: 0; background: rgba(255,255,255,.06); color: #fff; cursor: pointer; }
