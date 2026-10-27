@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Crown, Flame, Gem, Gift, Hammer, Lock, Skull, Sparkles, Swords, X, Zap } from "lucide-react";
+import { Gem, Gift, Hammer, Skull, Swords, X, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import { useAuth } from "../lib/authContext";
 import { useToast } from "../lib/toast";
 import { SystemAPI } from "../services/SystemAPI";
-import { ITEM_GRADES, RESONANCE_CAP, SHADOW_TIERS, fetchCollection, resonance, shadowBonus, tierOf, type CatalogItem, type CatalogShadow } from "../lib/collection";
+import { ITEM_GRADES, RESONANCE_CAP, SHADOW_TIERS, fetchCollection, itemFx, resonance, shadowBonus, shadowRankLabel, tierOf, type CatalogItem, type CatalogShadow } from "../lib/collection";
+import { AuraCard } from "../components/AuraCard";
+import { RARITY_COLORS } from "../lib/catalog";
 import { haptic } from "../lib/feedback";
 import "../components/mobile/mobile.css";
 import "../components/mobile/sheets.css";
@@ -24,29 +26,28 @@ const GRADE_COLOR: Record<string, string> = {
   "S-Rank": "#f5c451", "A-Rank": "#f87171", "B-Rank": "#a78bfa", "C-Rank": "#60a5fa", "D-Rank": "#94a3b8", "E-Rank": "#94a3b8",
 };
 const colorOf = (grade: string) => GRADE_COLOR[grade] ?? "#94a3b8";
-const glowOf = (s: CatalogShadow) => (s.glow ? `rgb(${s.glow})` : colorOf(tierOf(s.rarity)));
-
-function ShadowGlyph({ s, size = 26 }: { s: CatalogShadow; size?: number }) {
-  if (s.icon === "👑") return <Crown size={size} />;
-  if (s.icon === "🔥") return <Flame size={size} />;
-  if (s.icon === "✨") return <Sparkles size={size} />;
-  return <span className="ma-glyph" style={{ fontSize: size }}>{s.icon ?? "◆"}</span>;
-}
 function ItemGlyph({ i, size = 24 }: { i: CatalogItem; size?: number }) {
   if (i.item_category === "Weapon") return <Swords size={size} />;
   if (i.item_category === "Tool") return i.item_type === "TASK_SKIP" ? <Zap size={size} /> : <Hammer size={size} />;
   return <Gem size={size} />;
 }
 
-function Ring({ value, total, color }: { value: number; total: number; color?: string }) {
-  const r = 30, c = 2 * Math.PI * r, f = total ? value / total : 0;
+const cardColor = (rarity: string) => RARITY_COLORS[rarity.toUpperCase()] ?? "#475569";
+
+function ShadowCard({ s, big }: { s: CatalogShadow; big?: boolean }) {
   return (
-    <svg className="ma-ring" viewBox="0 0 76 76" role="img" aria-label={`${value} of ${total} collected`}>
-      <circle cx="38" cy="38" r={r} className="ma-ring-track" />
-      <circle cx="38" cy="38" r={r} className="ma-ring-fill" style={color ? { stroke: color } : undefined} strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 38 38)" />
-      <text x="38" y="36" textAnchor="middle" className="ma-ring-num">{Math.round(f * 100)}%</text>
-      <text x="38" y="50" textAnchor="middle" className="ma-ring-sub">found</text>
-    </svg>
+    <AuraCard name={s.name} rankLabel={shadowRankLabel(s.rarity)} rarityColor={cardColor(s.rarity)} isCollected={s.collected} isCorrupted={!!s.is_corrupted}
+      effectType={s.effectType} col={s.col} glow={s.glow} icon={s.icon} sub={s.sub} bonus={shadowBonus(s.rarity)} label="SHADOW" interactive={!!big}
+      style={big ? { width: 260, height: 366 } : { width: "100%", height: 228 }} />
+  );
+}
+function ItemCard({ i, big }: { i: CatalogItem; big?: boolean }) {
+  const fx = itemFx(i);
+  return (
+    <AuraCard name={i.name} rankLabel={i.rarity} rarityColor={cardColor(i.rarity)} isCollected={i.collected} {...fx}
+      icon={<ItemGlyph i={i} size={24} />} label={i.item_category.toUpperCase()} interactive={!!big}
+      sub={i.collected && i.item_category === "Weapon" ? `${i.durability}% mana` : i.item_category}
+      style={big ? { width: 260, height: 366 } : { width: "100%", height: 228 }} />
   );
 }
 
@@ -111,23 +112,13 @@ export function MobileArmy() {
       </div>
 
       <section className="ma-sum" aria-label="Collection summary">
-        <Ring value={have} total={all} />
-        {tab === "Army" ? (
-          <div className="ma-sum-body">
-            <div className="ma-sum-line"><b>{owned.length}</b><span>of {all} shadows</span></div>
-            <div className="ma-res">
-              <div className="ma-res-top"><span>Resonance</span><em>+{res}% XP{res >= RESONANCE_CAP ? " · max" : ""}</em></div>
-              <div className="ma-bar"><i style={{ width: `${(res / RESONANCE_CAP) * 100}%` }} /></div>
-            </div>
-            <small>{strongest ? <>Strongest: <b style={{ color: colorOf(tierOf(strongest.rarity)) }}>{strongest.name}</b></> : "Conquer B-rank+ gates to extract your first shadow."}</small>
-          </div>
-        ) : (
-          <div className="ma-sum-body">
-            <div className="ma-sum-line"><b>{have}</b><span>of {all} {tab === "Arsenal" ? "weapons" : "items"}</span></div>
-            <button className="ma-gift" disabled={gifting || !giftWindowOpen()} onClick={claimGift}>
-              <Gift size={16} /> {gifting ? "Opening…" : giftWindowOpen() ? "Claim daily gift" : "Gift opens at 06:00"}
-            </button>
-            <small>One free item a day, between 06:00 and 22:00.</small>
+        <div className="ma-sum-line"><b>{have}</b><span>of {all} {tab === "Army" ? "shadows" : tab === "Arsenal" ? "weapons" : "items"}</span>
+          {tab !== "Army" && <button className="ma-gift" disabled={gifting || !giftWindowOpen()} onClick={claimGift}><Gift size={15} /> {gifting ? "Opening…" : giftWindowOpen() ? "Daily gift" : "Opens 06:00"}</button>}
+        </div>
+        <div className="ma-bar"><i className="cool" style={{ width: `${all ? (have / all) * 100 : 0}%` }} /></div>
+        {tab === "Army" && (
+          <div className="ma-res">
+            <div className="ma-res-top"><span>Resonance{strongest ? <> · strongest <b style={{ color: colorOf(tierOf(strongest.rarity)) }}>{strongest.name}</b></> : null}</span><em>+{res}% XP{res >= RESONANCE_CAP ? " · max" : ""}</em></div>
           </div>
         )}
       </section>
@@ -139,7 +130,7 @@ export function MobileArmy() {
       </div>
 
       {failed && <div className="ux-retry"><span>Couldn’t load your collection.</span><button onClick={() => void load()}>Retry</button></div>}
-      {!shadows && !failed && <div className="ma-grid">{Array.from({ length: 9 }, (_, k) => <div key={k} className="ma-tile ma-skel" />)}</div>}
+      {!shadows && !failed && <div className="ma-grid">{Array.from({ length: 4 }, (_, k) => <div key={k} className="ma-card ma-skel" />)}</div>}
 
       {shadows && tab === "Army" && SHADOW_TIERS.map(({ rarity, title }) => {
         const tier = shadows.filter((s) => tierOf(s.rarity) === rarity);
@@ -153,11 +144,8 @@ export function MobileArmy() {
             <div className="ma-tier-bar"><i style={{ width: `${(got / tier.length) * 100}%` }} /></div>
             <div className="ma-grid">
               {shown.map((s) => (
-                <button key={s.name} className={`ma-tile${s.collected ? " owned" : " locked"}`} style={{ ["--gc" as string]: glowOf(s) }} onClick={() => pick({ kind: "shadow", s })} aria-label={`${s.name}, ${s.rarity}${s.collected ? `, owned, +${shadowBonus(s.rarity)}% XP` : ", not yet extracted"}`}>
-                  {s.collected ? <em className="ma-chip">+{shadowBonus(s.rarity)}%</em> : <Lock size={12} className="ma-lock" />}
-                  <span className="ma-art"><ShadowGlyph s={s} /></span>
-                  <b>{s.name}</b>
-                  <small>{s.sub}</small>
+                <button key={s.name} className="ma-card" onClick={() => pick({ kind: "shadow", s })} aria-label={`${s.name}, ${s.rarity}${s.collected ? `, owned, +${shadowBonus(s.rarity)}% XP` : ", not yet extracted"}`}>
+                  <ShadowCard s={s} />
                 </button>
               ))}
             </div>
@@ -176,13 +164,8 @@ export function MobileArmy() {
             <div className="ma-tier-bar"><i style={{ width: `${(got / group.length) * 100}%` }} /></div>
             <div className="ma-grid">
               {shown.map((i) => (
-                <button key={i.name} className={`ma-tile${i.collected ? " owned" : " locked"}`} style={{ ["--gc" as string]: colorOf(grade) }} onClick={() => pick({ kind: "item", i })} aria-label={`${i.name}, ${grade}${i.collected ? ", owned" : ", not yet found"}`}>
-                  {!i.collected && <Lock size={12} className="ma-lock" />}
-                  <span className="ma-art"><ItemGlyph i={i} /></span>
-                  <b>{i.name}</b>
-                  {i.collected && i.item_category === "Weapon"
-                    ? <span className={`ma-dur${i.durability <= 40 ? " low" : ""}`} aria-label={`${i.durability}% durability`}><i style={{ width: `${i.durability}%` }} /></span>
-                    : <small>{i.item_category}</small>}
+                <button key={i.name} className="ma-card" onClick={() => pick({ kind: "item", i })} aria-label={`${i.name}, ${grade}${i.collected ? ", owned" : ", not yet found"}`}>
+                  <ItemCard i={i} />
                 </button>
               ))}
             </div>
@@ -200,27 +183,22 @@ export function MobileArmy() {
             <div className="sh-grab" />
             <header className="sh-head"><span /><button className="m-icon-btn" onClick={() => setOpen(null)} aria-label="Close"><X size={20} /></button></header>
             {open.kind === "shadow" ? (() => {
-              const s = open.s; const col = colorOf(tierOf(s.rarity));
+              const s = open.s;
               return (
-                <div className={`ma-detail${s.collected ? "" : " locked"}`} style={{ ["--gc" as string]: glowOf(s), ["--tc" as string]: col }}>
-                  <span className="ma-detail-art"><ShadowGlyph s={s} size={48} /></span>
-                  <span className="ma-grade">{s.rarity}</span>
-                  <h2>{s.name}</h2>
-                  <p>{s.sub}</p>
+                <div className="ma-detail" style={{ ["--tc" as string]: colorOf(tierOf(s.rarity)) }}>
+                  <div className="ma-bigcard"><ShadowCard s={s} big /></div>
                   <dl className="ma-facts">
                     <div><dt>Passive XP</dt><dd>+{shadowBonus(s.rarity)}%</dd></div>
                     <div><dt>Status</dt><dd>{s.collected ? "In your army" : "Not extracted"}</dd></div>
                   </dl>
-                  <small className="ma-how">{s.collected ? `Counts toward resonance (capped at +${RESONANCE_CAP}% XP).` : "Conquer B-rank or higher gates. Rarer shadows answer to harder gates."}</small>
+                  <small className="ma-how">{s.collected ? `Counts toward resonance, capped at +${RESONANCE_CAP}% XP. Double-tap the card to flip it.` : "Conquer B-rank or higher gates. Rarer shadows answer to harder gates."}</small>
                 </div>
               );
             })() : (() => {
               const i = open.i;
               return (
-                <div className={`ma-detail${i.collected ? "" : " locked"}`} style={{ ["--gc" as string]: colorOf(i.rarity), ["--tc" as string]: colorOf(i.rarity) }}>
-                  <span className="ma-detail-art"><ItemGlyph i={i} size={44} /></span>
-                  <span className="ma-grade">{i.rarity} · {i.item_category}</span>
-                  <h2>{i.name}</h2>
+                <div className="ma-detail" style={{ ["--tc" as string]: colorOf(i.rarity) }}>
+                  <div className="ma-bigcard"><ItemCard i={i} big /></div>
                   <p>{i.description}</p>
                   {i.collected && i.item_category === "Weapon" && (
                     <div className="ma-res">

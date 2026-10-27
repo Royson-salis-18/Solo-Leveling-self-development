@@ -52,3 +52,19 @@ export async function fetchCollection(userId: string): Promise<{ shadows: Catalo
   });
   return { shadows, items };
 }
+
+/** Label printed on a shadow's card, by rarity. */
+export const SHADOW_RANK_LABEL: Record<string, string> = { Mythic: "MONARCH", Legendary: "GRAND MARSHAL", Epic: "COMMANDER", Rare: "KNIGHT" };
+export const shadowRankLabel = (rarity: string) => SHADOW_RANK_LABEL[rarity] ?? "ELITE";
+
+type Fx = { effectType: "shadow" | "flame" | "smoke" | "lightning"; col: number[][]; glow: string };
+/** Particle theme for an item's card: weapons burn, artifacts crackle, tools drift. */
+export function itemFx(item: { name: string; item_category: string }): Fx {
+  if (item.item_category === "Weapon") {
+    if (item.name.includes("Demon King")) return { effectType: "lightning", col: [[40, 110, 255], [20, 80, 220], [60, 150, 255]], glow: "30,100,255" };
+    if (item.name.includes("Baruka")) return { effectType: "smoke", col: [[160, 200, 255], [100, 150, 255], [200, 230, 255]], glow: "150,180,255" };
+    return { effectType: "flame", col: [[255, 50, 10], [220, 20, 0], [255, 100, 30]], glow: "240,40,0" };
+  }
+  if (item.item_category === "Artifact") return { effectType: "lightning", col: [[255, 160, 0], [230, 120, 0], [255, 200, 40]], glow: "240,140,0" };
+  return { effectType: "smoke", col: [[0, 180, 55], [0, 150, 35], [20, 210, 70]], glow: "0,170,45" };
+}

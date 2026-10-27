@@ -76,3 +76,33 @@
 .ma-tile small, .ma-tile b { width: 100%; }
 .ma-tile small { -webkit-line-clamp: 2; }
 .ma-tile small, .ma-tile b { white-space: normal; text-overflow: clip; }
+
+/* ── minimal pass: the cards are the visual, everything else stays quiet ── */
+.ma { gap: 28px; }
+.ma-sum { display: grid; gap: 12px; padding: 0; background: none; border: 0; border-radius: 0; }
+.ma-sum-line { display: flex; align-items: baseline; gap: 8px; } .ma-sum-line b { font-family: 'Outfit', sans-serif; font-size: 1.75rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; } .ma-sum-line span { font-size: .8125rem; color: var(--m-dim); }
+.ma-sum .ma-bar { height: 3px; } .ma-bar i.cool { background: var(--m-accent); }
+.ma-sum .ma-gift { margin-left: auto; align-self: center; height: 32px; padding: 0 14px; font-size: .8125rem; border-radius: 99px; gap: 6px; background: transparent; color: var(--m-text); border: 1px solid color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.ma-sum .ma-gift:disabled { opacity: .5; }
+.ma-res-top b { font-weight: 500; }
+.ma-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ma-card { display: block; padding: 0; border: 0; background: none; cursor: pointer; min-width: 0; text-align: left; font: inherit; color: inherit; border-radius: 14px; -webkit-tap-highlight-color: transparent; }
+.ma-card:active { transform: scale(.98); transition: transform .12s; }
+.ma-card:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
+.ma-card > .aura-card { width: 100% !important; margin: 0; }
+.ma-card.ma-skel { height: 228px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); }
+.ma-tier-head h2 { letter-spacing: .14em; }
+.ma-bigcard { display: grid; place-items: center; padding: 8px 0 12px; }
+.ma-bigcard > .aura-card { max-width: 100%; }
+.ma-detail { gap: 12px; }
+
+/* card text: wrap instead of clip, and keep locked cards legible */
+.ma-card .aura-card { padding: 20px 16px 18px; border-radius: 22px; min-height: 0; }
+.ma-card .card-name { font-size: 14px !important; letter-spacing: .2px !important; line-height: 1.25 !important; white-space: normal; overflow-wrap: anywhere; }
+.ma-card .card-sub { font-size: 10px; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ma-card .card-label { margin-bottom: 8px !important; }
+.ma-card .aura-locked, .ma-bigcard .aura-locked { filter: brightness(1.5) saturate(1.15); }
+.ma-card .aura-locked .card-name, .ma-bigcard .aura-locked .card-name { opacity: .85 !important; }
+.ma-card .aura-locked .card-sub, .ma-bigcard .aura-locked .card-sub { opacity: .6 !important; }
+.ma-card .aura-locked .card-icon, .ma-bigcard .aura-locked .card-icon { opacity: .7 !important; }
+.ma-card .aura-locked .card-label { opacity: .7 !important; }
