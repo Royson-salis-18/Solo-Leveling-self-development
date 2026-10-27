@@ -178,3 +178,25 @@ export const SYSTEM_DIRECTIVES: Record<DomainName, Directive[]> = {
         }
       ]
     };
+
+/** Mastery word for a domain value (same bands as the web profile). */
+export function masteryTier(value: number): { label: "DORMANT" | "INITIATED" | "AWAKENED" | "SOVEREIGN"; tone: "dim" | "good" | "accent" | "gold" } {
+  if (value >= 80) return { label: "SOVEREIGN", tone: "gold" };
+  if (value >= 55) return { label: "AWAKENED", tone: "accent" };
+  if (value >= 30) return { label: "INITIATED", tone: "good" };
+  return { label: "DORMANT", tone: "dim" };
+}
+
+/** 0–100: how evenly the five domains are developed, plus the web's label for it. */
+export function developmentBalance(values: number[]): { score: number; label: string } {
+  if (!values.length) return { score: 0, label: "—" };
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((s, v) => s + Math.abs(v - avg), 0) / values.length;
+  const score = Math.max(0, Math.min(100, Math.round(100 - (variance / Math.max(avg, 1)) * 50)));
+  return { score, label: score >= 85 ? "Sovereign sync" : score >= 65 ? "Balanced" : score >= 40 ? "Lopsided" : "Critical imbalance" };
+}
+
+/** Domain blurbs shown under each name on the mastery panel. */
+export const DOMAIN_DESC: Record<DomainName, string> = {
+  Physical: "Fitness and vitality", Mind: "Work and learning", Soul: "Emotion and connection", Execution: "Daily task agility", Builder: "Projects and creation",
+};

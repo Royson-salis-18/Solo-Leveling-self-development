@@ -92,3 +92,5 @@
 .hm-months { display: grid; height: 12px; gap: var(--hm-gap); }
 .hm-months span { white-space: nowrap; overflow: visible; }
 .hm-days { padding-top: 16px; }
+.dr { max-width: 340px; }
+.dr-label { font-size: 12px; }

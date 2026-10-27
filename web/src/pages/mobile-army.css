@@ -106,3 +106,4 @@
 .ma-card .aura-locked .card-sub, .ma-bigcard .aura-locked .card-sub { opacity: .6 !important; }
 .ma-card .aura-locked .card-icon, .ma-bigcard .aura-locked .card-icon { opacity: .7 !important; }
 .ma-card .aura-locked .card-label { opacity: .7 !important; }
+.ma { grid-template-columns: minmax(0, 1fr); } .ma > * { min-width: 0; }

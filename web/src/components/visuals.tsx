@@ -129,22 +129,22 @@ export function XpArea({ days, pace }: { days: Array<{ date: string; daily_point
 
 /* ── Domain radar (0–100 per axis) ──────────────────────────────────────────── */
 export function DomainRadar({ axes, size = 220 }: { axes: Array<{ name: string; value: number; color: string; low?: boolean }>; size?: number }) {
-  const pad = 28, vb = size + pad * 2, c = vb / 2, r = size / 2 - 40, n = axes.length;
+  const padX = 50, padY = 22, w = size + padX * 2, h = size + padY * 2, cx = w / 2, cy = h / 2, r = size / 2 - 6, n = axes.length;
   const at = (i: number, f: number) => {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
-    return [c + Math.cos(a) * r * f, c + Math.sin(a) * r * f] as const;
+    return [cx + Math.cos(a) * r * f, cy + Math.sin(a) * r * f] as const;
   };
   const poly = (f: (i: number) => number) => axes.map((_, i) => at(i, f(i)).join(",")).join(" ");
   const v = (i: number) => Math.max(0.04, Math.min(100, axes[i].value) / 100);
   return (
-    <svg className="dr" viewBox={`0 0 ${vb} ${vb}`} role="img" aria-label={`Domain balance: ${axes.map((a) => `${a.name} ${a.value}`).join(", ")}`}>
+    <svg className="dr" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`Domain balance: ${axes.map((a) => `${a.name} ${a.value}`).join(", ")}`}>
       {[0.25, 0.5, 0.75, 1].map((f) => <polygon key={f} className="dr-ring" points={poly(() => f)} />)}
-      {axes.map((_, i) => { const [ex, ey] = at(i, 1); return <line key={i} className="dr-spoke" x1={c} y1={c} x2={ex} y2={ey} />; })}
+      {axes.map((_, i) => { const [ex, ey] = at(i, 1); return <line key={i} className="dr-spoke" x1={cx} y1={cy} x2={ex} y2={ey} />; })}
       <polygon className="dr-shape" points={poly(v)} />
       {axes.map((a, i) => { const [px, py] = at(i, v(i)); return <circle key={a.name} cx={px} cy={py} r={a.low ? 4.5 : 3.2} fill={a.color} className={a.low ? "dr-pt low" : "dr-pt"} />; })}
       {axes.map((a, i) => {
         const [lx, ly] = at(i, 1.2);
-        const anchor = Math.abs(lx - c) < 6 ? "middle" : lx > c ? "start" : "end";
+        const anchor = Math.abs(lx - cx) < 6 ? "middle" : lx > cx ? "start" : "end";
         return (
           <text key={a.name} className={`dr-label${a.low ? " low" : ""}`} x={lx} y={ly} textAnchor={anchor} dominantBaseline="middle">
             {a.name}<tspan className="dr-num" dx="4">{a.value}</tspan>

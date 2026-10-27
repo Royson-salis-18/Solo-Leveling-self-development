@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Crown, Gem, Gift, Plus, Skull, Swords, Trophy, Undo2 } from "lucide-react";
+import { Check, ChevronRight, Crown, Flame, Gem, Gift, Plus, Skull, Snowflake, Sparkles, Swords, Trophy, Undo2 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { useGameActions } from "../lib/gameActions";
 import { SystemAPI } from "../services/SystemAPI";
 import { supabase } from "../lib/supabase";
 import type { DashboardData } from "../lib/gameTypes";
 import { useEngagement } from "../lib/engagementContext";
-import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, percent, requestEngagementRefresh } from "../lib/engagement";
+import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, nextBestAction, percent, requestEngagementRefresh } from "../lib/engagement";
 import { Reveal } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
+import { Transmission } from "../components/Transmission";
 import { DomainRadar, WeekBars, XpArea } from "../components/visuals";
 import { FirstSteps } from "../components/UxLayer";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
@@ -148,6 +149,8 @@ export function MobileHome() {
 
       {view === "today" && (
         <div className="mh-pane" key="today">
+          <Transmission compact />
+
           <header className="mh-id">
             <div className="mh-eyebrow">{dateLine}</div>
             <h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1>
@@ -162,7 +165,34 @@ export function MobileHome() {
             <button onClick={() => setView("progress")}><b>{streak}</b><span>Streak</span></button>
           </div>
 
-          {e?.streak.at_risk && <p className="mh-alert">Your {streak}-day streak ends in {Math.floor(eng.secondsLeft / 3600)}h {Math.floor((eng.secondsLeft % 3600) / 60)}m. One conquest keeps it.</p>}
+          {e && (() => {
+            const act = nextBestAction(e);
+            const to = act.kind === "chest" || act.kind === "bounty" ? () => setView("rewards") : act.kind === "boss" ? () => setView("rewards") : () => navigate("/dungeon-gate");
+            return (
+              <section className={`mh-sysdir${act.kind === "streak" ? " urgent" : ""}`} aria-label="System directive">
+                <span className="mh-sysdir-ico">{act.kind === "streak" ? <Flame size={18} /> : <Sparkles size={18} />}</span>
+                <div><small>System directive</small><p>{act.text}</p></div>
+                <button onClick={to} aria-label={act.kind === "chest" || act.kind === "bounty" || act.kind === "boss" ? "Open rewards" : "Enter gates"}><ChevronRight size={18} /></button>
+              </section>
+            );
+          })()}
+
+          {e && (
+            <section className="mh-card mh-chain" aria-label="Chain of resolve">
+              <div className="mh-row">
+                <div className="mh-eyebrow mh-flame"><Flame size={13} /> Chain of resolve</div>
+                <span className={`mh-chip${e.streak.at_risk ? " warn" : " ok"}`}>{e.streak.at_risk ? `${Math.floor(eng.secondsLeft / 3600)}h left` : e.streak.done_today ? "Held today" : "Open"}</span>
+              </div>
+              <div className="mh-big">{e.streak.count}<small>days</small></div>
+              <div className="mh-chain-foot">
+                <span className="mh-freezes" aria-label={`${e.streak.freezes} of ${e.streak.freeze_cap} freeze charges`}>
+                  {Array.from({ length: e.streak.freeze_cap }, (_, i) => <i key={i} className={i < e.streak.freezes ? "on" : ""}><Snowflake size={13} /></i>)}
+                  <em>Freeze charges</em>
+                </span>
+                <span className="mh-dim">Best {e.streak.best}{e.streak.next_freeze_in ? ` · next charge ${e.streak.next_freeze_in}d` : ""}</span>
+              </div>
+            </section>
+          )}
 
           <section className="mh-card mh-trend" aria-label="XP over the last 7 days">
             <div className="mh-row">

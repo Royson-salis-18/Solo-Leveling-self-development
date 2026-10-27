@@ -123,7 +123,7 @@
 .m-content .db-quantum-card { min-height: 120px !important; padding: 16px !important; }
 .m-content .db-quantum-card:hover { transform: none !important; }
 .m-content .q-card-val { font-size: 1.7rem !important; }
-.m-content .monarch-transmission { padding: 14px 18px !important; border-radius: 28px !important; gap: 14px !important; }
+.m-content .monarch-transmission:not(.tx-compact) { padding: 14px 18px !important; border-radius: 28px !important; gap: 14px !important; }
 .m-content .monarch-quote__title { font-size: 1.05rem !important; }
 .m-content .monarch-quote__sub { white-space: normal !important; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; max-width: 100% !important; }
 .m-content .monarch-quote__skull { opacity: .15 !important; }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EngagementPanel } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
+import { Transmission } from "../components/Transmission";
 import { SYSTEM_DIRECTIVES } from "../lib/domains";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -294,83 +295,12 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* ── SYSTEM TRANSMISSION: the day's message opens the page ── */}
+      <Transmission />
+
       {/* ── ENGAGEMENT: streak, bounties, world boss, next trophy ── */}
       <EngagementPanel openGates={data.activeCount} conquestsToday={data.completedCount} />
       <ConquestRecord score={data.playmaker_rating} streak={data.streak_count} />
-
-      {/* ── MONARCH TRANSMISSION (QUOTE) ── */}
-      {(() => {
-        const messages = [
-          { tag: "RAGNAROK", title: "Divine Bloodline: Su-ho's Era", text: "The power of the Monarch flows through his son. The new age has arrived." },
-          { tag: "SYSTEM", title: "Absolute Authority", text: "Survival is the only law. Your strength is the only currency." },
-          { tag: "ASHBORN", title: "Eternal Rest", text: "The shadows do not fear death. They are death. Arise." },
-          { tag: "MONARCH", title: "The World is a Game", text: "Play it by your own rules. Every level gained is a reality conquered." },
-          { tag: "SYSTEM", title: "Absolute Will", text: "A Monarch's will is absolute. Let your discipline be the hammer that shapes it." },
-          { tag: "ASHBORN", title: "Limitless Potential", text: "The only limit is the one you set yourself. Break the chains of mediocrity." },
-          { tag: "SYSTEM", title: "The Hunt Evolved", text: "The hunt never ends. It only evolves. Your shadows are waiting for your command." },
-          { tag: "MONARCH", title: "Taken, Not Given", text: "Strength is not granted. It is taken through the cold fire of daily discipline." },
-          { tag: "SYSTEM", title: "The Sovereign's Path", text: "The system chose you for a reason. Every task completed proves it right." },
-          { tag: "ASHBORN", title: "Shadow Birth", text: "Shadows are born from the intense light of your focus. Shine brighter." },
-          { tag: "MONARCH", title: "Evolution or Extinction", text: "Stagnation is death. Each dawn is a mission to surpass the version of you that slept." },
-          { tag: "SYSTEM", title: "Critical Resonance", text: "Your momentum is creating a rift in the mundane. Maintain absolute focus." },
-          { tag: "ASHBORN", title: "Kingdom of Shadows", text: "You do not build a kingdom with wishes. You build it with the souls of conquered fears." }
-        ];
-        const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-        const msg = messages[dayOfYear % messages.length];
-
-        return (
-          <div className="monarch-transmission ds-glass" style={{ 
-            marginBottom: 32, 
-            padding: '18px 48px', 
-            borderRadius: 100, 
-            border: '1px solid rgba(168,168,255,0.25)', 
-            background: 'linear-gradient(90deg, rgba(26,26,46,0.95) 0%, rgba(0,0,0,1) 100%)', 
-            position: 'relative', 
-            overflow: 'hidden', 
-            boxShadow: '0 15px 50px rgba(0,0,0,0.8), 0 0 35px rgba(168,168,255,0.18), inset 0 1px 2px rgba(255,255,255,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 24
-          }}>
-            <div style={{ 
-              width: 52, 
-              height: 52, 
-              borderRadius: 16, 
-              background: 'rgba(168,168,255,0.03)', 
-              border: '1px solid rgba(168,168,255,0.1)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              <Sparkles size={24} color="var(--accent-primary)" style={{ opacity: 0.6 }} />
-            </div>
-
-            <div className="monarch-quote__meta" style={{ flex: 1, position: 'relative', zIndex: 2 }}>
-              <div className="monarch-quote__label" style={{ fontSize: '0.55rem', fontWeight: 950, color: 'var(--accent-primary)', letterSpacing: '3px', marginBottom: 2, opacity: 0.7, textTransform: 'uppercase' }}>
-                {msg.tag} TRANSMISSION
-              </div>
-              <div className="monarch-quote__title" style={{ fontSize: '1.4rem', fontWeight: 950, color: '#fff', letterSpacing: '-0.5px', lineHeight: 1.2 }}>{msg.title}</div>
-              <div className="monarch-quote__sub" style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
-                {msg.text}
-              </div>
-            </div>
-            
-            {/* ── AURACARD-STYLE WATERMARK SKULL ── */}
-            <div className="monarch-quote__skull" style={{ 
-              position: 'absolute', 
-              right: 12, 
-              top: -24, 
-              transform: 'rotate(20deg)', 
-              opacity: 0.38, 
-              pointerEvents: 'none',
-              filter: 'drop-shadow(0 0 16px rgba(168,168,255,0.35))'
-            }}>
-              <Skull size={110} color="var(--accent-primary)" strokeWidth={1.8} />
-            </div>
-          </div>
-        );
-      })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
         {/* ── Weekly Activity Threshold (target comes from the player's difficulty mode) ── */}

@@ -15,7 +15,9 @@ import { SystemAPI } from "../services/SystemAPI";
 import type { Activity } from "../lib/gameTypes";
 import { nextRankInfo } from "../lib/levelEngine";
 import { ActivityHeatmap } from "../components/visuals";
-import { fetchCollection, resonance, shadowBonus, type CatalogShadow } from "../lib/collection";
+import { fetchCollection, resonance, shadowBonus, type CatalogItem, type CatalogShadow } from "../lib/collection";
+import { DOMAIN_DESC, developmentBalance, domainStandings, masteryTier } from "../lib/domains";
+import { DomainRadar } from "../components/visuals";
 import "../components/mobile/mobile.css";
 import "./mobile-me.css";
 
@@ -49,10 +51,18 @@ export function MobileMe() {
   const nr = nextRankInfo(rankNow);
   const [act, setAct] = useState<Activity | null>(null);
   const [army, setArmy] = useState<CatalogShadow[]>([]);
+  const [weapon, setWeapon] = useState<CatalogItem | null>(null);
   useEffect(() => {
     SystemAPI.getActivity(84).then(setAct).catch(() => undefined);
-    if (profile?.user_id) fetchCollection(profile.user_id).then((c) => setArmy(c.shadows.filter((x) => x.collected))).catch(() => undefined);
+    if (profile?.user_id) fetchCollection(profile.user_id).then((c) => {
+      setArmy(c.shadows.filter((x) => x.collected));
+      const gradeRank = ["E-Rank", "D-Rank", "C-Rank", "B-Rank", "A-Rank", "S-Rank"];
+      setWeapon([...c.items.filter((x) => x.collected && x.item_category === "Weapon")].sort((a, b) => gradeRank.indexOf(b.rarity) - gradeRank.indexOf(a.rarity))[0] ?? null);
+    }).catch(() => undefined);
   }, [profile?.user_id]);
+  const stand = domainStandings(profile ?? {});
+  const balance = developmentBalance(stand.all.map((d) => d.value));
+  const serial = `SRN-${(profile?.user_id ?? "00000000").slice(0, 8).toUpperCase()}`;
   const topArmy = [...army].sort((a, b) => shadowBonus(b.rarity) - shadowBonus(a.rarity)).slice(0, 5);
 
   const invite = async () => {
@@ -67,16 +77,20 @@ export function MobileMe() {
 
   return (
     <div className="me">
-      <section className="me-hero" aria-label="Hunter identity">
-        <div className="me-emblem" aria-label={`${rankNow}-Rank`}>
-          <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" /></svg>
-          <span>{rankNow}</span>
+      <section className="me-licence" aria-label="Hunter licence">
+        <div className="me-lic-top"><span>Hunter licence</span><code>{serial}</code></div>
+        <div className="me-lic-body">
+          <div className="me-emblem" aria-label={`${rankNow}-Rank`}>
+            <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" /></svg>
+            <span>{rankNow}</span>
+          </div>
+          <div className="me-who">
+            <h1>{profile?.name ?? "Hunter"}</h1>
+            <p>{profile?.player_title ?? "Newcomer"}</p>
+            <div className="me-chips"><span>{profile?.player_class ?? "Warrior"}</span><span className={`tone-${st.tone}`}>{st.label}</span></div>
+          </div>
         </div>
-        <div className="me-who">
-          <h1>{profile?.name ?? "Hunter"}</h1>
-          <p>{profile?.player_title ?? "Newcomer"} · {profile?.player_class ?? "Warrior"}</p>
-          <div className="me-chips"><span className={`tone-${st.tone}`}>{st.label}</span><span>{profile?.current_mode ?? "Normal"} mode</span></div>
-        </div>
+        <div className="me-barcode" aria-hidden="true">{Array.from({ length: 44 }, (_, i) => <i key={i} className={"tssttststtssttssttstsststtsstts"[i % 31] === "t" ? "t" : i % 5 === 0 ? "s" : ""} />)}</div>
       </section>
       {st.tone !== "ok" && <p className="me-hint">{st.hint}</p>}
 
@@ -87,33 +101,67 @@ export function MobileMe() {
       </section>
 
       <div className="me-tiles">
-        <div className="me-tile"><small>Total XP</small><b>{(profile?.total_points ?? 0).toLocaleString()}</b></div>
-        <div className="me-tile"><small>Streak</small><b>{e?.streak.count ?? profile?.streak_count ?? 0}<i>days</i></b></div>
-        <div className="me-tile"><small>Best streak</small><b>{act?.totals.best_streak ?? e?.streak.best ?? profile?.best_streak ?? 0}<i>days</i></b></div>
+                <div className="me-tile"><small>Streak</small><b>{e?.streak.count ?? profile?.streak_count ?? 0}<i>days</i></b></div>
+        <div className="me-tile"><small>Best</small><b>{act?.totals.best_streak ?? e?.streak.best ?? profile?.best_streak ?? 0}<i>days</i></b></div>
+        <div className="me-tile"><small>Freezes</small><b>{e?.streak.freezes ?? profile?.streak_freezes ?? 0}<i>/{e?.streak.freeze_cap ?? 2}</i></b></div>
       </div>
       {(profile?.dark_mana ?? 0) > 0 && <p className="me-hint">{profile?.dark_mana} Dark Mana is absorbing your XP. Redeem it in Rewards.</p>}
 
-      <h2 className="me-h">Record</h2>
-      <section className="me-record" aria-label="Lifetime record">
-        <div className="me-rec"><b>{act ? (act.totals.conquests ?? 0).toLocaleString() : "–"}</b><small>Gates conquered</small></div>
-        <div className="me-rec"><b>{act ? act.totals.active_days : "–"}</b><small>Active days</small></div>
-        <div className="me-rec"><b>{act ? act.totals.avg_xp_active_day : "–"}</b><small>XP per active day</small></div>
-        <button className="me-rec" onClick={() => navigate("/achievements")}><b>{e ? `${e.achievements.unlocked}/${e.achievements.total}` : "–"}</b><small>Feats earned</small></button>
+      <h2 className="me-h">Domain mastery</h2>
+      <section className="me-mastery" aria-label="Domain mastery">
+        <DomainRadar size={190} axes={stand.all.map((d) => ({ name: d.name, value: d.value, color: d.color, low: d.name === stand.lowest.name }))} />
+        <div className="me-dom-list">
+          {stand.all.map((d) => {
+            const t = masteryTier(d.value);
+            return (
+              <div key={d.name} className="me-dom" style={{ ["--dc" as string]: d.color }}>
+                <div className="me-dom-top"><b><i />{d.name}</b><span className={`tier-${t.tone}`}>{t.label.toLowerCase()}</span><em>{d.value}</em></div>
+                <div className="me-dom-bar"><u style={{ width: `${Math.max(2, Math.min(100, d.value))}%` }} /></div>
+                <small>{DOMAIN_DESC[d.name]}</small>
+              </div>
+            );
+          })}
+        </div>
+        <div className="me-balance">
+          <div className="me-balance-top"><span>Development balance</span><b>{balance.label}</b></div>
+          <div className="me-dom-bar"><u style={{ width: `${balance.score}%` }} /></div>
+          <small>Weakest: {stand.lowest.name}. Add a gate there to lift it.</small>
+        </div>
       </section>
+
+      <h2 className="me-h">System records</h2>
+      <dl className="me-records">
+        <div><dt>Total XP</dt><dd className="gold">{(profile?.total_points ?? 0).toLocaleString()}</dd></div>
+        <div><dt>Gates conquered</dt><dd>{(act?.totals.conquests ?? 0).toLocaleString()}</dd></div>
+        <div><dt>Active days</dt><dd>{act?.totals.active_days ?? 0}</dd></div>
+        <div><dt>XP per active day</dt><dd>{act?.totals.avg_xp_active_day ?? 0}</dd></div>
+        <div><dt>Feats earned</dt><dd>{e ? `${e.achievements.unlocked} / ${e.achievements.total}` : "–"}</dd></div>
+        <div><dt>Next rank</dt><dd>{nr ? `${nr.rank} · level ${nr.minLevel}` : "Max"}</dd></div>
+        <div><dt>Dark Mana debt</dt><dd className={(profile?.dark_mana ?? 0) > 0 ? "bad" : ""}>{profile?.dark_mana ?? 0}</dd></div>
+      </dl>
 
       <section className="me-act" aria-label="Activity, last 12 weeks">
         <div className="me-act-top"><span>Last 12 weeks</span>{act?.totals.since && <em>Since {new Date(`${act.totals.since}T12:00:00`).toLocaleDateString("en", { month: "short", year: "numeric" })}</em>}</div>
         {act ? <ActivityHeatmap days={act.days} weeks={12} /> : <div className="me-act-skel" />}
       </section>
 
-      <button className="me-army" onClick={() => navigate("/collection")} aria-label={`Your army: ${army.length} shadows, plus ${resonance(army)} percent XP`}>
-        <div className="me-army-top"><span>Your army</span><em>+{resonance(army)}% XP<ChevronRight size={15} /></em></div>
-        <div className="me-army-row">
-          {topArmy.map((s) => <i key={s.name} style={{ ["--gc" as string]: s.glow ? `rgb(${s.glow})` : "var(--m-accent)" }} title={s.name}>{s.name.slice(0, 1)}</i>)}
-          {army.length > topArmy.length && <i className="more">+{army.length - topArmy.length}</i>}
-          {army.length === 0 && <small>Conquer B-rank+ gates to extract shadows.</small>}
-        </div>
-      </button>
+      <div className="me-pair">
+        <button className="me-army" onClick={() => navigate("/collection")} aria-label={`Your army: ${army.length} shadows, plus ${resonance(army)} percent XP`}>
+          <div className="me-army-top"><span>Army</span><em>+{resonance(army)}% XP</em></div>
+          <div className="me-army-row">
+            {topArmy.slice(0, 3).map((s) => <i key={s.name} style={{ ["--gc" as string]: s.glow ? `rgb(${s.glow})` : "var(--m-accent)" }} title={s.name}>{s.name.slice(0, 1)}</i>)}
+            {army.length > 3 && <i className="more">+{army.length - 3}</i>}
+            {army.length === 0 && <small>No shadows yet</small>}
+          </div>
+        </button>
+        <button className="me-army" onClick={() => navigate("/collection")} aria-label={weapon ? `Primary armament: ${weapon.name}` : "No weapon yet"}>
+          <div className="me-army-top"><span>Armament</span><em>{weapon ? weapon.rarity : ""}</em></div>
+          <div className="me-weapon">
+            <b>{weapon?.name ?? "No weapon yet"}</b>
+            {weapon ? <span className="me-dur"><i style={{ width: `${weapon.durability}%` }} /></span> : <small>Claim the daily gift</small>}
+          </div>
+        </button>
+      </div>
 
       <h2 className="me-h">Progress</h2>
       <div className="me-group">
