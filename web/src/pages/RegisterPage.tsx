@@ -17,8 +17,6 @@ const CLASSES: { name: string; icon: React.ReactNode; desc: string }[] = [
   { name: "Scout",          icon: <Target size={14} />, desc: "Tactical intel"    },
 ];
 
-import "./auth-glass.css";
-
 export function RegisterPage() {
   const [name,            setName]            = useState("");
   const [email,           setEmail]           = useState("");

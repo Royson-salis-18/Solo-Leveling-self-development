@@ -4,8 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { errorMessage } from "../lib/rpc";
 
-import "./auth-glass.css";
-
 export function ForgotPasswordPage() {
   const { resetPassword } = useAuth();
   const [email, setEmail] = useState(""); const [sent, setSent] = useState(false); const [err, setErr] = useState("");

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bot, Check, ChevronRight, Crown, Flame, Gem, Gift, Plus, Skull, Snowflake, Sparkles, Swords, Trophy, Undo2 } from "lucide-react";
+import { Check, ChevronRight, Crown, Flame, Gem, Gift, Plus, Skull, Snowflake, Sparkles, Swords, Trophy, Undo2 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { useGameActions } from "../lib/gameActions";
 import { SystemAPI } from "../services/SystemAPI";
@@ -13,7 +13,7 @@ import { ConquestRecord } from "../components/ConquestRecord";
 import { Transmission } from "../components/Transmission";
 import { Coach } from "../components/mobile/Coach";
 import { Insights } from "../components/mobile/Insights";
-import { HatchBars, Kpis, Panel, RangeChips, TickRing, Waffle, XpArea } from "../components/visuals";
+import { HatchBars, Kpis, Panel, RangeChips, Waffle, XpArea } from "../components/visuals";
 import { FirstSteps } from "../components/UxLayer";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
 import { XP_PER_LEVEL, nextRankInfo } from "../lib/levelEngine";
@@ -164,16 +164,14 @@ export function MobileHome() {
           <Transmission compact />
 
           <header className="mh-win" aria-label="Status window">
-            <i className="mh-spark s1" aria-hidden="true" /><i className="mh-spark s2" aria-hidden="true" /><i className="mh-spark s3" aria-hidden="true" />
             <div className="mh-win-top"><span>{dateLine}</span><span>Level {level}</span></div>
             <div className="mh-win-body">
               <div className="mh-win-main"><h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1><p>{rank}-Rank hunter{profile?.player_class ? `, ${profile.player_class}` : ""}</p></div>
-              <TickRing value={1 - toNext / XP_PER_LEVEL} size={96} label={`${Math.round((1 - toNext / XP_PER_LEVEL) * 100)}% of the way to level ${level + 1}`}>
-                <span className="mh-hex" role="img" aria-label={`${rank}-Rank`}>
-                  <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" /></svg><b>{rank}</b>
-                </span>
-              </TickRing>
+              <span className="mh-hex" role="img" aria-label={`${rank}-Rank`}>
+                <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" /></svg><b>{rank}</b>
+              </span>
             </div>
+            <div className="mh-seg" role="progressbar" aria-label={`Progress to level ${level + 1}`} aria-valuenow={Math.round((1 - toNext / XP_PER_LEVEL) * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${(1 - toNext / XP_PER_LEVEL) * 100}%` }} /></div>
             <small>{toNext.toLocaleString()} XP to level {level + 1}{nr ? `. ${nr.rank}-Rank opens at level ${nr.minLevel}` : ""}</small>
           </header>
 
@@ -182,13 +180,6 @@ export function MobileHome() {
             <button onClick={() => setView("progress")}><b>{weeklyXp}{weeklyTarget ? <i>/{weeklyTarget}</i> : null}</b><span>Week XP</span></button>
             <button onClick={() => setView("progress")}><b>{streak}</b><span>Streak</span></button>
           </div>
-
-          <nav className="mh-quick" aria-label="Quick actions">
-            <button onClick={() => openAdd()}><span style={{ ["--qc" as string]: "var(--m-accent)" }}><Plus size={20} /></span>New gate</button>
-            <button onClick={() => navigate("/rewards")}><span style={{ ["--qc" as string]: "var(--m-gold)" }}><Gift size={20} /></span>Rewards</button>
-            <button onClick={() => navigate("/leaderboard")}><span style={{ ["--qc" as string]: "#38bdf8" }}><Trophy size={20} /></span>Ranks</button>
-            <button onClick={() => document.querySelector<HTMLButtonElement>(".oracle-trigger")?.click()}><span style={{ ["--qc" as string]: "#f472b6" }}><Bot size={20} /></span>Oracle</button>
-          </nav>
 
           <Coach weeklyTarget={weeklyTarget} conqueredToday={dash?.completedCount ?? 0} />
 

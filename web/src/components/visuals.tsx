@@ -111,7 +111,6 @@ export function XpArea({ days, pace }: { days: Array<{ date: string; daily_point
           <stop offset="1" stopColor="var(--m-accent, #a78bfa)" stopOpacity="0" />
         </linearGradient>
       </defs>
-      {days.map((_, i) => <line key={`v${i}`} className="xa-vgrid" x1={x(i)} x2={x(i)} y1={top - 6} y2={base} />)}
       {[0.5, 1].map((f) => <line key={f} className="xa-grid" x1={left} x2={w - right} y1={top + (1 - f) * (base - top)} y2={top + (1 - f) * (base - top)} />)}
       <line className="xa-base" x1={left} x2={w - right} y1={base} y2={base} />
       {pace ? <><line className="xa-pace" x1={left} x2={w - right} y1={y(pace)} y2={y(pace)} /><text className="xa-pace-t" x={left} y={y(pace) - 5}>daily pace {pace}</text></> : null}
@@ -250,26 +249,6 @@ export function SegBar({ parts }: { parts: Array<{ name: string; value: number; 
         {parts.filter((p) => p.value > 0).map((p) => <i key={p.name} style={{ flexGrow: p.value, ["--sc" as string]: p.color }} />)}
       </div>
       <div className="sg-leg">{parts.map((p) => <span key={p.name}><i style={{ background: p.color }} />{p.name}<b>{Math.round((p.value / sum) * 100)}%</b></span>)}</div>
-    </div>
-  );
-}
-
-/* ── Tick ring: a radial gauge of small bars (lit up to `value`), with room in the middle ── */
-export function TickRing({ value, size = 96, ticks = 56, label, children }: { value: number; size?: number; ticks?: number; label: string; children?: ReactNode }) {
-  const v = Math.max(0, Math.min(1, value));
-  const c = size / 2, r2 = c - 2, r1 = r2 - 9;
-  const lit = Math.round(v * ticks);
-  return (
-    <div className="tr" style={{ width: size, height: size }} role="img" aria-label={label}>
-      <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        {Array.from({ length: ticks }, (_, i) => {
-          const a = -Math.PI / 2 + (i / ticks) * Math.PI * 2;
-          const on = i < lit, head = i === lit - 1;
-          const ri = head ? r1 - 3 : r1;
-          return <line key={i} x1={c + Math.cos(a) * ri} y1={c + Math.sin(a) * ri} x2={c + Math.cos(a) * r2} y2={c + Math.sin(a) * r2} className={on ? (head ? "tr-on head" : "tr-on") : "tr-off"} />;
-        })}
-      </svg>
-      <div className="tr-mid">{children}</div>
     </div>
   );
 }

@@ -31,14 +31,6 @@ A quiet, dense, softly glossy tool: rounded containers with smooth gradients, mu
 - No tracked all-caps labels and no monospace for data. Section heads are sentence case in the display face. The only caps left are the System's own voice (the Transmission banner), because that is canon.
 - Scale: 13 / 15 / 17 / 22 / 28 / 30. Titles on sub-screens are 28px and left-aligned; only the status window uses 30px.
 
-## Glow and glass
-- **Backdrop:** `Ambient.tsx` draws glowing contour rings (top right) and a faint plexus network (bottom left) behind every screen. Static SVG from `lib/ambient.ts`, tinted by the aura.
-- **Frosted containers:** translucent gradient fills with `backdrop-filter: blur(16px)`, so the line-art shows softly through.
-- **Neon data:** charts and radars get a soft drop-shadow glow in the accent colour; the level gauge is a **tick ring** (`TickRing`, a radial bar gauge) around the rank hexagon.
-- **Buttons:** violet-to-orchid glossy pills. Quick actions are circular glass buttons with one colour each.
-- **Sparkles:** three tiny four-point stars on the status window only; they twinkle slowly and stop under reduced motion.
-- **Sign-in screens (phone):** frosted card over smoky violet, same recipe (`auth-glass.css`).
-
 ## Space and shape
 8-pt rhythm (8 / 16 / 24 / 32). Screen gutter 20px. Every container is rounded and glossy: a diagonal gradient fill that picks up the aura, a 1px gradient rim (bright top-left, quiet middle, faint bottom-right), a hairline top highlight and a soft lift shadow. Tinted containers (gold balance, red debt, green active) change only `--tint`. Padding is 16px. Sheets: `--m-r-sheet` top radius, portalled to `body`. Segmented controls are text tabs with a 2px accent underline, never boxed pills. Tap targets ≥ 40px. Nothing may exceed the viewport width; wide content scrolls inside its own container.
 
