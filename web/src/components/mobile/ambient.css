@@ -1,0 +1,6 @@
+.m-ambient { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.m-amb-rings path { fill: none; stroke: var(--m-accent); stroke-width: 1; stroke-opacity: .36; }
+.m-amb-net line { stroke: var(--m-accent); stroke-width: .8; }
+.m-amb-net circle { fill: color-mix(in srgb, var(--m-accent) 55%, #fff); fill-opacity: .8; }
+.m-amb-net circle.glow { fill-opacity: 1; filter: drop-shadow(0 0 5px var(--m-accent)); }
+.m-top, .m-content { position: relative; z-index: 1; }

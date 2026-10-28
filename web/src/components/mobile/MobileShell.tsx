@@ -10,6 +10,7 @@ import { haptic } from "../../lib/feedback";
 import { MobileUiProvider, useMobileUi } from "./MobileUi";
 import { useAura } from "../../lib/theme";
 import { AuraCtx, useAuraState } from "./ThemeContext";
+import { Ambient } from "./Ambient";
 import "./theme.css";
 import "./mobile.css";
 import "./polish.css";
@@ -114,6 +115,7 @@ function ShellInner({ children }: { children: ReactNode }) {
   return (
     <AuraCtx.Provider value={auraState}>
     <div className="m-shell">
+      <Ambient />
       <TopBar />
       <main className="m-content" id="main" ref={scroller}>{children}</main>
       <TabBar />

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { Brain } from "lucide-react";
 
+import "./auth-glass.css";
+
 export function LoginPage() {
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
