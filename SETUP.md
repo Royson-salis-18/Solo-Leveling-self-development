@@ -5,7 +5,7 @@ Create a project; copy the URL and anon key into `web/.env` (`VITE_SUPABASE_URL`
 
 ## 2. Database — run in the SQL editor, in this order
 1. `web/supabase_schema.sql`, then `web/supabase_notifications.sql` (legacy base; safe to re-run). *Fresh projects only; existing projects already have them.*
-2. every file in `web/supabase/migrations/` in filename order (`…20261025000001` → `…08`). All are idempotent and non-destructive.
+2. every file in `web/supabase/migrations/` in filename order (`…20261025000001` → `…09`). All are idempotent and non-destructive.
 
 **Deploy the new frontend and run the migrations together.** The migrations remove the client's ability to write XP directly, so the old frontend stops working against the new database.
 `…06_rollout_recalibration.sql` gives existing players a clean slate (no retroactive decay).

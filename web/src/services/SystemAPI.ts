@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabase";
 import { rpc } from "../lib/rpc";
 import { OracleService } from "./OracleService";
 import type {
-  Activity, BossLootResult, ChestResult, CompleteResult, DashboardData, Engagement, Trophy, DuelRow, Entitlements, FailResult, GatePayload, PendingInvites, ProfileSnapshot,
+  Activity, Behavior, BossLootResult, ChestResult, CompleteResult, DashboardData, Engagement, Trophy, DuelRow, Entitlements, FailResult, GatePayload, GatePlan, LapseReason, PendingInvites, ProfileSnapshot,
 } from "../lib/gameTypes";
 
 export type { DashboardData, GatePayload } from "../lib/gameTypes";
@@ -33,6 +33,16 @@ export const SystemAPI = {
   claimBossReward: (week?: string) => rpc<BossLootResult>("claim_boss_reward", week ? { p_week: week } : {}),
   getActivity: (days = 140) => rpc<Activity>("get_activity", { p_days: days }),
   getAchievements: () => rpc<Trophy[]>("get_achievements"),
+
+  /* ─── Behaviour engine ─── plans, lapse diagnosis, reflection, pledges, insights */
+  getBehavior: (days = 60) => rpc<Behavior>("get_behavior", { p_days: days }),
+  setGatePlan: (taskId: string, plan: GatePlan) => rpc<{ ok: boolean; plan: GatePlan | null }>("set_gate_plan", { p_task: taskId, p_plan: plan }),
+  logLapse: (taskId: string, reason: LapseReason, note?: string) =>
+    rpc<{ ok: boolean; reason: LapseReason; tier: string; category: string; title: string; had_plan: boolean }>("log_lapse", { p_task: taskId, p_reason: reason, p_note: note ?? null }),
+  saveReflection: (worked: string, change: string) =>
+    rpc<{ ok: boolean; first_today: boolean; days_14: number }>("save_reflection", { p_worked: worked, p_change: change }),
+  pledgeGate: (taskId: string, stake: number) =>
+    rpc<{ ok: boolean; stake: number; dividend: number; profile: ProfileSnapshot }>("pledge_gate", { p_task: taskId, p_stake: stake }),
 
   /* ─── Dashboard ─── one round trip (was ~25 sequential ones) */
   fetchDashboardData: (_userId?: string) => rpc<DashboardData>("get_dashboard"),

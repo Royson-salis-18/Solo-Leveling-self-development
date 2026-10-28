@@ -11,6 +11,8 @@ import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, nextBestActi
 import { Reveal } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
 import { Transmission } from "../components/Transmission";
+import { Coach } from "../components/mobile/Coach";
+import { Insights } from "../components/mobile/Insights";
 import { HatchBars, Kpis, Panel, RangeChips, Waffle, XpArea } from "../components/visuals";
 import { FirstSteps } from "../components/UxLayer";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
@@ -175,6 +177,8 @@ export function MobileHome() {
             <button onClick={() => setView("progress")}><b>{streak}</b><span>Streak</span></button>
           </div>
 
+          <Coach weeklyTarget={weeklyTarget} conqueredToday={dash?.completedCount ?? 0} />
+
           {e && (() => {
             const act = nextBestAction(e);
             const to = act.kind === "chest" || act.kind === "bounty" ? () => setView("rewards") : act.kind === "boss" ? () => setView("rewards") : () => navigate("/dungeon-gate");
@@ -278,6 +282,9 @@ export function MobileHome() {
           </section>
 
           <ConquestRecord compact score={dash?.playmaker_rating ?? 0} streak={streak} />
+
+          <div className="mh-sec"><h2>Patterns</h2></div>
+          <Insights />
 
           {e?.achievements.next && (
             <button className="mh-card mh-next" onClick={() => navigate("/achievements")}>

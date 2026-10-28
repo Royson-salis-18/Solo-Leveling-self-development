@@ -128,3 +128,13 @@ button.me-rec { cursor: pointer; } button.me-rec b { color: var(--m-gold); }
 .me-tile b { font-size: 1.375rem; letter-spacing: -.03em; font-weight: 500; }
 .me-tile small, .me-records dt, .me-h { font-family: var(--m-mono); }
 .me-dom-top span { font-family: var(--m-mono); }
+
+/* identity votes */
+.me-ident { display: grid; gap: 16px; padding: 16px; border-radius: 16px; background: var(--m-surface); border: 1px solid var(--m-line); min-width: 0; }
+.me-ident > p { margin: 0; font-size: .8125rem; color: var(--m-dim); line-height: 1.5; }
+.me-id-row { display: grid; gap: 6px; min-width: 0; }
+.me-id-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.me-id-top b { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: .875rem; } .me-id-top b i { width: 6px; height: 6px; border-radius: 50%; background: var(--dc); }
+.me-id-top span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; color: var(--m-dim); text-align: right; }
+.me-id-top em { font-style: normal; min-width: 24px; text-align: right; font-family: var(--m-mono); font-size: .9375rem; font-variant-numeric: tabular-nums; }
+.me-id-row small { font-size: .75rem; color: var(--m-dim); }

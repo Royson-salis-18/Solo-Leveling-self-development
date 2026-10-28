@@ -55,7 +55,7 @@ export type CompleteResult = {
   flow_active?: boolean;
   shadow?: { name: string; rarity: string; bonus: number } | null;
   progression?: Progression;
-  engagement?: { freeze_earned?: boolean; achievements?: UnlockedTrophy[] };
+  engagement?: { freeze_earned?: boolean; achievements?: UnlockedTrophy[]; pledge?: { kept: Array<{ title: string; stake: number; dividend: number }>; forfeited: Array<{ title: string; stake: number }> } };
   profile: ProfileSnapshot;
 };
 
@@ -261,4 +261,26 @@ export type ActivityDay = { date: string; points: number; conquests: number };
 export type Activity = {
   days: ActivityDay[];
   totals: { conquests?: number; active_days?: number; avg_xp_active_day?: number; best_streak?: number; since?: string };
+};
+
+/* ─── Behaviour engine (…_behavior.sql) ─── */
+export type LapseReason = "too_big" | "forgot" | "low_energy" | "distracted" | "unclear" | "no_time" | "other";
+export type GatePlan = { cue?: string; obstacle?: string; then?: string; pair?: string };
+export type Tally = { n: number; done: number };
+export type Behavior = {
+  today: string; dow: number; dom: number; window_days: number;
+  plan_effect: { planned: Tally; unplanned: Tally; n: number; done: number };
+  tiers: Record<string, Tally>;
+  recent: { n: number; done: number; hard_n: number; hard_done: number };
+  hours: number[]; weekdays: number[];
+  lapses: Array<{ reason: LapseReason; n: number }>;
+  categories: Array<{ category: string; n: number }>;
+  settled: { kept: Array<{ title: string; stake: number; dividend: number }>; forfeited: Array<{ title: string; stake: number }> };
+  pledges: {
+    open: Array<{ id: string; task_id: string | null; title: string; stake: number; dividend: number; deadline: string | null }>;
+    kept_total: number; forfeited_total: number;
+  };
+  unexamined: Array<{ id: string; title: string; tier: string; category: string; deadline: string | null; had_plan: boolean }>;
+  reflection: { today: boolean; days_14: number; last: { day: string; change: string } | null };
+  rhythm: { days_since_conquest: number | null; this_week_xp: number; prev_week_xp: number; streak: number; best_streak: number };
 };

@@ -5,15 +5,22 @@ import { SystemAPI } from "../../services/SystemAPI";
 import { useToast } from "../../lib/toast";
 import { haptic } from "../../lib/feedback";
 import { requestEngagementRefresh } from "../../lib/engagement";
+import { useBehavior } from "../../lib/behaviorContext";
+import { useAuth } from "../../lib/authContext";
+import { planInsight, planIsSet } from "../../lib/psyche";
+import type { GatePlan } from "../../lib/gameTypes";
+import { PlanFields } from "./PlanFields";
+import { LapseSheet } from "./LapseSheet";
+import type { LapseTarget } from "./LapseSheet";
 import { TIER_INFO, addDays, clampTier, isoDay, repeatPayload, tierStates } from "../../lib/gateRules";
 import type { RepeatKind, TierId } from "../../lib/gateRules";
 import "./sheets.css";
 
-export type EditableGate = { id: string; title: string; xp_tier?: string; category?: string; deadline?: string | null; is_recurring?: boolean; recurrence_type?: string; description?: string | null; priority?: string | null; start_time?: string | null; end_time?: string | null };
+export type EditableGate = { id: string; title: string; xp_tier?: string; category?: string; deadline?: string | null; is_recurring?: boolean; recurrence_type?: string; description?: string | null; priority?: string | null; start_time?: string | null; end_time?: string | null; plan?: GatePlan | null };
 
-export type AddPreset = { category?: string };
-type Ui = { openAdd: (gate?: EditableGate, preset?: AddPreset) => void };
-const Ctx = createContext<Ui>({ openAdd: () => undefined });
+export type AddPreset = { category?: string; title?: string; tier?: TierId; planOpen?: boolean };
+type Ui = { openAdd: (gate?: EditableGate, preset?: AddPreset) => void; openLapse: (g: LapseTarget) => void };
+const Ctx = createContext<Ui>({ openAdd: () => undefined, openLapse: () => undefined });
 export const useMobileUi = () => useContext(Ctx);
 
 const CATEGORIES = ["General", "Work", "Fitness", "Health", "Learning", "Finance", "Creative", "Side Projects", "Social", "Family", "Mindfulness", "Errands", "Academics", "Wellness", "Spirituality", "Personal Development"];
@@ -22,15 +29,19 @@ type When = "none" | "today" | "tomorrow" | "plus3" | "pick";
 function AddGateSheet({ gate, preset, onClose }: { gate: EditableGate | null; preset?: AddPreset; onClose: () => void }) {
   const toast = useToast();
   const editing = !!gate;
-  const [title, setTitle] = useState(gate?.title ?? "");
+  const [title, setTitle] = useState(gate?.title ?? preset?.title ?? "");
   const [category, setCategory] = useState(gate?.category ?? preset?.category ?? "General");
   const now = useMemo(() => new Date(), []);
   const initialWhen: When = !gate ? "today" : gate.deadline ? "pick" : "none";
   const [when, setWhen] = useState<When>(initialWhen);
   const [picked, setPicked] = useState(gate?.deadline ?? isoDay(now));
-  const [tier, setTier] = useState<TierId>((gate?.xp_tier as TierId) ?? "Mid");
+  const [tier, setTier] = useState<TierId>((gate?.xp_tier as TierId) ?? preset?.tier ?? "Mid");
   const [repeat, setRepeat] = useState<RepeatKind>(gate?.is_recurring ? (gate.recurrence_type === "weekly" ? "weekly" : "daily") : "none");
   const [busy, setBusy] = useState(false);
+  const [plan, setPlan] = useState<GatePlan>(gate?.plan ?? {});
+  const [stake, setStake] = useState(0);
+  const { data: behavior, reload: reloadBehavior } = useBehavior();
+  const { profile } = useAuth();
 
   const deadline = when === "none" ? null : when === "today" ? isoDay(now) : when === "tomorrow" ? isoDay(addDays(now, 1)) : when === "plus3" ? isoDay(addDays(now, 3)) : picked;
   const states = tierStates(deadline, now);
@@ -38,6 +49,14 @@ function AddGateSheet({ gate, preset, onClose }: { gate: EditableGate | null; pr
   const info = TIER_INFO.find((t) => t.id === effective)!;
   const blocked = states.find((s) => !s.ok && TIER_INFO.findIndex((t) => t.id === s.id) > 0);
   const canRepeat = deadline !== null;
+  const stakeBlocked = editing ? "Pledge from the gate's menu after it is saved."
+    : !deadline ? "A pledge needs a deadline."
+    : effective === "Low" ? "Pledges are for C-rank gates and above."
+    : (behavior?.pledges.open.length ?? 0) >= 2 ? "Two open pledges at a time. Keep one first."
+    : (profile?.total_points ?? 0) < 5 ? "You need XP in hand to stake it." : null;
+  useEffect(() => { if (stakeBlocked && stake) setStake(0); }, [stakeBlocked, stake]);
+  const insight = behavior ? planInsight(behavior) : null;
+  const planHint = insight && insight.ready ? insight.text : "Decide when and where it starts. Gates with a plan get finished more often.";
 
   useEffect(() => { if (!canRepeat && repeat !== "none") setRepeat("none"); }, [canRepeat, repeat]);
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [onClose]);
@@ -48,12 +67,21 @@ function AddGateSheet({ gate, preset, onClose }: { gate: EditableGate | null; pr
     if (!t || busy) return;
     setBusy(true);
     try {
-      await SystemAPI.saveGate({
+      const saved = await SystemAPI.saveGate({
         title: t, category, priority: gate?.priority ?? "Normal", xp_tier: effective, deadline,
         // an edit must not wipe what was set on the web (notes, times)
         ...(gate ? { description: gate.description ?? "", start_time: gate.start_time ?? null, end_time: gate.end_time ?? null } : {}),
         ...repeatPayload(repeat, deadline),
       } as never, gate?.id ?? null);
+      const id = saved?.id ?? gate?.id;
+      // Plan and pledge are separate calls: the gate is already safe if either one fails.
+      if (id && (planIsSet(plan) || plan.pair || plan.obstacle || gate?.plan)) {
+        try { await SystemAPI.setGatePlan(id, plan); } catch (e) { toast.fail(e, "The gate is saved, but the plan wasn't"); }
+      }
+      if (id && stake > 0 && !editing) {
+        try { await SystemAPI.pledgeGate(id, stake); toast.info("Pledge made", `${stake} XP on your word.`); } catch (e) { toast.fail(e, "The gate is saved, but the pledge wasn't"); }
+      }
+      void reloadBehavior();
       haptic("success");
       toast.success(editing ? "Gate updated" : "Gate opened", `${t} · ${info.rank}-rank · +${info.xp} XP`);
       requestEngagementRefresh();
@@ -97,6 +125,8 @@ function AddGateSheet({ gate, preset, onClose }: { gate: EditableGate | null; pr
         </div>
         {!canRepeat && <p className="sh-hint">Repeating gates need a deadline.</p>}
 
+        <PlanFields defaultOpen={!!preset?.planOpen} tier={effective} hasDeadline={!!deadline} plan={plan} onPlan={setPlan} stake={stake} onStake={setStake} stakeBlocked={stakeBlocked} planHint={planHint} />
+
         <button className="sh-go" type="submit" disabled={!title.trim() || busy}>{busy ? "Saving…" : editing ? "Save changes" : `Open gate · +${info.xp} XP`}</button>
       </form>
     </div>
@@ -105,12 +135,15 @@ function AddGateSheet({ gate, preset, onClose }: { gate: EditableGate | null; pr
 
 export function MobileUiProvider({ children }: { children: ReactNode }) {
   const [sheet, setSheet] = useState<{ gate: EditableGate | null; preset?: AddPreset } | null>(null);
+  const [lapse, setLapse] = useState<LapseTarget | null>(null);
   const openAdd = useCallback((gate?: EditableGate, preset?: AddPreset) => { haptic("tap"); setSheet({ gate: gate ?? null, preset }); }, []);
-  const value = useMemo(() => ({ openAdd }), [openAdd]);
+  const openLapse = useCallback((g: LapseTarget) => { haptic("tap"); setLapse(g); }, []);
+  const value = useMemo(() => ({ openAdd, openLapse }), [openAdd, openLapse]);
   return (
     <Ctx.Provider value={value}>
       {children}
-      {sheet && <AddGateSheet key={sheet.gate?.id ?? `new-${sheet.preset?.category ?? ""}`} gate={sheet.gate} preset={sheet.preset} onClose={() => setSheet(null)} />}
+      {sheet && <AddGateSheet key={sheet.gate?.id ?? `new-${sheet.preset?.category ?? ""}-${sheet.preset?.title ?? ""}`} gate={sheet.gate} preset={sheet.preset} onClose={() => setSheet(null)} />}
+      {lapse && <LapseSheet key={lapse.id} gate={lapse} onClose={() => setLapse(null)} openAdd={openAdd as never} />}
     </Ctx.Provider>
   );
 }

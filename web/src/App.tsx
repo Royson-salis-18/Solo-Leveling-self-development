@@ -13,6 +13,7 @@ import { SoloRainOverlay } from "./components/SoloRainOverlay";
 import { OracleArchitect, Pages, prefetchCommonRoutes } from "./routes";
 import { captureReferral } from "./lib/referral";
 import { EngagementProvider } from "./lib/engagementContext";
+import { BehaviorProvider } from "./lib/behaviorContext";
 import { XpFloat, ConnectionBanner } from "./components/UxLayer";
 import { useIsMobile } from "./lib/useMedia";
 import { MobileShell } from "./components/mobile/MobileShell";
@@ -98,6 +99,7 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <EngagementProvider>
+            <BehaviorProvider>
             <a href="#main" className="skip-link">Skip to content</a>
             <ConnectionBanner />
             <XpFloat />
@@ -131,6 +133,7 @@ function AppContent() {
               />
             </div>
             )}
+            </BehaviorProvider>
             </EngagementProvider>
           </ProtectedRoute>
         }

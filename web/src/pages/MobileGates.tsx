@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight, Clock, Pencil, Plus, Trash2, Undo2, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Flag, LifeBuoy, Link2, Pencil, Plus, Trash2, Undo2, X } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { useToast } from "../lib/toast";
 import { useConfirm } from "../lib/confirm";
@@ -11,6 +11,8 @@ import { RANK_OF, addDays, isoDay } from "../lib/gateRules";
 import { haptic } from "../lib/feedback";
 import { useArmed } from "../lib/useArmed";
 import { useMobileUi } from "../components/mobile/MobileUi";
+import { useBehavior } from "../lib/behaviorContext";
+import { PLEDGE_STAKES, describePlan, pledgeDividend, planIsSet } from "../lib/psyche";
 import { DOMAINS, domainOfCategory } from "../lib/domains";
 import type { EditableGate } from "../components/mobile/MobileUi";
 import "../components/mobile/mobile.css";
@@ -39,7 +41,10 @@ export function MobileGates() {
   const toast = useToast();
   const confirm = useConfirm();
   const actions = useGameActions();
-  const { openAdd } = useMobileUi();
+  const { openAdd, openLapse } = useMobileUi();
+  const { data: beh, reload: reloadBeh } = useBehavior();
+  const { profile } = useAuth();
+  const [stake, setStake] = useState<number | null>(null);
 
   const [rows, setRows] = useState<Gate[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -58,6 +63,8 @@ export function MobileGates() {
     window.addEventListener(ENGAGEMENT_REFRESH_EVENT, load);
     return () => window.removeEventListener(ENGAGEMENT_REFRESH_EVENT, load);
   }, [load]);
+
+  const pledgeOf = useMemo(() => new Map((beh?.pledges.open ?? []).map((p) => [p.task_id, p])), [beh]);
 
   const { armed, running, arm, undo } = useArmed(async (id) => { await actions.complete(id); await load(); });
 
@@ -99,10 +106,19 @@ export function MobileGates() {
     catch (e) { toast.fail(e, "Couldn't postpone"); } finally { setBusy(false); }
   };
   const abandon = async (g: Gate) => {
-    const ok = await confirm({ title: "Abandon this gate?", message: "You'll lose XP and gain Dark Mana based on your difficulty mode. This can't be undone.", confirmLabel: "Abandon", danger: true });
+    const pl = pledgeOf.get(g.id);
+    const ok = await confirm({ title: "Abandon this gate?", message: `You'll lose XP and gain Dark Mana based on your difficulty mode.${pl ? ` Your ${pl.stake} XP pledge goes with it.` : ""} This can't be undone.`, confirmLabel: "Abandon", danger: true });
     if (!ok) return;
     setBusy(true);
-    try { await actions.fail(g.id); setOpen(null); void load(); requestEngagementRefresh(); } finally { setBusy(false); }
+    try {
+      await actions.fail(g.id); setOpen(null); void load(); requestEngagementRefresh(); void reloadBeh();
+      window.setTimeout(() => openLapse({ id: g.id, title: g.title, tier: g.xp_tier, category: g.category }), 350);   // ask what happened, while it is fresh
+    } finally { setBusy(false); }
+  };
+  const pledge = async (g: Gate, n: number) => {
+    setBusy(true);
+    try { await SystemAPI.pledgeGate(g.id, n); haptic("success"); toast.info("Pledge made", `${n} XP on your word. Keep it and +${pledgeDividend(n)} comes back with it.`); setStake(null); setOpen(null); void reloadBeh(); requestEngagementRefresh(); }
+    catch (e) { toast.fail(e, "Couldn't make the pledge"); } finally { setBusy(false); }
   };
   const remove = async (g: Gate) => {
     const ok = await confirm({ title: "Delete this gate?", message: "It disappears with no XP change.", confirmLabel: "Delete", danger: true });
@@ -145,6 +161,16 @@ export function MobileGates() {
       )}
 
       {seg === "pending" && lists.pending.length > 0 && <p className="mg-note">These passed their deadline. Conquer, postpone or abandon each one.</p>}
+      {seg === "pending" && (beh?.unexamined.length ?? 0) > 0 && (
+        <section className="mg-diag" aria-label="Look at what happened">
+          <h2>Look at what happened</h2>
+          {beh!.unexamined.map((u) => (
+            <button key={u.id} className="mg-diag-row" onClick={() => openLapse({ id: u.id, title: u.title, tier: u.tier, category: u.category })}>
+              <span className="mg-diag-ico"><LifeBuoy size={16} /></span><span className="mg-diag-t">{u.title}</span><em>What got in the way?</em><ChevronRight size={15} />
+            </button>
+          ))}
+        </section>
+      )}
 
       {groups.map((grp) => (
         <section key={grp.title || "all"} className="mg-group">
@@ -170,6 +196,8 @@ export function MobileGates() {
                     {seg !== "done" && <span className={`due ${due.tone}`}><Clock size={11} /> {due.text}</span>}
                     {sub && <span>{sub.done}/{sub.total} stages</span>}
                     {g.is_recurring && <span>↻</span>}
+                    {planIsSet(g.plan) && <span className="mg-tag" title="Has a plan" aria-label="Has a plan"><Link2 size={11} /></span>}
+                    {pledgeOf.get(g.id) && <span className="mg-tag gold" aria-label={`${pledgeOf.get(g.id)!.stake} XP pledged`}><Flag size={11} />{pledgeOf.get(g.id)!.stake}</span>}
                   </span>
                 </button>
                 {isArmed ? <><button className="mh-undo" onClick={undo}>Undo</button><i className="mh-countdown" aria-hidden="true" /></>
@@ -186,7 +214,7 @@ export function MobileGates() {
         <div className="sh-bg" onClick={() => setOpen(null)}>
           <div className="sh" role="dialog" aria-modal="true" aria-label={open.title} onClick={(e) => e.stopPropagation()}>
             <div className="sh-grab" />
-            <header className="sh-head"><h2 style={{ fontSize: "1.15rem", paddingRight: 8 }}>{open.title}</h2><button className="m-icon-btn" onClick={() => setOpen(null)} aria-label="Close"><X size={20} /></button></header>
+            <header className="sh-head"><h2 style={{ fontSize: "1.15rem", paddingRight: 8 }}>{open.title}</h2><button className="m-icon-btn" onClick={() => { setOpen(null); setStake(null); }} aria-label="Close"><X size={20} /></button></header>
             <div className="sh-meta">
               <span>{RANK_OF[open.xp_tier ?? "Low"]}-rank · +{open.points} XP</span>
               <span>{open.category ?? "General"}</span>
@@ -194,6 +222,22 @@ export function MobileGates() {
               {open.is_recurring && <span>Repeats {open.recurrence_type}</span>}
             </div>
             {open.description && <p className="mg-desc">{open.description}</p>}
+            {planIsSet(open.plan) && <div className="mg-plan"><span><Link2 size={13} /> Your plan</span><p>{describePlan(open.plan)}</p></div>}
+            {pledgeOf.get(open.id) && <div className="mg-plan gold"><span><Flag size={13} /> Pledged</span><p>{pledgeOf.get(open.id)!.stake} XP on your word. Conquer it by the deadline and it returns with +{pledgeOf.get(open.id)!.dividend}.</p></div>}
+            {(() => {
+              const can = !open.is_completed && !open.is_failed && !!open.deadline && open.deadline >= isoDay(today) && (open.xp_tier ?? "Low") !== "Low"
+                && !pledgeOf.get(open.id) && (beh?.pledges.open.length ?? 2) < 2 && (profile?.total_points ?? 0) >= 5;
+              if (!can) return null;
+              return stake === null
+                ? <button className="sh-act" disabled={busy} onClick={() => setStake(0)}><Flag size={18} /> Pledge XP on it</button>
+                : (
+                  <div className="mg-stake" role="group" aria-label="Pledge amount">
+                    <p>Put XP on your word. It comes back if you conquer this by the deadline; if you don't, it's gone.</p>
+                    <div>{PLEDGE_STAKES.map((n) => <button key={n} type="button" disabled={busy || (profile?.total_points ?? 0) < n} className={stake === n ? "on" : ""} onClick={() => setStake(n)}>{n}<small>+{pledgeDividend(n)}</small></button>)}</div>
+                    <button className="sh-go" disabled={busy || stake === 0} onClick={() => pledge(open, stake)}>{stake ? `Pledge ${stake} XP` : "Pick an amount"}</button>
+                  </div>
+                );
+            })()}
             <div className="sh-actions">
               {!open.is_completed && <button className="sh-act hot" disabled={busy} onClick={() => { setOpen(null); arm(open.id); }}><Check size={18} /> Conquer</button>}
               {!open.is_completed && <button className="sh-act" disabled={busy} onClick={() => { const g = open; setOpen(null); window.setTimeout(() => openAdd(g), 60); }}><Pencil size={18} /> Edit</button>}

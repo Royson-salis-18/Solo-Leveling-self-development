@@ -34,3 +34,30 @@
 .sh { background: linear-gradient(180deg, var(--m-surface-2), var(--m-bg)); }
 .sh-label em { color: var(--m-gold); }
 .sh-ranks b { color: var(--m-text); }
+
+/* plan fields */
+.pln { border-radius: 16px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-accent) 5%, transparent); overflow: hidden; }
+.pln-head { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px; background: none; border: 0; color: var(--m-text); font: inherit; text-align: left; cursor: pointer; }
+.pln-title { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 500; } .pln-title svg { color: var(--m-accent); }
+.pln-sub { font-size: .75rem; color: var(--m-dim); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pln-head > svg { color: var(--m-dim); transition: transform .2s; } .pln-head > svg.up { transform: rotate(180deg); }
+.pln-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--m-good); }
+.pln-body { display: grid; gap: 10px; padding: 4px 14px 16px; }
+.pln-label { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: .78rem; color: var(--m-dim); } .pln-label em { margin-left: auto; font-style: normal; font-size: .6875rem; opacity: .7; }
+.pln-input { height: 46px; border-radius: 12px; padding: 0 14px; font: inherit; font-size: .875rem; color: var(--m-text); background: rgba(255,255,255,.05); border: 1px solid var(--m-line); outline: 0; min-width: 0; }
+.pln-input:focus { border-color: color-mix(in srgb, var(--m-accent) 70%, transparent); }
+.pln-link { justify-self: start; padding: 6px 0; background: none; border: 0; font: inherit; font-size: .8125rem; color: var(--m-accent); cursor: pointer; }
+.pln-hint { margin: 0; font-size: .75rem; line-height: 1.45; color: var(--m-dim); }
+.pln-stake { grid-template-columns: repeat(4, 1fr); border-radius: 14px; } .pln-stake button { border-radius: 10px; font-family: var(--m-mono); }
+.pln .sh-chips.scroll { margin: 0 -14px; padding: 0 14px; }
+
+/* lapse diagnosis */
+.lsh-gate { margin: -4px 0 0; font-size: .9375rem; color: var(--m-text); overflow-wrap: anywhere; }
+.lsh-lede { margin: 0; font-size: .8125rem; color: var(--m-dim); line-height: 1.5; }
+.lsh-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.lsh-reasons button { min-height: 54px; padding: 8px 12px; border-radius: 14px; font: inherit; font-size: .9rem; color: var(--m-text); background: rgba(255,255,255,.05); border: 1px solid var(--m-line); cursor: pointer; text-align: left; }
+.lsh-reasons button:active { background: color-mix(in srgb, var(--m-accent) 18%, transparent); border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.lsh-reasons button:disabled { opacity: .5; }
+.lsh-skip { height: 44px; background: none; border: 0; color: var(--m-dim); font: inherit; font-size: .875rem; cursor: pointer; }
+.lsh-fix { display: grid; gap: 12px; } .lsh-fix h3 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 500; line-height: 1.3; letter-spacing: -.2px; }
+.lsh-fix p { margin: 0; font-size: .9375rem; line-height: 1.55; color: var(--m-dim); } .lsh-fix .lsh-never { font-size: .8125rem; padding-top: 12px; border-top: 1px solid var(--m-line); }

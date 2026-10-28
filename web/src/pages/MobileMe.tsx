@@ -18,6 +18,8 @@ import { ActivityHeatmap } from "../components/visuals";
 import { fetchCollection, resonance, shadowBonus, type CatalogItem, type CatalogShadow } from "../lib/collection";
 import { DOMAIN_DESC, developmentBalance, domainStandings, masteryTier } from "../lib/domains";
 import { DomainRadar } from "../components/visuals";
+import { useBehavior } from "../lib/behaviorContext";
+import { identityLines } from "../lib/psyche";
 import "../components/mobile/mobile.css";
 import "./mobile-me.css";
 
@@ -42,6 +44,9 @@ export function MobileMe() {
   const { profile, signOut } = useAuth();
   const { data: e } = useEngagement();
   const { aura, choose, unseen, markSeen } = useAuraState();
+  const { data: beh } = useBehavior();
+  const identity = identityLines(beh?.categories ?? []);
+  const pledgesTotal = (beh?.pledges.kept_total ?? 0) + (beh?.pledges.forfeited_total ?? 0);
   const rankNow = profile?.player_rank ?? "E";
   useEffect(() => { if (unseen.length) { const t = window.setTimeout(markSeen, 4000); return () => window.clearTimeout(t); } }, [unseen.length, markSeen]);
   const standing = profile?.standing_xp ?? 0;
@@ -129,6 +134,18 @@ export function MobileMe() {
         </div>
       </section>
 
+      <h2 className="me-h">Identity</h2>
+      <section className="me-ident" aria-label="Identity">
+        <p>Every finished gate is a vote for who you are becoming.</p>
+        {identity.map((l) => (
+          <div key={l.domain} className="me-id-row" style={{ ["--dc" as string]: l.color }}>
+            <div className="me-id-top"><b><i />{l.domain}</b><span>{l.title ?? "No title yet"}</span><em>{l.votes}</em></div>
+            <div className="me-dom-bar"><u style={{ width: `${Math.max(l.votes ? 3 : 0, l.progress * 100)}%` }} /></div>
+            <small>{l.next ? `${l.next.at - l.votes} more for “${l.next.title}”` : "Title mastered"}</small>
+          </div>
+        ))}
+      </section>
+
       <h2 className="me-h">System records</h2>
       <dl className="me-records">
         <div><dt>Total XP</dt><dd className="gold">{(profile?.total_points ?? 0).toLocaleString()}</dd></div>
@@ -137,6 +154,7 @@ export function MobileMe() {
         <div><dt>XP per active day</dt><dd>{act?.totals.avg_xp_active_day ?? 0}</dd></div>
         <div><dt>Feats earned</dt><dd>{e ? `${e.achievements.unlocked} / ${e.achievements.total}` : "–"}</dd></div>
         <div><dt>Next rank</dt><dd>{nr ? `${nr.rank} · level ${nr.minLevel}` : "Max"}</dd></div>
+        <div><dt>Pledges kept</dt><dd>{pledgesTotal ? `${beh?.pledges.kept_total ?? 0} / ${pledgesTotal}` : "–"}</dd></div>
         <div><dt>Dark Mana debt</dt><dd className={(profile?.dark_mana ?? 0) > 0 ? "bad" : ""}>{profile?.dark_mana ?? 0}</dd></div>
       </dl>
 
