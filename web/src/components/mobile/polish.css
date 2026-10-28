@@ -146,3 +146,16 @@
 :root[data-m-theme] .mh-xpbar, :root[data-m-theme] .mr-bar, :root[data-m-theme] .ma-bar { border-radius: 99px; }
 :root[data-m-theme] .mr-bar i { background: linear-gradient(90deg, color-mix(in srgb, var(--m-gold) 70%, #000), var(--m-gold)); border-radius: 99px; }
 :root[data-m-theme] .ma-card, :root[data-m-theme] .ma-card .aura-card { border-radius: 26px; }
+
+/* ═══ Shadow mist ═══ original to this app: the Shadow Monarch's shadows rising from the bottom of the screen.
+   One soft violet bloom, no line-art. Data gets a gentle glow; the rank hexagon is the only bright object. */
+.m-shell::after { content: ""; position: absolute; left: -25%; right: -25%; bottom: -14%; height: 52%; pointer-events: none; z-index: 0;
+  background: radial-gradient(58% 85% at 50% 100%, color-mix(in srgb, var(--m-accent) 20%, transparent), color-mix(in srgb, var(--m-accent) 6%, transparent) 55%, transparent 74%); }
+.m-top, .m-content { position: relative; z-index: 1; }
+:root[data-m-theme] .xa-line { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--m-accent) 80%, transparent)); }
+:root[data-m-theme] .dr-shape { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--m-accent) 55%, transparent)); }
+:root[data-m-theme] .mh-hex polygon { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--m-accent) 60%, transparent)); }
+:root[data-m-theme] .mh-win-main h1 { text-shadow: 0 0 20px color-mix(in srgb, var(--m-accent) 35%, transparent); }
+/* confident numerals */
+:root[data-m-theme] .mh-today b { font-size: 1.5rem; }
+:root[data-m-theme] .mr-bal-top b { font-size: 2.5rem; }
