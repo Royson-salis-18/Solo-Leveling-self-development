@@ -188,3 +188,6 @@
 :root[data-m-theme] .mh-hex { transform: scale(1.22); transform-origin: center; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--m-accent) 65%, transparent)); }
 :root[data-m-theme] .mh-win-main h1 { font-size: 1.875rem; }
 :root[data-m-theme] .mh-today b { font-size: 1.85rem; text-shadow: 0 0 18px color-mix(in srgb, var(--m-accent) 40%, transparent); }
+/* no hatching or notched bars anywhere: progress is one smooth rounded fill */
+:root[data-m-theme] .mh-seg { -webkit-mask-image: none; mask-image: none; height: 8px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.09); }
+:root[data-m-theme] .mh-seg i { border-radius: 99px; }

@@ -123,9 +123,8 @@
 .hb-cols { position: relative; display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); gap: 10px; }
 .hb-col { display: grid; grid-template-rows: 112px auto; gap: 8px; justify-items: stretch; min-width: 0; }
 .hb-bar { display: flex; align-items: flex-end; height: 112px; }
-.hb-bar i { display: block; width: 100%; border-radius: 3px 3px 0 0;
-  background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--m-accent, #a78bfa) 55%, transparent) 0 1.5px, transparent 1.5px 4px); border: 1px solid color-mix(in srgb, var(--m-accent, #a78bfa) 45%, transparent); border-bottom: 0; transition: height .5s ease; }
-.hb-col.hi .hb-bar i { background: var(--m-accent, #a78bfa); border-color: var(--m-accent, #a78bfa); }
+.hb-bar i { display: block; width: 100%; border-radius: 8px 8px 3px 3px; background: linear-gradient(180deg, color-mix(in srgb, var(--m-accent, #a78bfa) 85%, #fff 6%), color-mix(in srgb, var(--m-accent, #a78bfa) 28%, transparent)); transition: height .5s ease; }
+.hb-col.hi .hb-bar i { background: linear-gradient(180deg, #fff 0%, var(--m-accent, #a78bfa) 30%, color-mix(in srgb, var(--m-accent, #a78bfa) 55%, transparent)); box-shadow: 0 0 14px color-mix(in srgb, var(--m-accent, #a78bfa) 55%, transparent); }
 .hb-col span { text-align: center; font-family: var(--m-mono); font-size: .625rem; color: var(--m-dim, rgba(255,255,255,.5)); }
 .hb-col.hi span { color: var(--m-text, #fff); }
 
@@ -140,6 +139,6 @@
 
 /* segmented ratio bar */
 .sg { display: grid; gap: 10px; }
-.sg-bar { display: flex; gap: 3px; height: 28px; }
-.sg-bar i { min-width: 6px; border-radius: 3px; border: 1px solid var(--sc); background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--sc) 70%, transparent) 0 1.5px, transparent 1.5px 4px); }
+.sg-bar { display: flex; gap: 4px; height: 14px; }
+.sg-bar i { min-width: 8px; border-radius: 999px; background: linear-gradient(180deg, color-mix(in srgb, var(--sc) 100%, #fff 18%), color-mix(in srgb, var(--sc) 62%, #000)); box-shadow: 0 0 10px -2px color-mix(in srgb, var(--sc) 60%, transparent); }
 .wf-grid i { opacity: .85; }
