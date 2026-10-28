@@ -84,3 +84,65 @@
 :root[data-m-theme] .st b, :root[data-m-theme] .ag figcaption b { font-family: var(--m-display); font-weight: 600; }
 :root[data-m-theme] .st header { font-size: .8125rem; color: var(--m-dim); }
 :root[data-m-theme] .cr-sub { font-size: .8125rem; color: var(--m-dim); }
+
+
+/* ═══ Soft, glossy containers ═══ (overrides the tight-radius pass above: rounded everywhere, smooth gradients)
+   Every container: a diagonal gradient fill that picks up the aura, a gradient rim (bright top-left, quiet middle,
+   faint bottom-right), a hairline top highlight and a soft lift shadow. */
+:root[data-m-theme] {
+  --m-r: 22px; --m-r-lg: 26px; --m-r-sheet: 32px;
+  --tint: var(--m-accent); --tint-amt: 9%;
+  --m-fill: linear-gradient(155deg, color-mix(in srgb, var(--tint) var(--tint-amt), var(--m-surface-2)) 0%, var(--m-surface) 52%, color-mix(in srgb, var(--m-bg) 45%, var(--m-surface)) 100%);
+  --m-rim: linear-gradient(150deg, color-mix(in srgb, var(--tint) 60%, transparent) 0%, rgba(255,255,255,.09) 30%, rgba(255,255,255,.035) 68%, color-mix(in srgb, var(--tint) 24%, transparent) 100%);
+  --m-lift: 0 18px 36px -20px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.06);
+}
+:root[data-m-theme] .pn, :root[data-m-theme] .mh-card, :root[data-m-theme] .mh-group, :root[data-m-theme] .me-group, :root[data-m-theme] .me-records,
+:root[data-m-theme] .me-mastery, :root[data-m-theme] .me-act, :root[data-m-theme] .me-army, :root[data-m-theme] .me-ident, :root[data-m-theme] .mr-bal,
+:root[data-m-theme] .mr-list, :root[data-m-theme] .mr-rules, :root[data-m-theme] .mr-clear, :root[data-m-theme] .mr-danger, :root[data-m-theme] .mr-active-row,
+:root[data-m-theme] .mlb-me, :root[data-m-theme] .mlb-list, :root[data-m-theme] .mlb-none, :root[data-m-theme] .mlb-pod, :root[data-m-theme] .mg-list,
+:root[data-m-theme] .mg-plan, :root[data-m-theme] .mg-stake, :root[data-m-theme] .mg-diag-row, :root[data-m-theme] .co-card, :root[data-m-theme] .mh-sysdir,
+:root[data-m-theme] .tx-compact, :root[data-m-theme] .dd-panel, :root[data-m-theme] .st, :root[data-m-theme] .pln, :root[data-m-theme] .mh-win,
+:root[data-m-theme] .me-licence, :root[data-m-theme] .mh-today, :root[data-m-theme] .me-tiles {
+  border: 1px solid transparent !important; border-radius: var(--m-r-lg) !important;
+  background: var(--m-fill) padding-box, var(--m-rim) border-box !important; box-shadow: var(--m-lift) !important; }
+:root[data-m-theme] .pn, :root[data-m-theme] .mh-card, :root[data-m-theme] .me-mastery, :root[data-m-theme] .me-act, :root[data-m-theme] .me-army,
+:root[data-m-theme] .me-ident, :root[data-m-theme] .mr-bal, :root[data-m-theme] .mlb-me, :root[data-m-theme] .co-card, :root[data-m-theme] .mh-sysdir,
+:root[data-m-theme] .dd-panel, :root[data-m-theme] .st, :root[data-m-theme] .mg-plan, :root[data-m-theme] .mg-stake, :root[data-m-theme] .mr-active-row,
+:root[data-m-theme] .mg-diag-row, :root[data-m-theme] .tx-compact { border-radius: var(--m-r) !important; }
+
+/* tinted containers: same recipe, different light */
+:root[data-m-theme] .mr-bal { --tint: var(--m-gold); --tint-amt: 14%; }
+:root[data-m-theme] .mr-danger { --tint: var(--m-bad); --tint-amt: 12%; }
+:root[data-m-theme] .mr-active-row { --tint: var(--m-good); --tint-amt: 12%; }
+:root[data-m-theme] .mg-plan.gold { --tint: var(--m-gold); --tint-amt: 10%; }
+:root[data-m-theme] .mh-sysdir.urgent { --tint: var(--m-flame); --tint-amt: 14%; }
+:root[data-m-theme] .co-card { --tint-amt: 15%; } :root[data-m-theme] .co-card.calm { --tint-amt: 6%; }
+:root[data-m-theme] .mh-sysdir, :root[data-m-theme] .mlb-me, :root[data-m-theme] .tx-compact { --tint-amt: 13%; }
+:root[data-m-theme] .mlb-pod { --tint: var(--pc); --tint-amt: 14%; }
+:root[data-m-theme] .mh-win, :root[data-m-theme] .me-licence { --tint-amt: 16%; --m-lift: 0 22px 44px -22px color-mix(in srgb, var(--m-accent) 55%, #000), inset 0 1px 0 rgba(255,255,255,.09); border-radius: 30px !important; }
+
+/* the status window: no brackets on a rounded frame; a soft inner glow carries the System feeling instead */
+:root[data-m-theme] .mh-win, :root[data-m-theme] .me-licence { overflow: hidden; }
+:root[data-m-theme] .mh-win::before, :root[data-m-theme] .me-licence::before { content: ""; position: absolute; inset: -40% -20% auto -20%; height: 90%; pointer-events: none;
+  background: radial-gradient(60% 70% at 18% 0%, color-mix(in srgb, var(--m-accent) 28%, transparent), transparent 70%); }
+:root[data-m-theme] .mh-win > *, :root[data-m-theme] .me-licence > * { position: relative; }
+:root[data-m-theme] .mh-seg { border-radius: 99px; } :root[data-m-theme] .mh-seg i { border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 70%, #000), var(--m-accent) 60%, color-mix(in srgb, var(--m-accent) 70%, #fff)); }
+:root[data-m-theme] .mh-hex polygon { fill: color-mix(in srgb, var(--m-accent) 20%, var(--m-bg)); filter: drop-shadow(0 0 10px color-mix(in srgb, var(--m-accent) 55%, transparent)); }
+
+/* grouped rows lose their own boxes inside a rounded group */
+:root[data-m-theme] .mh-group > *, :root[data-m-theme] .me-group > *, :root[data-m-theme] .mr-list > *, :root[data-m-theme] .mlb-list > * { border-radius: 0 !important; }
+
+/* sheets, controls and buttons */
+:root[data-m-theme] .sh { border-radius: var(--m-r-sheet) var(--m-r-sheet) 0 0 !important;
+  background: linear-gradient(175deg, color-mix(in srgb, var(--m-accent) 10%, var(--m-surface-2)) 0%, var(--m-surface-2) 40%, var(--m-bg) 100%) !important;
+  border-top: 1px solid color-mix(in srgb, var(--m-accent) 35%, transparent); box-shadow: 0 -24px 60px -20px color-mix(in srgb, var(--m-accent) 30%, transparent); }
+:root[data-m-theme] .sh-title, :root[data-m-theme] .sh-date, :root[data-m-theme] .pln-input, :root[data-m-theme] .mlb-search, :root[data-m-theme] .co-form textarea,
+:root[data-m-theme] .lsh-reasons button, :root[data-m-theme] .mg-stake > div button { border-radius: 18px; }
+:root[data-m-theme] .sh-go, :root[data-m-theme] .co-btn, :root[data-m-theme] .mg-add, :root[data-m-theme] .mh-btn, :root[data-m-theme] .ma-gift, :root[data-m-theme] .sh-act.hot {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--m-accent) 82%, #fff) 0%, var(--m-accent) 55%, color-mix(in srgb, var(--m-accent) 78%, #000) 100%);
+  box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--m-accent) 85%, transparent), inset 0 1px 0 rgba(255,255,255,.35); }
+:root[data-m-theme] .m-tab.is-primary { background: linear-gradient(180deg, color-mix(in srgb, var(--m-accent) 80%, #fff), var(--m-accent) 60%, color-mix(in srgb, var(--m-accent) 75%, #000)); box-shadow: 0 14px 30px -10px color-mix(in srgb, var(--m-accent) 90%, transparent), inset 0 1px 0 rgba(255,255,255,.4); }
+:root[data-m-theme] .mh-tick, :root[data-m-theme] .mg-tick { background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); }
+:root[data-m-theme] .mh-xpbar, :root[data-m-theme] .mr-bar, :root[data-m-theme] .ma-bar { border-radius: 99px; }
+:root[data-m-theme] .mr-bar i { background: linear-gradient(90deg, color-mix(in srgb, var(--m-gold) 70%, #000), var(--m-gold)); border-radius: 99px; }
+:root[data-m-theme] .ma-card, :root[data-m-theme] .ma-card .aura-card { border-radius: 26px; }
