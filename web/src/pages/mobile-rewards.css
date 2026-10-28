@@ -1,7 +1,7 @@
 /* Mobile Rewards: same panel language as Home and Army */
-.mr { padding: 4px 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text); }
+.mr { padding: 4px 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; font-family: var(--m-body, 'Inter', -apple-system, sans-serif); color: var(--m-text); }
 .mr > * { min-width: 0; }
-.mr-head { padding-top: 12px; } .mr-head h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
+.mr-head { padding-top: 12px; } .mr-head h1 { margin: 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
 
 .mr-bal { display: grid; gap: 16px; padding: 20px; border-radius: 16px; background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--m-gold) 9%, transparent), transparent 60%), var(--m-surface); border: 1px solid var(--m-line); }
 .mr-bal-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
@@ -53,7 +53,7 @@
 .mr-redeem { flex-shrink: 0; display: grid; justify-items: center; min-width: 76px; min-height: 44px; padding: 4px 12px; border-radius: 12px; font: inherit; font-size: .8125rem; font-weight: 600; color: var(--m-bad); background: color-mix(in srgb, var(--m-bad) 12%, transparent); border: 1px solid color-mix(in srgb, var(--m-bad) 40%, transparent); cursor: pointer; }
 .mr-redeem small { font-family: var(--m-mono); font-size: .6875rem; font-weight: 400; } .mr-redeem:disabled { opacity: .45; }
 .mr-clear { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 28px 20px; border-radius: 16px; background: var(--m-surface); border: 1px solid var(--m-line); }
-.mr-clear-ico { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; color: var(--m-good); background: color-mix(in srgb, var(--m-good) 12%, transparent); } .mr-clear h3 { margin: 4px 0 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 500; } .mr-clear p { margin: 0; max-width: 30ch; font-size: .8125rem; line-height: 1.55; color: var(--m-dim); }
+.mr-clear-ico { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; color: var(--m-good); background: color-mix(in srgb, var(--m-good) 12%, transparent); } .mr-clear h3 { margin: 4px 0 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.25rem; font-weight: 500; } .mr-clear p { margin: 0; max-width: 30ch; font-size: .8125rem; line-height: 1.55; color: var(--m-dim); }
 .mr-sec { display: flex; align-items: center; justify-content: space-between; margin-bottom: -10px; } .mr-sec button { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--m-line); background: transparent; color: var(--m-text); font: inherit; font-size: .8125rem; cursor: pointer; }
 .mr-del { flex-shrink: 0; width: 40px; height: 40px; display: grid; place-items: center; border: 0; background: none; color: rgba(248,113,113,.6); cursor: pointer; }
 

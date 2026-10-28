@@ -1,0 +1,86 @@
+/* ═══ Polish layer ═══ loaded last; `:root[data-m-theme]` outranks the per-screen sheets.
+   Philosophy: quiet and dense like a good tool; one signature (the System status window); no tracked-caps labels,
+   no boxed pill controls, no matching radius on everything. */
+
+/* ── the System status window ─────────────────────────────────────────────── */
+:root[data-m-theme] .mh-win, :root[data-m-theme] .me-licence { --b: color-mix(in srgb, var(--m-accent) 80%, transparent); --bl: 18px; --bw: 1.5px;
+  position: relative; display: grid; gap: 14px; padding: 18px 18px 16px; border-radius: 0;
+  background:
+    linear-gradient(var(--b), var(--b)) top left / var(--bl) var(--bw) no-repeat, linear-gradient(var(--b), var(--b)) top left / var(--bw) var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / var(--bl) var(--bw) no-repeat, linear-gradient(var(--b), var(--b)) top right / var(--bw) var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / var(--bl) var(--bw) no-repeat, linear-gradient(var(--b), var(--b)) bottom left / var(--bw) var(--bl) no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / var(--bl) var(--bw) no-repeat, linear-gradient(var(--b), var(--b)) bottom right / var(--bw) var(--bl) no-repeat,
+    linear-gradient(180deg, color-mix(in srgb, var(--m-accent) 8%, transparent), color-mix(in srgb, var(--m-accent) 2%, transparent));
+  border: 1px solid color-mix(in srgb, var(--m-accent) 16%, transparent); }
+.mh-win-top { display: flex; justify-content: space-between; gap: 12px; font-size: .8125rem; color: var(--m-dim); }
+.mh-win-top span:last-child { color: var(--m-text); font-family: var(--m-display); font-weight: 500; }
+.mh-win-body { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; }
+.mh-win-main { min-width: 0; }
+.mh-win-main h1 { margin: 0; font-family: var(--m-display); font-size: 1.875rem; font-weight: 600; letter-spacing: .01em; line-height: 1.1; color: var(--m-text); overflow-wrap: anywhere; }
+.mh-win-main p { margin: 6px 0 0; font-size: .9375rem; color: var(--m-dim); }
+.mh-hex { position: relative; width: 60px; height: 60px; flex-shrink: 0; display: grid; place-items: center; }
+.mh-hex svg { position: absolute; inset: 0; width: 100%; height: 100%; } .mh-hex polygon { fill: color-mix(in srgb, var(--m-accent) 14%, var(--m-bg)); stroke: var(--m-accent); stroke-width: 2.5; stroke-linejoin: round; }
+.mh-hex b { position: relative; font-family: var(--m-display); font-size: 1.625rem; font-weight: 700; color: var(--m-accent); }
+.mh-seg { --seg: repeating-linear-gradient(90deg, #000 0 calc(5% - 3px), transparent calc(5% - 3px) 5%); position: relative; height: 8px; background: rgba(255,255,255,.1); -webkit-mask-image: var(--seg); mask-image: var(--seg); }
+.mh-seg i { display: block; height: 100%; background: var(--m-accent); transition: width .6s ease; }
+.mh-win small { font-size: .8125rem; color: var(--m-dim); }
+
+/* ── labels: sentence case, no tracking ──────────────────────────────────── */
+:root[data-m-theme] .mh-eyebrow, :root[data-m-theme] .mh-sec h2, :root[data-m-theme] .me-h, :root[data-m-theme] .co-eyebrow,
+:root[data-m-theme] .mg-group h2, :root[data-m-theme] .mg-diag h2, :root[data-m-theme] .mr-active h2, :root[data-m-theme] .mr-sec h2,
+:root[data-m-theme] .ma-tier-head h2, :root[data-m-theme] .me-records dt, :root[data-m-theme] .me-lic-top, :root[data-m-theme] .mr-gates-h,
+:root[data-m-theme] .mh-sysdir small, :root[data-m-theme] .mg-plan span { text-transform: none; letter-spacing: .01em; font-family: var(--m-body); font-size: .8125rem; font-weight: 500; }
+:root[data-m-theme] .ma-tier-head h2 { font-size: .9375rem; font-weight: 600; font-family: var(--m-display); }
+:root[data-m-theme] .me-h { margin-bottom: -14px; color: var(--m-text); font-size: .9375rem; font-family: var(--m-display); font-weight: 600; }
+:root[data-m-theme] .mh-sec h2 { color: var(--m-text); font-size: .9375rem; font-family: var(--m-display); font-weight: 600; }
+:root[data-m-theme] .mg-group h2 { color: var(--m-text); font-size: .9375rem; font-family: var(--m-display); font-weight: 600; }
+:root[data-m-theme] .co-eyebrow { color: var(--m-text); font-size: .9375rem; font-family: var(--m-display); font-weight: 600; }
+:root[data-m-theme] .me-records dt { color: var(--m-dim); font-size: .8125rem; }
+
+/* ── controls: text tabs with an underline, not boxed pills ──────────────── */
+:root[data-m-theme] .mg-seg, :root[data-m-theme] .ma-seg, :root[data-m-theme] .mr-seg, :root[data-m-theme] .mlb-seg {
+  display: flex; gap: 24px; padding: 0; border: 0; border-radius: 0; background: none; border-bottom: 1px solid var(--m-line); margin-bottom: 0; }
+:root[data-m-theme] .mg-seg button, :root[data-m-theme] .ma-seg button, :root[data-m-theme] .mr-seg button, :root[data-m-theme] .mlb-seg button {
+  position: relative; flex: 0 0 auto; height: 44px; padding: 0; border-radius: 0; background: none; box-shadow: none; color: var(--m-dim); font-family: var(--m-display); font-size: 1rem; font-weight: 500; }
+:root[data-m-theme] .mg-seg button.on, :root[data-m-theme] .ma-seg button.on, :root[data-m-theme] .mr-seg button.on, :root[data-m-theme] .mlb-seg button.on { color: var(--m-text); background: none; box-shadow: none; }
+:root[data-m-theme] .mg-seg button.on::after, :root[data-m-theme] .ma-seg button.on::after, :root[data-m-theme] .mr-seg button.on::after, :root[data-m-theme] .mlb-seg button.on::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--m-accent); }
+:root[data-m-theme] .ma-seg button svg { display: none; }
+:root[data-m-theme] .mg-seg i, :root[data-m-theme] .ma-seg em, :root[data-m-theme] .mr-seg i { background: none; padding: 0; min-width: 0; font-family: var(--m-display); font-size: .8125rem; color: var(--m-dim); }
+:root[data-m-theme] .mg-seg i.warn, :root[data-m-theme] .mr-seg i.warn { background: none; color: var(--m-flame); font-weight: 600; }
+:root[data-m-theme] .ma-seg button.on em { background: none; color: var(--m-accent); }
+
+/* ── sub-screen titles: smaller, left, display face ──────────────────────── */
+:root[data-m-theme] .mg-head h1, :root[data-m-theme] .ma-head h1, :root[data-m-theme] .mr-head h1, :root[data-m-theme] .mlb-head h1 {
+  font-family: var(--m-display); font-size: 1.75rem; font-weight: 600; letter-spacing: .01em; }
+:root[data-m-theme] .mg-head, :root[data-m-theme] .ma-head, :root[data-m-theme] .mr-head, :root[data-m-theme] .mlb-head { padding-top: 4px; }
+
+/* ── radius hierarchy: data is tight, groups a little softer, sheets soft ─── */
+:root[data-m-theme] .pn, :root[data-m-theme] .mh-card, :root[data-m-theme] .me-mastery, :root[data-m-theme] .me-act, :root[data-m-theme] .me-army,
+:root[data-m-theme] .me-ident, :root[data-m-theme] .mr-bal, :root[data-m-theme] .mlb-me, :root[data-m-theme] .co-card, :root[data-m-theme] .mh-sysdir { border-radius: var(--m-r); }
+:root[data-m-theme] .mh-group, :root[data-m-theme] .me-group, :root[data-m-theme] .me-records, :root[data-m-theme] .mr-list, :root[data-m-theme] .mlb-list,
+:root[data-m-theme] .mg-list { border-radius: var(--m-r-lg); }
+:root[data-m-theme] .sh { border-radius: var(--m-r-sheet) var(--m-r-sheet) 0 0; }
+:root[data-m-theme] .me-licence { border-radius: 0; }
+
+/* the title is the numeral's neighbour: tabular numerals in the display face */
+:root[data-m-theme] .mh-today b, :root[data-m-theme] .me-tile b, :root[data-m-theme] .kp-i b, :root[data-m-theme] .mr-bal-top b,
+:root[data-m-theme] .mr-cost, :root[data-m-theme] .mlb-xp, :root[data-m-theme] .mlb-pod b { font-family: var(--m-display); font-weight: 600; letter-spacing: 0; }
+
+:root[data-m-theme] .me-licence { gap: 16px; border-color: color-mix(in srgb, var(--m-accent) 16%, transparent); }
+:root[data-m-theme] .me-lic-top { color: var(--m-dim); }
+:root[data-m-theme] .me-lic-top code { font-family: var(--m-display); font-size: .8125rem; letter-spacing: .04em; }
+:root[data-m-theme] .me-emblem span { font-family: var(--m-display); font-weight: 700; }
+:root[data-m-theme] .me-who h1 { font-family: var(--m-display); font-weight: 600; letter-spacing: .01em; }
+:root[data-m-theme] .me-barcode { opacity: .4; }
+:root[data-m-theme] .mg, :root[data-m-theme] .mr, :root[data-m-theme] .mlb, :root[data-m-theme] .ma { gap: 18px; }
+:root[data-m-theme] .mg-seg, :root[data-m-theme] .ma-seg, :root[data-m-theme] .mr-seg, :root[data-m-theme] .mlb-seg { margin-top: -4px; }
+
+/* shared record components (also used by the desktop dashboard): quiet them on the phone only */
+:root[data-m-theme] .dd-label, :root[data-m-theme] .dd-h { text-transform: none; letter-spacing: .01em; font-family: var(--m-display); font-size: .9375rem; font-weight: 600; color: var(--m-text); }
+:root[data-m-theme] .dd-label b { font-family: var(--m-display); font-weight: 500; font-size: .8125rem; letter-spacing: 0; color: var(--m-dim); }
+:root[data-m-theme] .dd-label b::after { content: ""; }
+:root[data-m-theme] .dd-panel, :root[data-m-theme] .st { border-radius: var(--m-r); padding: 16px; box-shadow: none; }
+:root[data-m-theme] .st b, :root[data-m-theme] .ag figcaption b { font-family: var(--m-display); font-weight: 600; }
+:root[data-m-theme] .st header { font-size: .8125rem; color: var(--m-dim); }
+:root[data-m-theme] .cr-sub { font-size: .8125rem; color: var(--m-dim); }

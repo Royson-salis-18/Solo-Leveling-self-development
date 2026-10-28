@@ -1,7 +1,7 @@
 /* Mobile collection: Army / Arsenal / Vault. Same rhythm as Home: 8-pt spacing, hairlines, colour only for grade. */
-.ma { padding: 4px 20px 24px; display: grid; gap: 24px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text); }
+.ma { padding: 4px 20px 24px; display: grid; gap: 24px; font-family: var(--m-body, 'Inter', -apple-system, sans-serif); color: var(--m-text); }
 .ma-head { display: grid; gap: 6px; padding-top: 12px; }
-.ma-head h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
+.ma-head h1 { margin: 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
 .ma-head p { margin: 0; font-size: .875rem; line-height: 1.5; color: var(--m-dim); }
 
 .ma-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); }
@@ -15,10 +15,10 @@
 .ma-ring { width: 84px; height: 84px; flex-shrink: 0; }
 .ma-ring-track { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 6; }
 .ma-ring-fill { fill: none; stroke: var(--m-accent); stroke-width: 6; stroke-linecap: round; transition: stroke-dasharray .6s ease; }
-.ma-ring-num { fill: var(--m-text); font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 500; }
+.ma-ring-num { fill: var(--m-text); font-family: var(--m-display, 'Outfit', sans-serif); font-size: 17px; font-weight: 500; }
 .ma-ring-sub { fill: var(--m-dim); font-size: 9px; letter-spacing: .06em; }
 .ma-sum-body { display: grid; gap: 10px; min-width: 0; flex: 1; }
-.ma-sum-line { display: flex; align-items: baseline; gap: 6px; } .ma-sum-line b { font-family: 'Outfit', sans-serif; font-size: 1.75rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; } .ma-sum-line span { font-size: .8125rem; color: var(--m-dim); }
+.ma-sum-line { display: flex; align-items: baseline; gap: 6px; } .ma-sum-line b { font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.75rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; } .ma-sum-line span { font-size: .8125rem; color: var(--m-dim); }
 .ma-sum-body small { font-size: .75rem; color: var(--m-dim); line-height: 1.4; } .ma-sum-body small b { font-weight: 500; }
 .ma-res { display: grid; gap: 6px; }
 .ma-res-top { display: flex; justify-content: space-between; font-size: .75rem; color: var(--m-dim); } .ma-res-top em { font-style: normal; color: var(--m-gold); font-variant-numeric: tabular-nums; }
@@ -45,7 +45,7 @@
   border-color: color-mix(in srgb, var(--gc) 38%, transparent); }
 .ma-art { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; margin: 6px 0 4px; color: var(--gc); }
 .ma-tile.owned .ma-art { background: color-mix(in srgb, var(--gc) 14%, transparent); box-shadow: 0 0 24px color-mix(in srgb, var(--gc) 30%, transparent); }
-.ma-glyph { line-height: 1; font-family: 'Outfit', system-ui, sans-serif; }
+.ma-glyph { line-height: 1; font-family: var(--m-display, 'Outfit', sans-serif), system-ui, sans-serif; }
 .ma-tile b { font-size: .8125rem; font-weight: 500; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .ma-tile small { font-size: .6875rem; color: var(--m-dim); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .ma-tile.locked .ma-art { color: rgba(255,255,255,.22); background: rgba(255,255,255,.03); }
@@ -63,7 +63,7 @@
   background: radial-gradient(circle, color-mix(in srgb, var(--gc) 26%, transparent), transparent 70%); box-shadow: 0 0 48px color-mix(in srgb, var(--gc) 28%, transparent); }
 .ma-detail.locked .ma-detail-art { color: rgba(255,255,255,.25); background: rgba(255,255,255,.04); box-shadow: none; }
 .ma-grade { font-size: .6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--tc); }
-.ma-detail h2 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.625rem; font-weight: 500; letter-spacing: -.4px; }
+.ma-detail h2 { margin: 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.625rem; font-weight: 500; letter-spacing: -.4px; }
 .ma-detail p { margin: 0; max-width: 32ch; font-size: .9375rem; line-height: 1.5; color: var(--m-dim); }
 .ma-detail .ma-res { width: 100%; margin-top: 12px; text-align: left; }
 .ma-facts { width: 100%; display: grid; grid-template-columns: 1fr 1fr; margin: 12px 0 0; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); }
@@ -80,7 +80,7 @@
 /* ── minimal pass: the cards are the visual, everything else stays quiet ── */
 .ma { gap: 28px; }
 .ma-sum { display: grid; gap: 12px; padding: 0; background: none; border: 0; border-radius: 0; }
-.ma-sum-line { display: flex; align-items: baseline; gap: 8px; } .ma-sum-line b { font-family: 'Outfit', sans-serif; font-size: 1.75rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; } .ma-sum-line span { font-size: .8125rem; color: var(--m-dim); }
+.ma-sum-line { display: flex; align-items: baseline; gap: 8px; } .ma-sum-line b { font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.75rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; } .ma-sum-line span { font-size: .8125rem; color: var(--m-dim); }
 .ma-sum .ma-bar { height: 3px; } .ma-bar i.cool { background: var(--m-accent); }
 .ma-sum .ma-gift { margin-left: auto; align-self: center; height: 32px; padding: 0 14px; font-size: .8125rem; border-radius: 99px; gap: 6px; background: transparent; color: var(--m-text); border: 1px solid color-mix(in srgb, var(--m-accent) 45%, transparent); }
 .ma-sum .ma-gift:disabled { opacity: .5; }

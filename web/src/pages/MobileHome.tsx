@@ -163,12 +163,16 @@ export function MobileHome() {
         <div className="mh-pane" key="today">
           <Transmission compact />
 
-          <header className="mh-id">
-            <div className="mh-eyebrow">{dateLine}</div>
-            <h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1>
-            <p>{rank}-Rank · Level {level}</p>
-            <div className="mh-xpbar" role="progressbar" aria-valuenow={Math.round((1 - toNext / XP_PER_LEVEL) * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${(1 - toNext / XP_PER_LEVEL) * 100}%` }} /></div>
-            <small>{toNext.toLocaleString()} XP to level {level + 1}{nr ? ` · ${nr.rank}-Rank at level ${nr.minLevel}` : ""}</small>
+          <header className="mh-win" aria-label="Status window">
+            <div className="mh-win-top"><span>{dateLine}</span><span>Level {level}</span></div>
+            <div className="mh-win-body">
+              <div className="mh-win-main"><h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1><p>{rank}-Rank hunter{profile?.player_class ? `, ${profile.player_class}` : ""}</p></div>
+              <span className="mh-hex" role="img" aria-label={`${rank}-Rank`}>
+                <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" /></svg><b>{rank}</b>
+              </span>
+            </div>
+            <div className="mh-seg" role="progressbar" aria-label={`Progress to level ${level + 1}`} aria-valuenow={Math.round((1 - toNext / XP_PER_LEVEL) * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${(1 - toNext / XP_PER_LEVEL) * 100}%` }} /></div>
+            <small>{toNext.toLocaleString()} XP to level {level + 1}{nr ? `. ${nr.rank}-Rank opens at level ${nr.minLevel}` : ""}</small>
           </header>
 
           <div className="mh-today" aria-label="Today at a glance">

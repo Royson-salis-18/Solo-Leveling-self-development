@@ -25,7 +25,7 @@
 .ag-fill { fill: none; stroke: var(--m-accent, #a8a8ff); stroke-width: 12; stroke-linecap: round; }
 .ag-knob { fill: #fff; } .ag-knob-core { fill: #0a0a0f; }
 .ag figcaption { display: grid; justify-items: center; gap: 2px; margin-top: -58px; text-align: center; }
-.ag figcaption b { font-family: 'Outfit', sans-serif; font-size: 2.6rem; font-weight: 500; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+.ag figcaption b { font-family: var(--m-display, 'Outfit', sans-serif); font-size: 2.6rem; font-weight: 500; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
 .ag figcaption b small { font-size: 1rem; color: rgba(255,255,255,.45); margin-left: 2px; }
 .ag figcaption span { font-size: .78rem; color: rgba(255,255,255,.55); }
 .ag figcaption em { font-style: normal; font-size: .68rem; padding: 3px 10px; border-radius: 99px; margin-top: 6px; color: #c9c9ff; border: 1px solid color-mix(in srgb, var(--m-accent, #a8a8ff) 30%, transparent); }
@@ -34,7 +34,7 @@
   background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); }
 .st header { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: rgba(255,255,255,.65); }
 .st header svg { color: #a894ff; }
-.st b { font-family: 'Outfit', sans-serif; font-size: 2.4rem; font-weight: 500; line-height: 1; letter-spacing: -.5px; color: #fff; font-variant-numeric: tabular-nums; }
+.st b { font-family: var(--m-display, 'Outfit', sans-serif); font-size: 2.4rem; font-weight: 500; line-height: 1; letter-spacing: -.5px; color: #fff; font-variant-numeric: tabular-nums; }
 .st b small { font-size: .8rem; color: rgba(255,255,255,.45); margin-left: 4px; font-weight: 400; }
 .st footer { font-size: .7rem; color: rgba(255,255,255,.45); }
 .st-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }

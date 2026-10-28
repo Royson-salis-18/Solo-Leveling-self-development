@@ -1,7 +1,7 @@
 /* Mobile Leaderboard */
-.mlb { padding: 4px 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text); }
+.mlb { padding: 4px 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; font-family: var(--m-body, 'Inter', -apple-system, sans-serif); color: var(--m-text); }
 .mlb > * { min-width: 0; }
-.mlb-head { padding-top: 12px; } .mlb-head h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
+.mlb-head { padding-top: 12px; } .mlb-head h1 { margin: 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
 .mlb-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); }
 .mlb-seg button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--m-dim); font: inherit; font-size: .875rem; cursor: pointer; }
 .mlb-seg button.on { background: var(--m-surface-2); color: var(--m-text); box-shadow: inset 0 0 0 1px var(--m-line); }
@@ -21,7 +21,7 @@
   background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 12%, var(--m-surface)), var(--m-surface)); border: 1px solid color-mix(in srgb, var(--pc) 30%, transparent); border-top: 2px solid var(--pc); }
 .mlb-pod:disabled { cursor: default; } .mlb-pod.p1 { padding-top: 26px; padding-bottom: 18px; } .mlb-pod.me { box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 60%, transparent); }
 .mlb-pod-place { position: absolute; top: 8px; left: 10px; font-family: var(--m-mono); font-size: .75rem; font-weight: 600; color: var(--pc); }
-.mlb-av { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-family: 'Outfit', sans-serif; font-size: 1.125rem; font-weight: 500; color: var(--m-text); background: color-mix(in srgb, var(--m-accent) 14%, var(--m-bg)); border: 1.5px solid var(--pc, var(--m-line)); }
+.mlb-av { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.125rem; font-weight: 500; color: var(--m-text); background: color-mix(in srgb, var(--m-accent) 14%, var(--m-bg)); border: 1.5px solid var(--pc, var(--m-line)); }
 .mlb-av.sm { width: 36px; height: 36px; font-size: .9375rem; --pc: var(--m-line); flex-shrink: 0; }
 .mlb-pod.p1 .mlb-av { width: 52px; height: 52px; }
 .mlb-pod-name { max-width: 100%; font-size: .8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -39,11 +39,11 @@
 .mlb-xp { flex-shrink: 0; display: grid; justify-items: end; font-family: var(--m-mono); font-size: .9375rem; font-variant-numeric: tabular-nums; } .mlb-xp small { font-size: .625rem; color: var(--m-dim); }
 .mlb-empty { margin: 0; padding: 22px 16px; text-align: center; font-size: .875rem; color: var(--m-dim); }
 .mlb-more { height: 46px; border-radius: 12px; font: inherit; font-size: .875rem; color: var(--m-text); background: transparent; border: 1px solid var(--m-line); cursor: pointer; }
-.mlb-none { text-align: center; padding: 32px 16px; border-radius: 16px; background: var(--m-surface); border: 1px dashed var(--m-line); } .mlb-none h3 { margin: 0 0 6px; font-family: 'Outfit', sans-serif; font-weight: 500; font-size: 1.25rem; } .mlb-none p { margin: 0 auto; max-width: 30ch; font-size: .8125rem; line-height: 1.55; color: var(--m-dim); }
+.mlb-none { text-align: center; padding: 32px 16px; border-radius: 16px; background: var(--m-surface); border: 1px dashed var(--m-line); } .mlb-none h3 { margin: 0 0 6px; font-family: var(--m-display, 'Outfit', sans-serif); font-weight: 500; font-size: 1.25rem; } .mlb-none p { margin: 0 auto; max-width: 30ch; font-size: .8125rem; line-height: 1.55; color: var(--m-dim); }
 
 /* hunter sheet */
-.lbs-id { display: grid; justify-items: center; gap: 4px; text-align: center; } .lbs-id h2 { margin: 8px 0 0; font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 500; letter-spacing: -.3px; overflow-wrap: anywhere; } .lbs-id p { margin: 0; font-size: .875rem; color: var(--m-dim); }
-.lbs-av { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; font-family: 'Outfit', sans-serif; font-size: 1.75rem; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, var(--m-bg)); border: 2px solid var(--m-accent); }
+.lbs-id { display: grid; justify-items: center; gap: 4px; text-align: center; } .lbs-id h2 { margin: 8px 0 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.5rem; font-weight: 500; letter-spacing: -.3px; overflow-wrap: anywhere; } .lbs-id p { margin: 0; font-size: .875rem; color: var(--m-dim); }
+.lbs-av { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.75rem; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, var(--m-bg)); border: 2px solid var(--m-accent); }
 .lbs-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; } .lbs-chips span { font-family: var(--m-mono); font-size: .75rem; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.06); border: 1px solid var(--m-line); }
 .lbs-facts { margin: 4px 0 0; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); } .lbs-facts div { padding: 14px 0; display: grid; gap: 4px; text-align: center; } .lbs-facts div + div { border-left: 1px solid var(--m-line); }
 .lbs-facts dt { font-size: .6875rem; color: var(--m-dim); } .lbs-facts dd { margin: 0; font-family: var(--m-mono); font-size: 1.0625rem; } .lbs-facts div:first-child dd { color: var(--m-gold); }

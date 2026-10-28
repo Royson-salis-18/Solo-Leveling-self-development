@@ -1,4 +1,4 @@
-.mg { padding: 4px 16px 8px; display: grid; gap: 14px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text, #f4f2ff); }
+.mg { padding: 4px 16px 8px; display: grid; gap: 14px; font-family: var(--m-body, 'Inter', -apple-system, sans-serif); color: var(--m-text, #f4f2ff); }
 .mg-head { display: flex; align-items: center; justify-content: space-between; } .mg-head h1 { margin: 0; font-size: 2rem; font-weight: 400; letter-spacing: -.5px; }
 .mg-add { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 18px; border-radius: 999px; border: 0; font: inherit; font-weight: 600; font-size: .9rem; color: var(--m-ink); cursor: pointer; background: var(--m-accent); }
 .mg-seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
@@ -25,7 +25,7 @@
 @media (prefers-reduced-motion: reduce) { .mg-skel { animation: none; } }
 .mg-tick:active, .mg-row.is-armed .mg-tick { color: var(--m-ink); }
 .mg-add { border-radius: 12px; }
-.mg-head h1 { font-family: 'Outfit', sans-serif; font-weight: 500; }
+.mg-head h1 { font-family: var(--m-display, 'Outfit', sans-serif); font-weight: 500; }
 
 .mg-pills { display: flex; gap: 8px; overflow-x: auto; margin: -4px -16px 0; padding: 2px 16px; scrollbar-width: none; } .mg-pills::-webkit-scrollbar { display: none; }
 .mg-pills button { flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: .8rem; color: var(--m-dim); background: transparent; border: 1px solid var(--m-line); cursor: pointer; }

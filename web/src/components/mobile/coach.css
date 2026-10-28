@@ -21,5 +21,5 @@
 .in { display: grid; gap: 14px; min-width: 0; }
 .in-text { margin: 0; font-size: .8125rem; line-height: 1.55; color: var(--m-dim); }
 .in-text.good { color: var(--m-text); } .in-text.warn { color: var(--m-flame); }
-.in-head { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.125rem; font-weight: 500; }
+.in-head { margin: 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.125rem; font-weight: 500; }
 .in-skel { height: 160px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); }

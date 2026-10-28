@@ -17,23 +17,27 @@ The source of truth for how the phone app looks. Read it before adding or changi
 | `--m-accent` / `--m-ink` | `#a78bfa` / `#170f2b` | actions / text on accent |
 | `--m-gold` `--m-flame` `--m-good` `--m-bad` | `#f5c451 #ff8a3d #4ade80 #f87171` | XP, streak, success, penalty |
 | `--m-text` / `--m-dim` / `--m-line` | `#f2f0fa` / 58% / 9% white | text, secondary text, hairlines |
+| `--m-r` / `--m-r-lg` / `--m-r-sheet` | 10 / 14 / 22px | data panels / grouped lists / sheets (the status window has none) |
 
 Six Monarch auras (Shadow, System, Frost, White Flame, Beast, Destruction) re-skin `bg/surface/accent/ink` only; semantic colours never change. Auras unlock by rank.
 
+## Philosophy
+A quiet, dense tool in the manner of Linear or Things: crisp hairlines, muted tones, numbers that do the work. It has **one signature**, the System status window (corner brackets, rank hexagon, segmented XP bar) on Home, echoed by the Hunter licence on Profile. Nothing else is allowed to compete with it.
+
 ## Type
-- **Outfit** for titles and large numerals' companions (500 weight, tight tracking `-0.4…-0.8px`).
-- **Inter** for running text, 15px base, 1.5 line height.
-- **JetBrains Mono** for numerals, eyebrows, tabular data and chips (`--m-mono`).
-- Scale: 11 / 12 / 13 / 15 / 17 / 22 / 34. Eyebrows are 11px mono, `.14em` tracking, uppercase.
+- **Chakra Petch** (`--m-display`): titles, section heads, numerals. Angular and HUD-like, which suits a game's System. 600 weight for titles, 500 for tabs, tabular figures for numbers.
+- **Instrument Sans** (`--m-body`): running text and controls, 15px base, 1.5 line height.
+- No tracked all-caps labels and no monospace for data. Section heads are sentence case in the display face. The only caps left are the System's own voice (the Transmission banner), because that is canon.
+- Scale: 13 / 15 / 17 / 22 / 28 / 30. Titles on sub-screens are 28px and left-aligned; only the status window uses 30px.
 
 ## Space and shape
-8-pt rhythm (8 / 16 / 24 / 32). Screen gutter 20px. Panels: 14–16px radius, 1px `--m-line` border, 16px padding. Sheets: 28px top radius, portalled to `body`. Tap targets ≥ 40px. Nothing may exceed the viewport width; wide content scrolls inside its own container.
+8-pt rhythm (8 / 16 / 24 / 32). Screen gutter 20px. Panels: `--m-r` radius, 1px `--m-line` border, 16px padding. Sheets: `--m-r-sheet` top radius, portalled to `body`. Segmented controls are text tabs with a 2px accent underline, never boxed pills. Tap targets ≥ 40px. Nothing may exceed the viewport width; wide content scrolls inside its own container.
 
 ## Components (`visuals.tsx`)
 `Panel` (title left, control right) · `RangeChips` (7D / 28D) · `Kpis` (label, mono value, ▲▼ delta) · `HatchBars` (hatched bars, solid highlight, real axis) · `XpArea` · `Waffle` (allocation grid) · `SegBar` (ratio bar + legend) · `DomainRadar` · `ActivityHeatmap`.
 
 ## Class prefixes (avoid collisions with the desktop CSS)
-`mh-` Home · `mg-` Gates · `ma-` Army · `me-` Profile · `mr-` Rewards · `mlb-` Leaderboard · `co-`/`in-` Coach and Insights · `pln-` plan fields · `lsh-` lapse sheet · `sh-` sheets · `tx-` transmission. Check `grep -rn "\.<prefix>-" web/src --include=*.css` before inventing a new one; `lp-`, `lb-` and `pf-` are already taken by the landing page, the desktop leaderboard and the profile page.
+`mh-` Home (`mh-win` is the status window) · `mg-` Gates · `ma-` Army · `me-` Profile · `mr-` Rewards · `mlb-` Leaderboard · `co-`/`in-` Coach and Insights · `pln-` plan fields · `lsh-` lapse sheet · `sh-` sheets · `tx-` transmission. Check `grep -rn "\.<prefix>-" web/src --include=*.css` before inventing a new one; `lp-`, `lb-` and `pf-` are already taken by the landing page, the desktop leaderboard and the profile page.
 
 ## Do not
 - Put purple on white, use gradient hero blocks, or centre everything in a card grid.
@@ -41,5 +45,5 @@ Six Monarch auras (Shadow, System, Frost, White Flame, Beast, Destruction) re-sk
 - Add XP for reflecting or planning (it erodes the habit; see `GAME_RULES.md`).
 - Ship a screen without checking it at 390px for horizontal overflow.
 
-## Known direction, not yet done
-The body face is Inter. A more distinctive body face (and a bolder dominant colour per aura) is the next typographic upgrade; change `--m-body` once and the whole shell follows.
+## Where the rules live
+`theme.css` (tokens) · `polish.css` (the final layer: status window, label and tab rules, radii; it outranks the per-screen sheets by selector, not load order). Change a token or a polish rule once and every screen follows.

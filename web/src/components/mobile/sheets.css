@@ -1,5 +1,5 @@
 /* Bottom sheets + shared mobile form controls */
-.sh-bg { position: fixed; inset: 0; z-index: 85; background: rgba(5,4,12,.72); backdrop-filter: blur(6px); display: flex; align-items: flex-end; animation: mFade .2s both; font-family: 'Inter', -apple-system, sans-serif; color: #f4f2ff; }
+.sh-bg { position: fixed; inset: 0; z-index: 85; background: rgba(5,4,12,.72); backdrop-filter: blur(6px); display: flex; align-items: flex-end; animation: mFade .2s both; font-family: var(--m-body, 'Inter', -apple-system, sans-serif); color: #f4f2ff; }
 .sh { width: 100%; max-height: 92vh; overflow-y: auto; border-radius: 28px 28px 0 0; padding: 10px 18px calc(20px + env(safe-area-inset-bottom)); background: var(--m-surface-2); border-top: 1px solid rgba(255,255,255,.1); animation: mUp .32s cubic-bezier(.2,.9,.3,1) both; display: grid; gap: 10px; }
 .sh-grab { width: 40px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.18); margin: 0 auto 4px; }
 .sh-head { display: flex; align-items: center; justify-content: space-between; } .sh-head h2 { margin: 0; font-size: 1.3rem; font-weight: 500; }
@@ -59,5 +59,5 @@
 .lsh-reasons button:active { background: color-mix(in srgb, var(--m-accent) 18%, transparent); border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); }
 .lsh-reasons button:disabled { opacity: .5; }
 .lsh-skip { height: 44px; background: none; border: 0; color: var(--m-dim); font: inherit; font-size: .875rem; cursor: pointer; }
-.lsh-fix { display: grid; gap: 12px; } .lsh-fix h3 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 500; line-height: 1.3; letter-spacing: -.2px; }
+.lsh-fix { display: grid; gap: 12px; } .lsh-fix h3 { margin: 0; font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1.25rem; font-weight: 500; line-height: 1.3; letter-spacing: -.2px; }
 .lsh-fix p { margin: 0; font-size: .9375rem; line-height: 1.55; color: var(--m-dim); } .lsh-fix .lsh-never { font-size: .8125rem; padding-top: 12px; border-top: 1px solid var(--m-line); }

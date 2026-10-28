@@ -4,6 +4,10 @@
    Meaning stays the same in every aura: accent = identity & actions · gold = XP & rewards ·
    flame = streak · good/bad = success/penalty · domain colours = the five life domains. */
 :root[data-m-theme] {
+  --m-display: 'Chakra Petch', 'Outfit', system-ui, sans-serif;   /* titles, numerals: the System's HUD voice */
+  --m-body: 'Instrument Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --m-mono: 'Chakra Petch', 'Outfit', system-ui, sans-serif;      /* numerals only; tabular figures */
+  --m-r: 10px; --m-r-lg: 14px; --m-r-sheet: 22px;                 /* data panels · groups · sheets */
   --m-gold: #f5c451; --m-flame: #ff8a3d; --m-good: #4ade80; --m-bad: #f87171; --m-warn: #fbbf24;
   --m-text: #f2f0fa; --m-dim: rgba(242,240,250,.58); --m-line: rgba(255,255,255,.09);
 }

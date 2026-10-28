@@ -3,7 +3,7 @@
 .m-shell {
   --m-card: var(--m-surface); --m-violet: var(--m-accent);
   position: fixed; inset: 0; display: flex; flex-direction: column; color: var(--m-text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent;
+  font-family: var(--m-body, 'Inter', -apple-system, sans-serif), BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent;
   background: radial-gradient(110% 42% at 50% -10%, var(--m-glow), transparent 72%), var(--m-bg);
 }
 .m-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(8px + env(safe-area-inset-top)) 12px 6px; flex-shrink: 0; }
@@ -17,7 +17,7 @@
 
 /* streak chip (top bar) */
 .m-streak { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px 0 11px; border-radius: 999px; color: var(--m-text); font: inherit; font-size: .8rem; cursor: pointer; background: var(--m-card); border: 1px solid var(--m-line); }
-.m-streak svg { color: var(--m-accent); } .m-streak b { font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; } .m-streak span { color: var(--m-dim); }
+.m-streak svg { color: var(--m-accent); } .m-streak b { font-family: var(--m-display, 'Outfit', sans-serif); font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; } .m-streak span { color: var(--m-dim); }
 .m-streak.cold svg { color: var(--m-dim); }
 .m-streak.risk { border-color: rgba(251,191,36,.45); } .m-streak.risk svg, .m-streak.risk span { color: #fbbf24; }
 
@@ -49,7 +49,7 @@
 /* ── Other pages inside the mobile shell: calmer, single column, thumb-sized ── */
 .m-content .page, .m-content .content-inner { padding: 8px 16px 24px !important; }
 .m-content .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 14px !important; margin-bottom: 20px !important; }
-.m-content .page-title { font-size: 1.7rem !important; letter-spacing: -.3px !important; font-family: 'Outfit', sans-serif; font-weight: 500 !important; }
+.m-content .page-title { font-size: 1.7rem !important; letter-spacing: -.3px !important; font-family: var(--m-display, 'Outfit', sans-serif); font-weight: 500 !important; }
 .m-content .page-subtitle, .m-content .text-muted { letter-spacing: .2px !important; }
 .m-content button, .m-content a.btn, .m-content .tactical-btn, .m-content .dd-btn { min-height: 44px; }
 .m-content input, .m-content select, .m-content textarea { font-size: 16px !important; }   /* no iOS zoom-on-focus */
