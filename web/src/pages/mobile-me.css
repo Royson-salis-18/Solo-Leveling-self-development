@@ -21,8 +21,8 @@
 .me-tile b { color: var(--m-text); } .me-tile:first-child b { color: var(--m-gold); }
 .me-card, .me-tile, .me-group { background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); }
 
-.me-auras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.me-aura { display: grid; gap: 4px; align-content: start; text-align: left; padding: 12px; border-radius: 18px; font: inherit; color: var(--m-text); cursor: pointer; background: var(--sb); border: 1px solid var(--m-line); }
+.me-auras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.me-aura { min-width: 0; overflow-wrap: anywhere; display: grid; gap: 4px; align-content: start; text-align: left; padding: 12px; border-radius: 18px; font: inherit; color: var(--m-text); cursor: pointer; background: var(--sb); border: 1px solid var(--m-line); }
 .me-aura i { width: 100%; height: 34px; border-radius: 10px; margin-bottom: 6px; display: grid; place-items: center; color: rgba(255,255,255,.75);
   background: radial-gradient(120% 140% at 0% 0%, var(--sw), transparent 70%), var(--sb); border: 1px solid rgba(255,255,255,.06); }
 .me-aura b { font-size: .82rem; font-weight: 500; display: flex; align-items: center; gap: 6px; } .me-aura b em { font-style: normal; font-size: .58rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 99px; color: var(--m-ink); background: var(--m-gold); }

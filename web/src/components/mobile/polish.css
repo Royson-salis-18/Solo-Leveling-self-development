@@ -159,3 +159,6 @@
 /* confident numerals */
 :root[data-m-theme] .mh-today b { font-size: 1.5rem; }
 :root[data-m-theme] .mr-bal-top b { font-size: 2.5rem; }
+
+/* Home section tabs: no solid band; the strip stays see-through so the page gradient reads as one surface */
+:root[data-m-theme] .mh-views { background: transparent; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
