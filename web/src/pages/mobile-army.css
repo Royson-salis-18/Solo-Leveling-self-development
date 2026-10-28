@@ -107,3 +107,7 @@
 .ma-card .aura-locked .card-icon, .ma-bigcard .aura-locked .card-icon { opacity: .7 !important; }
 .ma-card .aura-locked .card-label { opacity: .7 !important; }
 .ma { grid-template-columns: minmax(0, 1fr); } .ma > * { min-width: 0; }
+
+.ma-sum-line b, .ma-tier-head span, .ma-res-top em, .ma-seg button em { font-family: var(--m-mono); }
+.ma-tier-head h2 { font-family: var(--m-mono); font-size: .6875rem; }
+.ma-seg button em { font-size: .6875rem; }

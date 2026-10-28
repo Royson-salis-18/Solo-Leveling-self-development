@@ -154,3 +154,101 @@ export function DomainRadar({ axes, size = 220 }: { axes: Array<{ name: string; 
     </svg>
   );
 }
+
+/* ═══ Data-panel kit ═══ dense, monospaced, quiet. Same Ashborn tokens; only the component language changes. */
+
+/** A panel: small title on the left, an optional control or chip on the right. */
+export function Panel({ title, right, children, className = "" }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={`pn ${className}`}>
+      <header className="pn-head"><h3>{title}</h3>{right && <div className="pn-right">{right}</div>}</header>
+      {children}
+    </section>
+  );
+}
+
+/** Small bordered range switch, like "1H / 1M". */
+export function RangeChips<T extends string>({ options, value, onChange, label }: { options: readonly T[]; value: T; onChange: (v: T) => void; label: string }) {
+  return (
+    <div className="rc" role="radiogroup" aria-label={label}>
+      {options.map((o) => <button key={o} type="button" role="radio" aria-checked={value === o} className={value === o ? "on" : ""} onClick={() => onChange(o)}>{o}</button>)}
+    </div>
+  );
+}
+
+/** Three label / value / delta columns. `delta` is a signed number rendered green or red with an arrow. */
+export function Kpis({ items }: { items: Array<{ label: string; value: ReactNode; delta?: number | null; note?: string }> }) {
+  return (
+    <div className="kp">
+      {items.map((k) => (
+        <div key={k.label} className="kp-i">
+          <small>{k.label}</small>
+          <b>{k.value}</b>
+          {k.delta != null && k.delta !== 0 ? <em className={k.delta > 0 ? "up" : "down"}>{k.delta > 0 ? "▲" : "▼"} {Math.abs(k.delta)}</em> : <em className="flat">{k.note ?? "–"}</em>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Bars with diagonal hatching; the highlighted bar is solid. Values share one scale and the axis shows real ticks. */
+export function HatchBars({ data, highlight }: { data: Array<{ label: string; value: number }>; highlight?: number }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const top = niceCeil(max);
+  const hi = highlight ?? data.reduce((bi, d, i, a) => (d.value > a[bi].value ? i : bi), 0);
+  return (
+    <div className="hb" role="img" aria-label={`Bars: ${data.map((d) => `${d.label} ${d.value}`).join(", ")}`}>
+      <div className="hb-axis" aria-hidden="true"><span>{top}</span><span>{Math.round(top / 2)}</span><span>0</span></div>
+      <div className="hb-plot">
+        <div className="hb-grid" aria-hidden="true"><i /><i /><i /></div>
+        <div className="hb-cols" style={{ ["--n" as string]: data.length }}>
+          {data.map((d, i) => (
+            <div key={d.label + i} className={`hb-col${i === hi && d.value > 0 ? " hi" : ""}`}>
+              <div className="hb-bar"><i style={{ height: `${d.value <= 0 ? 0 : Math.max(3, (d.value / top) * 100)}%` }} /></div>
+              <span>{d.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+function niceCeil(n: number) {
+  const steps = [10, 20, 40, 50, 100, 200, 400, 500, 1000, 2000, 5000];
+  return steps.find((x) => x >= n) ?? Math.ceil(n / 1000) * 1000;
+}
+
+/** A grid of small squares filled by share, one colour per part. The squares add up to exactly rows × cols. */
+export function Waffle({ parts, rows = 6, cols = 16 }: { parts: Array<{ name: string; value: number; color: string; pct?: number }>; rows?: number; cols?: number }) {
+  const total = rows * cols;
+  const sum = parts.reduce((n, p) => n + Math.max(0, p.value), 0) || 1;
+  // Largest-remainder rounding so the cell counts always sum to the grid size.
+  const raw = parts.map((p) => (Math.max(0, p.value) / sum) * total);
+  const counts = raw.map(Math.floor);
+  let left = total - counts.reduce((a, b) => a + b, 0);
+  raw.map((r, i) => [r - Math.floor(r), i] as const).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left-- > 0) counts[i]++; });
+  const cells: string[] = [];
+  counts.forEach((c, i) => { for (let k = 0; k < c; k++) cells.push(parts[i].color); });
+  return (
+    <figure className="wf" aria-label={`Allocation: ${parts.map((p, i) => `${p.name} ${Math.round((raw[i] / total) * 100)}%`).join(", ")}`}>
+      <div className="wf-grid" style={{ ["--c" as string]: cols }} aria-hidden="true">
+        {/* column-major so each part reads as a block, like the reference */}
+        {Array.from({ length: total }, (_, n) => { const r = Math.floor(n / cols), c = n % cols; return <i key={n} style={{ background: cells[c * rows + r] }} />; })}
+      </div>
+      <figcaption>{parts.map((p, i) => <span key={p.name}><i style={{ background: p.color }} />{p.name}<b>{Math.round((raw[i] / total) * 100)}%</b></span>)}</figcaption>
+    </figure>
+  );
+}
+
+/** A segmented ratio bar with hatched fills and a labelled legend. */
+export function SegBar({ parts }: { parts: Array<{ name: string; value: number; color: string }> }) {
+  const sum = parts.reduce((n, p) => n + p.value, 0) || 1;
+  return (
+    <div className="sg">
+      <div className="sg-bar" role="img" aria-label={parts.map((p) => `${p.name} ${p.value}`).join(", ")}>
+        {parts.filter((p) => p.value > 0).map((p) => <i key={p.name} style={{ flexGrow: p.value, ["--sc" as string]: p.color }} />)}
+      </div>
+      <div className="sg-leg">{parts.map((p) => <span key={p.name}><i style={{ background: p.color }} />{p.name}<b>{Math.round((p.value / sum) * 100)}%</b></span>)}</div>
+    </div>
+  );
+}

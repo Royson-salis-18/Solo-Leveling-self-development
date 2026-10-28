@@ -11,7 +11,7 @@ import { ENGAGEMENT_REFRESH_EVENT, bountyPercent, chestHint, clock, nextBestActi
 import { Reveal } from "../components/EngagementPanel";
 import { ConquestRecord } from "../components/ConquestRecord";
 import { Transmission } from "../components/Transmission";
-import { DomainRadar, WeekBars, XpArea } from "../components/visuals";
+import { HatchBars, Kpis, Panel, RangeChips, Waffle, XpArea } from "../components/visuals";
 import { FirstSteps } from "../components/UxLayer";
 import { ITEM_CATALOG, RARITY_COLORS, SHADOW_CATALOG } from "../lib/catalog";
 import { XP_PER_LEVEL, nextRankInfo } from "../lib/levelEngine";
@@ -38,6 +38,7 @@ export function MobileHome() {
   const e = eng.data;
 
   const [view, setView] = useState<View>("today");
+  const [range, setRange] = useState<"7D" | "28D">("7D");
   const [dash, setDash] = useState<DashboardData | null>(null);
   const [gear, setGear] = useState<Array<{ name: string; rarity: string; item_category: string }>>([]);
   const [pull, setPull] = useState(0);
@@ -110,10 +111,19 @@ export function MobileHome() {
   const nr = nextRankInfo(rank);
   const weeklyTarget = dash?.weekly_target ?? null;
   const weeklyXp = dash?.weekly_xp ?? 0;
-  const weekTotal = week.reduce((n, d) => n + Math.max(0, d.daily_points), 0);
+  const pts = (d: { daily_points: number }) => Math.max(0, d.daily_points);
+  const weekTotal = week.reduce((n, d) => n + pts(d), 0);
   const month = dash?.monthlyHistory ?? [];
-  const prevWeek = month.length >= 14 ? month.slice(-14, -7).reduce((n, d) => n + Math.max(0, d.daily_points), 0) : null;
+  const sum = (a: Array<{ daily_points: number }>) => a.reduce((n, d) => n + pts(d), 0);
+  const todayXp = month.length ? pts(month[month.length - 1]) : week.length ? pts(week[week.length - 1]) : 0;
+  const yesterdayXp = month.length > 1 ? pts(month[month.length - 2]) : null;
+  const prevWeek = month.length >= 14 ? sum(month.slice(-14, -7)) : null;
   const weekDelta = prevWeek === null ? null : weekTotal - prevWeek;
+  const monthTotal = sum(month);
+  // 28D is shown as four weekly totals so the bars stay readable.
+  const bars = range === "7D"
+    ? week.map((d) => ({ label: new Date(`${d.date}T12:00:00`).toLocaleDateString("en", { weekday: "short" }).slice(0, 2), value: pts(d) }))
+    : [0, 1, 2, 3].map((i) => ({ label: `W${i + 1}`, value: sum(month.slice(i * 7, i * 7 + 7)) }));
   const dateLine = new Date().toLocaleDateString("en", { weekday: "long", day: "numeric", month: "short" });
 
   const arise = async () => {
@@ -194,13 +204,14 @@ export function MobileHome() {
             </section>
           )}
 
-          <section className="mh-card mh-trend" aria-label="XP over the last 7 days">
-            <div className="mh-row">
-              <div><div className="mh-eyebrow">Last 7 days</div><div className="mh-big">{weekTotal.toLocaleString()}<small>XP</small></div></div>
-              {weekDelta !== null && <span className={`mh-delta${weekDelta >= 0 ? " up" : " down"}`}>{weekDelta >= 0 ? "▲" : "▼"} {Math.abs(weekDelta)} vs last week</span>}
-            </div>
-            {week.length > 1 ? <XpArea days={week} pace={weeklyTarget ? Math.round(weeklyTarget / 7) : undefined} /> : <div className="mh-chart-skel" />}
-          </section>
+          <Panel title="XP" right={<RangeChips label="Range" options={["7D", "28D"] as const} value={range} onChange={setRange} />}>
+            <Kpis items={[
+              { label: "Today", value: todayXp.toLocaleString(), delta: yesterdayXp === null ? null : todayXp - yesterdayXp, note: "vs yday" },
+              { label: "7 days", value: weekTotal.toLocaleString(), delta: weekDelta, note: "vs last wk" },
+              { label: "28 days", value: monthTotal.toLocaleString(), note: "total" },
+            ]} />
+            {bars.length > 1 ? <HatchBars data={bars} /> : <div className="mh-chart-skel" />}
+          </Panel>
 
           <div className="mh-sec"><h2>Up next</h2><button onClick={() => navigate("/dungeon-gate")}>All gates<ChevronRight size={15} /></button></div>
           <div className="mh-list mh-group">
@@ -213,8 +224,8 @@ export function MobileHome() {
                 <button className="mh-tick" disabled={running === t.id || (!!armed && armed !== t.id)} onClick={() => (armed === t.id ? undo() : arm(t.id))} aria-label={armed === t.id ? `Undo conquering ${t.title}` : `Conquer ${t.title}`}>
                   {running === t.id ? <i className="mh-spin" /> : armed === t.id ? <Undo2 size={15} /> : <Check size={15} strokeWidth={2.5} />}
                 </button>
-                <div className="mh-row-main"><span>{t.title}</span><small>{armed === t.id ? "Conquering… tap to undo" : `${RANK_OF[t.xp_tier ?? "Low"] ?? "E"}-rank · ${t.category} · ${t.points} XP`}</small></div>
-                {armed === t.id && <><button className="mh-undo" onClick={undo}>Undo</button><i className="mh-countdown" aria-hidden="true" /></>}
+                <div className="mh-row-main"><span>{t.title}</span><small>{armed === t.id ? "Conquering… tap to undo" : t.category}</small></div>
+                {armed === t.id ? <><button className="mh-undo" onClick={undo}>Undo</button><i className="mh-countdown" aria-hidden="true" /></> : <div className="mh-row-val"><b>+{t.points}</b><small>{RANK_OF[t.xp_tier ?? "Low"] ?? "E"}-rank</small></div>}
               </div>
             ))}
           </div>
@@ -231,7 +242,7 @@ export function MobileHome() {
 
           <div className="mh-sec"><h2>Domains</h2><span className="mh-dim mh-hint">Tap to add a gate</span></div>
           <div className="mh-group" aria-label="Domains">
-            <div className="mh-radar"><DomainRadar axes={stand.all.map((d) => ({ name: d.name, value: d.value, color: d.color, low: d.name === stand.lowest.name }))} /></div>
+            <div className="mh-radar"><Waffle parts={stand.all.map((d) => ({ name: d.name, value: d.value, color: d.color }))} /></div>
             {stand.all.map((d) => {
               const low = d.name === stand.lowest.name;
               return (
@@ -263,7 +274,7 @@ export function MobileHome() {
 
           <section className="mh-card mh-week" aria-label="XP this week">
             <div className="mh-row"><div><div className="mh-eyebrow">This week</div><div className="mh-big">{weekTotal.toLocaleString()}<small>XP</small></div></div>{e && <span className="mh-dim mh-hint">{e.streak.freezes}/{e.streak.freeze_cap} freezes</span>}</div>
-            <WeekBars days={week} />
+            <XpArea days={week} pace={weeklyTarget ? Math.round(weeklyTarget / 7) : undefined} />
           </section>
 
           <ConquestRecord compact score={dash?.playmaker_rating ?? 0} streak={streak} />

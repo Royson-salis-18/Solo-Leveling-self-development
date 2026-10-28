@@ -186,3 +186,11 @@
 .m-content img, .m-content canvas, .m-content video, .m-content table { max-width: 100%; }
 .m-content pre, .m-content code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .m-content .recharts-wrapper { max-width: 100%; }
+
+/* Oracle chat: light assistant bubble, dark outlined user bubble, mono captions */
+:root[data-m-theme] .msg-wrapper { max-width: 90%; gap: 0; }
+:root[data-m-theme] .msg-icon { display: none; }
+:root[data-m-theme] .msg-sender { font-family: var(--m-mono); font-size: .625rem; font-weight: 500; letter-spacing: .12em; opacity: .5; }
+:root[data-m-theme] .msg-text { border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-surface-2); color: var(--m-text); font-size: .9375rem; line-height: 1.55; overflow-wrap: anywhere; }
+:root[data-m-theme] .system .msg-text { border: 0; border-left: 0; background: color-mix(in srgb, var(--m-accent) 16%, #efeaff); color: #17122a; }
+:root[data-m-theme] .oracle-input { font-family: var(--m-mono); font-size: .8125rem; }

@@ -7,6 +7,7 @@ import { useToast } from "../lib/toast";
 import { SystemAPI } from "../services/SystemAPI";
 import { ITEM_GRADES, RESONANCE_CAP, SHADOW_TIERS, fetchCollection, itemFx, resonance, shadowBonus, shadowRankLabel, tierOf, type CatalogItem, type CatalogShadow } from "../lib/collection";
 import { AuraCard } from "../components/AuraCard";
+import { SegBar } from "../components/visuals";
 import { RARITY_COLORS } from "../lib/catalog";
 import { haptic } from "../lib/feedback";
 import "../components/mobile/mobile.css";
@@ -32,6 +33,7 @@ function ItemGlyph({ i, size = 24 }: { i: CatalogItem; size?: number }) {
   return <Gem size={size} />;
 }
 
+const SHORT_TIER: Record<string, string> = { Mythic: "Sovereign", Legendary: "Marshal", Epic: "Commander", Rare: "Knight", Common: "Infantry" };
 const cardColor = (rarity: string) => RARITY_COLORS[rarity.toUpperCase()] ?? "#475569";
 
 function ShadowCard({ s, big }: { s: CatalogShadow; big?: boolean }) {
@@ -116,6 +118,9 @@ export function MobileArmy() {
           {tab !== "Army" && <button className="ma-gift" disabled={gifting || !giftWindowOpen()} onClick={claimGift}><Gift size={15} /> {gifting ? "Opening…" : giftWindowOpen() ? "Daily gift" : "Opens 06:00"}</button>}
         </div>
         <div className="ma-bar"><i className="cool" style={{ width: `${all ? (have / all) * 100 : 0}%` }} /></div>
+        {tab === "Army" && (
+          <SegBar parts={SHADOW_TIERS.map((t) => ({ name: SHORT_TIER[t.rarity], value: owned.filter((x) => tierOf(x.rarity) === t.rarity).length, color: colorOf(t.rarity) }))} />
+        )}
         {tab === "Army" && (
           <div className="ma-res">
             <div className="ma-res-top"><span>Resonance{strongest ? <> · strongest <b style={{ color: colorOf(tierOf(strongest.rarity)) }}>{strongest.name}</b></> : null}</span><em>+{res}% XP{res >= RESONANCE_CAP ? " · max" : ""}</em></div>

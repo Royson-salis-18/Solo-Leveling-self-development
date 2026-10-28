@@ -198,3 +198,15 @@
 .mh-freezes i.on { color: #7dd3fc; border-color: rgba(125,211,252,.45); background: rgba(125,211,252,.1); }
 .mh, .mh-pane { grid-template-columns: minmax(0, 1fr); }
 .mh-pane > * { min-width: 0; }
+
+/* ── data-panel language ── mono numerals, dim captions, right-aligned values */
+.mh-row-val { margin-left: auto; display: grid; gap: 2px; justify-items: end; flex-shrink: 0; }
+.mh-row-val b { font-family: var(--m-mono); font-size: .9375rem; font-weight: 500; color: var(--m-gold); font-variant-numeric: tabular-nums; }
+.mh-row-val small { font-family: var(--m-mono); font-size: .6875rem; color: var(--m-dim); }
+.mh-row-main small { font-family: var(--m-mono); font-size: .6875rem; }
+.mh-today b, .mh-big, .mh-dom b, .mh-prog-top em { font-family: var(--m-mono); }
+.mh-today b { font-size: 1.25rem; letter-spacing: -.03em; } .mh-today b i { font-size: .75rem; }
+.mh-eyebrow, .mh-sec h2 { font-family: var(--m-mono); font-size: .6875rem; letter-spacing: .14em; }
+.mh-id small { font-family: var(--m-mono); font-size: .6875rem; }
+.mh-radar { padding: 16px; border-bottom: 1px solid var(--m-line); }
+.mh-trend { display: none; }
