@@ -164,6 +164,7 @@ export function MobileHome() {
           <Transmission compact />
 
           <header className="mh-win" aria-label="Status window">
+            <Skull className="mh-skull" size={150} strokeWidth={1.4} aria-hidden="true" />
             <div className="mh-win-top"><span>{dateLine}</span><span>Level {level}</span></div>
             <div className="mh-win-body">
               <div className="mh-win-main"><h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1><p>{rank}-Rank hunter{profile?.player_class ? `, ${profile.player_class}` : ""}</p></div>

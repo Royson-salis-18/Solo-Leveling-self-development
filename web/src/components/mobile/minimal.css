@@ -35,12 +35,22 @@
 :root[data-m-theme] .mh-today button { padding: 18px 0; }
 /* the transmission: a quote with a single accent hairline, not a card */
 :root[data-m-theme] .tx-compact { background: none !important; padding: 2px 0 2px 16px !important; border-left: 2px solid var(--m-accent) !important; border-radius: 0 !important; }
-:root[data-m-theme] .tx-compact .tx-ico, :root[data-m-theme] .tx-compact svg[class*="skull"], :root[data-m-theme] .tx-compact [class*="mark"] { display: none; }
 /* me licence and other heroes follow the same rule */
 :root[data-m-theme] .me-licence { background: var(--m-flat) !important; border: 0 !important; box-shadow: none !important; }
 :root[data-m-theme] .me-licence::after { opacity: .6; }
 :root[data-m-theme] .mh-pane { gap: 30px; }
 :root[data-m-theme] .mh-win::before, :root[data-m-theme] .me-licence::before, :root[data-m-theme] .me-licence::after,
-:root[data-m-theme] .tx-compact::before, :root[data-m-theme] .tx-compact::after, :root[data-m-theme] .tx-compact .tx-skull { display: none !important; }
+:root[data-m-theme] .tx-compact::before, :root[data-m-theme] .tx-compact::after { display: none !important; }
 :root[data-m-theme] .tx-compact { box-shadow: none !important; overflow: visible; }
 :root[data-m-theme] .me-licence { border-radius: var(--m-r-lg) !important; }
+/* skulls: the Shadow Monarch's mark. Large, faint, lit from within the accent. */
+:root[data-m-theme] .tx-compact { position: relative; overflow: visible; }
+:root[data-m-theme] .tx-compact .tx-skull { display: block !important; right: -6px; top: -10px; opacity: .2; color: var(--m-accent); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--m-accent) 55%, transparent)); }
+:root[data-m-theme] .mh-win { position: relative; }
+:root[data-m-theme] .mh-win .mh-skull { position: absolute; right: -18px; top: 6px; z-index: 0; color: var(--m-accent); opacity: .12; pointer-events: none; transform: rotate(14deg); filter: drop-shadow(0 0 22px color-mix(in srgb, var(--m-accent) 60%, transparent)); }
+:root[data-m-theme] .mh-win > *:not(.mh-skull) { position: relative; z-index: 1; }
+/* panels: no boxes. A hairline and space do the grouping. */
+:root[data-m-theme] .pn { background: none !important; border-radius: 0 !important; padding-left: 2px !important; padding-right: 2px !important; border-top: 1px solid var(--m-line) !important; }
+:root[data-m-theme] .mh-card, :root[data-m-theme] .mh-sysdir, :root[data-m-theme] .co-card { border-radius: 28px !important; }
+:root[data-m-theme] .mh-card { background: none !important; border-radius: 0 !important; border-top: 1px solid var(--m-line) !important; padding-left: 2px !important; padding-right: 2px !important; }
+:root[data-m-theme] .cr { background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding-left: 2px !important; padding-right: 2px !important; }
