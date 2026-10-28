@@ -93,3 +93,25 @@ done; wait
 BL=$(q -c "select count(*) from public.xp_events where user_id='$U6' and kind='boss'")
 [[ "$BL" == "1" ]] || fail "boss loot paid $BL times (expected exactly once)"
 pass "$N parallel boss-loot claims: paid exactly once"
+
+# ── 7. pledges: parallel stakes on one gate escrow once; parallel conquests refund once ─
+U7=$(mkuser "Race7")
+q -c "$(login $U7) select public.select_mode('Normal');" >/dev/null
+q -c "update public.user_profiles set total_points = 100 where user_id='$U7'" >/dev/null
+G7=$(q -c "$(login $U7) select tests.gate('oath','Mid','Fitness',2);" | tail -1)
+for i in $(seq $N); do
+  q -c "$(login $U7) select public.pledge_gate('$G7', 10);" >/dev/null 2>&1 &
+done; wait
+PL=$(q -c "select count(*) from public.gate_pledges where user_id='$U7'")
+SP=$(q -c "select spent_xp from public.user_profiles where user_id='$U7'")
+[[ "$PL" == "1" && "$SP" == "10" ]] || fail "pledge escrow: $PL pledges, $SP XP escrowed (expected 1 and 10)"
+pass "$N parallel pledges on one gate: escrowed exactly once"
+for i in $(seq $N); do
+  q -c "$(login $U7) select public.complete_gate('$G7');" >/dev/null 2>&1 &
+  q -c "$(login $U7) select public.get_behavior(30);" >/dev/null 2>&1 &
+done; wait
+SP=$(q -c "select spent_xp from public.user_profiles where user_id='$U7'")
+DV=$(q -c "select count(*) from public.xp_events where user_id='$U7' and kind='pledge'")
+ST=$(q -c "select status from public.gate_pledges where user_id='$U7'")
+[[ "$SP" == "0" && "$DV" == "1" && "$ST" == "kept" ]] || fail "pledge payout: spent $SP, $DV dividend rows, status $ST (expected 0, 1, kept)"
+pass "$N parallel conquests + settlements: stake refunded and dividend paid exactly once"
