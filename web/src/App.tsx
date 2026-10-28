@@ -66,11 +66,11 @@ function AppContent() {
                     <Route path="/dungeon-gate" element={isMobile ? <Pages.MobileGates /> : <Pages.DungeonGate />} />
                     <Route path="/me" element={isMobile ? <Pages.MobileMe /> : <Navigate to="/profile" replace />} />
                     <Route path="/collection"  element={isMobile ? <Pages.MobileArmy /> : <Pages.Collection />} />
-                    <Route path="/rewards"     element={<Pages.Rewards />} />
+                    <Route path="/rewards"     element={isMobile ? <Pages.MobileRewards /> : <Pages.Rewards />} />
                     <Route path="/arena"       element={<Pages.Arena />} />
                     <Route path="/social"      element={<Pages.Social />} />
                     <Route path="/challenges"  element={<Pages.Challenges />} />
-                    <Route path="/leaderboard" element={<Pages.Leaderboard />} />
+                    <Route path="/leaderboard" element={isMobile ? <Pages.MobileLeaderboard /> : <Pages.Leaderboard />} />
                     <Route path="/profile"     element={<Pages.Profile />} />
                     <Route path="/guide"       element={<Pages.Guide />} />
                     <Route path="/mode-selection" element={<Pages.ModeSelection />} />

@@ -1,0 +1,53 @@
+/* Mobile Leaderboard */
+.mlb { padding: 4px 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; font-family: 'Inter', -apple-system, sans-serif; color: var(--m-text); }
+.mlb > * { min-width: 0; }
+.mlb-head { padding-top: 12px; } .mlb-head h1 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 2.125rem; font-weight: 500; letter-spacing: -.8px; }
+.mlb-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); }
+.mlb-seg button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--m-dim); font: inherit; font-size: .875rem; cursor: pointer; }
+.mlb-seg button.on { background: var(--m-surface-2); color: var(--m-text); box-shadow: inset 0 0 0 1px var(--m-line); }
+
+.mlb-me { display: flex; align-items: center; gap: 18px; padding: 16px 18px; border-radius: 16px; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 15%, var(--m-surface)), var(--m-surface)); border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.mlb-me-rank { display: grid; gap: 2px; padding-right: 18px; border-right: 1px solid var(--m-line); } .mlb-me-rank small { font-size: .6875rem; color: var(--m-dim); } .mlb-me-rank b { font-family: var(--m-mono); font-size: 1.75rem; font-weight: 500; line-height: 1.1; letter-spacing: -.04em; }
+.mlb-me-body { min-width: 0; flex: 1; display: grid; gap: 6px; } .mlb-me-top { display: flex; justify-content: space-between; gap: 10px; font-size: .75rem; color: var(--m-dim); } .mlb-me-top em { font-style: normal; font-family: var(--m-mono); color: var(--m-gold); white-space: nowrap; }
+.mlb-me-body p { margin: 0; font-size: .9375rem; line-height: 1.4; overflow-wrap: anywhere; }
+.mlb-skel { height: 260px; border-radius: 16px; background: var(--m-surface); border: 1px solid var(--m-line); }
+
+.mlb-search { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: 12px; background: var(--m-surface); border: 1px solid var(--m-line); color: var(--m-dim); }
+.mlb-search:focus-within { border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.mlb-search input { flex: 1; min-width: 0; height: 100%; background: none; border: 0; outline: 0; font: inherit; font-size: .875rem; color: var(--m-text); }
+
+.mlb-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.mlb-pod { position: relative; display: grid; justify-items: center; align-content: end; gap: 6px; padding: 16px 8px 14px; min-width: 0; border-radius: 14px; font: inherit; color: inherit; text-align: center; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 12%, var(--m-surface)), var(--m-surface)); border: 1px solid color-mix(in srgb, var(--pc) 30%, transparent); border-top: 2px solid var(--pc); }
+.mlb-pod:disabled { cursor: default; } .mlb-pod.p1 { padding-top: 26px; padding-bottom: 18px; } .mlb-pod.me { box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.mlb-pod-place { position: absolute; top: 8px; left: 10px; font-family: var(--m-mono); font-size: .75rem; font-weight: 600; color: var(--pc); }
+.mlb-av { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-family: 'Outfit', sans-serif; font-size: 1.125rem; font-weight: 500; color: var(--m-text); background: color-mix(in srgb, var(--m-accent) 14%, var(--m-bg)); border: 1.5px solid var(--pc, var(--m-line)); }
+.mlb-av.sm { width: 36px; height: 36px; font-size: .9375rem; --pc: var(--m-line); flex-shrink: 0; }
+.mlb-pod.p1 .mlb-av { width: 52px; height: 52px; }
+.mlb-pod-name { max-width: 100%; font-size: .8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlb-pod b { font-family: var(--m-mono); font-size: .9375rem; font-weight: 500; color: var(--pc); font-variant-numeric: tabular-nums; }
+.mlb-pod small { max-width: 100%; font-size: .6875rem; color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mlb-list { display: grid; border-radius: 16px; overflow: hidden; background: var(--m-surface); border: 1px solid var(--m-line); }
+.mlb-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; width: 100%; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.mlb-row:disabled { cursor: default; } .mlb-row + .mlb-row { border-top: 1px solid var(--m-line); } .mlb-row:active:not(:disabled) { background: rgba(255,255,255,.04); }
+.mlb-row.me { background: color-mix(in srgb, var(--m-accent) 11%, transparent); box-shadow: inset 3px 0 0 var(--m-accent); }
+.mlb-pos { flex-shrink: 0; width: 26px; text-align: right; font-family: var(--m-mono); font-size: .8125rem; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.mlb-who { flex: 1; min-width: 0; display: grid; gap: 2px; } .mlb-name { display: flex; align-items: center; gap: 8px; font-size: .9375rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlb-name i { flex-shrink: 0; font-style: normal; font-family: var(--m-mono); font-size: .625rem; padding: 1px 6px; border-radius: 99px; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, transparent); }
+.mlb-who small { font-size: .6875rem; color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlb-xp { flex-shrink: 0; display: grid; justify-items: end; font-family: var(--m-mono); font-size: .9375rem; font-variant-numeric: tabular-nums; } .mlb-xp small { font-size: .625rem; color: var(--m-dim); }
+.mlb-empty { margin: 0; padding: 22px 16px; text-align: center; font-size: .875rem; color: var(--m-dim); }
+.mlb-more { height: 46px; border-radius: 12px; font: inherit; font-size: .875rem; color: var(--m-text); background: transparent; border: 1px solid var(--m-line); cursor: pointer; }
+.mlb-none { text-align: center; padding: 32px 16px; border-radius: 16px; background: var(--m-surface); border: 1px dashed var(--m-line); } .mlb-none h3 { margin: 0 0 6px; font-family: 'Outfit', sans-serif; font-weight: 500; font-size: 1.25rem; } .mlb-none p { margin: 0 auto; max-width: 30ch; font-size: .8125rem; line-height: 1.55; color: var(--m-dim); }
+
+/* hunter sheet */
+.lbs-id { display: grid; justify-items: center; gap: 4px; text-align: center; } .lbs-id h2 { margin: 8px 0 0; font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 500; letter-spacing: -.3px; overflow-wrap: anywhere; } .lbs-id p { margin: 0; font-size: .875rem; color: var(--m-dim); }
+.lbs-av { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; font-family: 'Outfit', sans-serif; font-size: 1.75rem; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, var(--m-bg)); border: 2px solid var(--m-accent); }
+.lbs-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; } .lbs-chips span { font-family: var(--m-mono); font-size: .75rem; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.06); border: 1px solid var(--m-line); }
+.lbs-facts { margin: 4px 0 0; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); } .lbs-facts div { padding: 14px 0; display: grid; gap: 4px; text-align: center; } .lbs-facts div + div { border-left: 1px solid var(--m-line); }
+.lbs-facts dt { font-size: .6875rem; color: var(--m-dim); } .lbs-facts dd { margin: 0; font-family: var(--m-mono); font-size: 1.0625rem; } .lbs-facts div:first-child dd { color: var(--m-gold); }
+.lbs-doms { display: grid; gap: 12px; padding: 6px 0; } .lbs-doms > div { display: grid; grid-template-columns: 78px minmax(0, 1fr) 28px; align-items: center; gap: 12px; font-size: .8125rem; }
+.lbs-doms span { color: var(--m-dim); } .lbs-doms b { font-family: var(--m-mono); font-weight: 500; text-align: right; }
+.lbs-bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.07); overflow: hidden; } .lbs-bar u { display: block; height: 100%; border-radius: 4px; background: var(--dc); text-decoration: none; }
+.lbs-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .lbs-actions .sh-act { justify-content: center; padding: 0 12px; }
