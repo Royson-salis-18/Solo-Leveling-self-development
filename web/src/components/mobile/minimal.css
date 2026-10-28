@@ -1,0 +1,46 @@
+/* ═══ Minimal ═══ Final layer. Quiet surfaces, one luminous focal point per screen, hierarchy through scale and space.
+   Everything that is not information or a single glow is removed: no rims, no ticks, no stacked shadows, no tinted fills. */
+:root[data-m-theme] {
+  --m-flat: color-mix(in srgb, #fff 3.2%, var(--m-bg));
+  --m-r: 24px; --m-r-lg: 28px;
+}
+/* containers: one flat tone, no outline, no shadow */
+:root[data-m-theme] .pn, :root[data-m-theme] .mh-card, :root[data-m-theme] .mh-sysdir, :root[data-m-theme] .tx-compact, :root[data-m-theme] .co-card,
+:root[data-m-theme] .me-mastery, :root[data-m-theme] .me-act, :root[data-m-theme] .me-army, :root[data-m-theme] .me-ident, :root[data-m-theme] .me-tiles,
+:root[data-m-theme] .mr-bal, :root[data-m-theme] .mr-list, :root[data-m-theme] .mr-rules, :root[data-m-theme] .mlb-me, :root[data-m-theme] .mlb-list,
+:root[data-m-theme] .mlb-pod, :root[data-m-theme] .mg-list, :root[data-m-theme] .mg-plan, :root[data-m-theme] .mg-stake, :root[data-m-theme] .dd-panel,
+:root[data-m-theme] .st, :root[data-m-theme] .pln, :root[data-m-theme] .mh-today, :root[data-m-theme] .mr-active-row, :root[data-m-theme] .mg-diag-row {
+  background: var(--m-flat) !important; border: 0 !important; box-shadow: none !important; }
+/* tabs, headings: no ornaments */
+:root[data-m-theme] .m-content h2::before { display: none; }
+:root[data-m-theme] .m-shell::before { display: none; }
+:root[data-m-theme] .m-shell::after { height: 46%; background: radial-gradient(60% 80% at 50% 100%, color-mix(in srgb, var(--m-accent) 15%, transparent), transparent 72%); }
+/* HOME HERO: no card. The title sits on the page, the rank hexagon is the single bright object. */
+:root[data-m-theme] .mh-win { background: none !important; border: 0 !important; box-shadow: none !important; overflow: visible; padding: 8px 2px 0; }
+:root[data-m-theme] .mh-win::after { display: none; }
+:root[data-m-theme] .mh-win-top { font-size: .75rem; letter-spacing: .02em; opacity: .75; }
+:root[data-m-theme] .mh-win-body { padding: 18px 0 20px; }
+:root[data-m-theme] .mh-win-main h1 { font-size: 2.35rem; font-weight: 500; line-height: 1.02; letter-spacing: -.01em; text-shadow: none; }
+:root[data-m-theme] .mh-win-main p { margin-top: 10px; font-size: .9rem; }
+:root[data-m-theme] .mh-hex { transform: none; width: 72px; height: 72px; filter: drop-shadow(0 0 22px color-mix(in srgb, var(--m-accent) 70%, transparent)); }
+:root[data-m-theme] .mh-hex b { font-size: 1.9rem; text-shadow: none; }
+:root[data-m-theme] .mh-hex polygon { fill: color-mix(in srgb, var(--m-accent) 14%, transparent); stroke-width: 1.6; filter: none; }
+:root[data-m-theme] .mh-seg { height: 3px; background: rgba(255,255,255,.1); }
+:root[data-m-theme] .mh-seg i { box-shadow: 0 0 10px var(--m-accent); }
+:root[data-m-theme] .mh-win small { display: block; margin-top: 12px; font-size: .78rem; }
+/* today numbers: no box, big figures, hairline separators */
+:root[data-m-theme] .mh-today { background: none !important; padding: 4px 0; border-top: 1px solid var(--m-line) !important; border-bottom: 1px solid var(--m-line) !important; border-radius: 0 !important; }
+:root[data-m-theme] .mh-today b { font-size: 2rem; font-weight: 500; text-shadow: none; }
+:root[data-m-theme] .mh-today span { font-size: .75rem; }
+:root[data-m-theme] .mh-today button { padding: 18px 0; }
+/* the transmission: a quote with a single accent hairline, not a card */
+:root[data-m-theme] .tx-compact { background: none !important; padding: 2px 0 2px 16px !important; border-left: 2px solid var(--m-accent) !important; border-radius: 0 !important; }
+:root[data-m-theme] .tx-compact .tx-ico, :root[data-m-theme] .tx-compact svg[class*="skull"], :root[data-m-theme] .tx-compact [class*="mark"] { display: none; }
+/* me licence and other heroes follow the same rule */
+:root[data-m-theme] .me-licence { background: var(--m-flat) !important; border: 0 !important; box-shadow: none !important; }
+:root[data-m-theme] .me-licence::after { opacity: .6; }
+:root[data-m-theme] .mh-pane { gap: 30px; }
+:root[data-m-theme] .mh-win::before, :root[data-m-theme] .me-licence::before, :root[data-m-theme] .me-licence::after,
+:root[data-m-theme] .tx-compact::before, :root[data-m-theme] .tx-compact::after, :root[data-m-theme] .tx-compact .tx-skull { display: none !important; }
+:root[data-m-theme] .tx-compact { box-shadow: none !important; overflow: visible; }
+:root[data-m-theme] .me-licence { border-radius: var(--m-r-lg) !important; }

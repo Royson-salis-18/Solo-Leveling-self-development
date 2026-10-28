@@ -13,6 +13,7 @@ import { AuraCtx, useAuraState } from "./ThemeContext";
 import "./theme.css";
 import "./mobile.css";
 import "./polish.css";
+import "./minimal.css";
 
 /** Home · Gates · [+ new gate] · Army · Me — the gate list and creating gates are the core loop. */
 const TABS = [
