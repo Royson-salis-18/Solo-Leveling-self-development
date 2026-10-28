@@ -162,3 +162,29 @@
 
 /* Home section tabs: no solid band; the strip stays see-through so the page gradient reads as one surface */
 :root[data-m-theme] .mh-views { background: transparent; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+
+/* ═══ Character pass ═══ rim light, hero bloom, living fills. Original to this app: light always falls from the top-left, like a gate opening. */
+:root[data-m-theme] { --m-rim: linear-gradient(150deg, color-mix(in srgb, var(--m-accent) 70%, #fff 8%) 0%, color-mix(in srgb, var(--m-accent) 22%, transparent) 28%, rgba(255,255,255,.05) 60%, color-mix(in srgb, var(--m-accent) 30%, transparent) 100%); }
+.m-shell::before { content: ""; position: absolute; left: -20%; right: -20%; top: -12%; height: 40%; pointer-events: none; z-index: 0;
+  background: radial-gradient(55% 80% at 50% 0%, color-mix(in srgb, var(--m-accent) 22%, transparent), transparent 72%); }
+/* status window: a lit hexagon and a rune watermark */
+:root[data-m-theme] .mh-win::after, :root[data-m-theme] .me-licence::after { content: ""; position: absolute; right: -34px; top: -34px; width: 190px; height: 190px; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--m-accent) 34%, transparent), transparent 72%); }
+:root[data-m-theme] .mh-win, :root[data-m-theme] .me-licence { position: relative; overflow: hidden; }
+:root[data-m-theme] .mh-win > *, :root[data-m-theme] .me-licence > * { position: relative; z-index: 1; }
+:root[data-m-theme] .mh-hex polygon { stroke-width: 2.2; fill: color-mix(in srgb, var(--m-accent) 16%, transparent); }
+:root[data-m-theme] .mh-hex text, :root[data-m-theme] .mh-hex span { text-shadow: 0 0 14px var(--m-accent); }
+/* progress fills glow and fade like charged mana */
+:root[data-m-theme] .mh-seg i, :root[data-m-theme] .lbs-bar u { background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 55%, #000), var(--m-accent) 70%, #fff); box-shadow: 0 0 12px color-mix(in srgb, var(--m-accent) 70%, transparent); }
+/* section titles carry a small lit tick */
+:root[data-m-theme] .m-content h2 { display: flex; align-items: center; gap: 8px; }
+:root[data-m-theme] .m-content h2::before { content: ""; width: 3px; height: 1.05em; border-radius: 3px; background: linear-gradient(var(--m-accent), transparent); box-shadow: 0 0 8px var(--m-accent); }
+/* primary actions get a lit edge */
+:root[data-m-theme] .m-tab-add, :root[data-m-theme] .mh-cta, :root[data-m-theme] .sh-act.hot { box-shadow: 0 8px 22px -6px color-mix(in srgb, var(--m-accent) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.35); }
+/* turn it up one notch */
+:root[data-m-theme] { --m-rim: linear-gradient(150deg, color-mix(in srgb, var(--m-accent) 95%, #fff 15%) 0%, color-mix(in srgb, var(--m-accent) 30%, transparent) 26%, rgba(255,255,255,.04) 58%, color-mix(in srgb, var(--m-accent) 45%, transparent) 100%); }
+.m-shell::after { height: 60%; background: radial-gradient(60% 90% at 50% 100%, color-mix(in srgb, var(--m-accent) 32%, transparent), color-mix(in srgb, var(--m-accent) 10%, transparent) 55%, transparent 76%); }
+:root[data-m-theme] .mh-win::after, :root[data-m-theme] .me-licence::after { width: 260px; height: 260px; right: -60px; top: -70px; background: radial-gradient(closest-side, color-mix(in srgb, var(--m-accent) 48%, transparent), transparent 74%); }
+:root[data-m-theme] .mh-hex { transform: scale(1.22); transform-origin: center; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--m-accent) 65%, transparent)); }
+:root[data-m-theme] .mh-win-main h1 { font-size: 1.875rem; }
+:root[data-m-theme] .mh-today b { font-size: 1.85rem; text-shadow: 0 0 18px color-mix(in srgb, var(--m-accent) 40%, transparent); }
