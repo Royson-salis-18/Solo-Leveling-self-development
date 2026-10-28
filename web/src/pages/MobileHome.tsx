@@ -164,25 +164,13 @@ export function MobileHome() {
           <Transmission compact />
 
           <header className="mh-win" aria-label="Status window">
-            <Skull className="mh-skull" size={150} strokeWidth={1.4} aria-hidden="true" />
             <div className="mh-win-top"><span>{dateLine}</span><span>Level {level}</span></div>
             <div className="mh-win-body">
-              <div className="mh-win-main"><h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1><p>{rank}-Rank hunter{profile?.player_class ? `, ${profile.player_class}` : ""}</p></div>
-              <span className="mh-hex" role="img" aria-label={`${rank}-Rank`}>
-                <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,4 92,27 92,73 50,96 8,73 8,27" /></svg><b>{rank}</b>
-              </span>
+              <div className="mh-win-main"><h1>{profile?.player_title ?? dash?.player_title ?? "Newcomer"}</h1><p><strong className="mh-rank">{rank}-Rank</strong> hunter{profile?.player_class ? `, ${profile.player_class}` : ""}</p></div>
             </div>
             <div className="mh-seg" role="progressbar" aria-label={`Progress to level ${level + 1}`} aria-valuenow={Math.round((1 - toNext / XP_PER_LEVEL) * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${(1 - toNext / XP_PER_LEVEL) * 100}%` }} /></div>
             <small>{toNext.toLocaleString()} XP to level {level + 1}{nr ? `. ${nr.rank}-Rank opens at level ${nr.minLevel}` : ""}</small>
           </header>
-
-          <div className="mh-today" aria-label="Today at a glance">
-            <button onClick={() => setView("rewards")}><b>{e ? `${e.bounties_done}/3` : "–"}</b><span>Quests</span></button>
-            <button onClick={() => setView("progress")}><b>{weeklyXp}{weeklyTarget ? <i>/{weeklyTarget}</i> : null}</b><span>Week XP</span></button>
-            <button onClick={() => setView("progress")}><b>{streak}</b><span>Streak</span></button>
-          </div>
-
-          <Coach weeklyTarget={weeklyTarget} conqueredToday={dash?.completedCount ?? 0} />
 
           {e && (() => {
             const act = nextBestAction(e);
@@ -195,6 +183,15 @@ export function MobileHome() {
               </section>
             );
           })()}
+
+          <div className="mh-today" aria-label="Today at a glance">
+            <button onClick={() => setView("rewards")}><b>{e ? `${e.bounties_done}/3` : "–"}</b><span>Quests</span></button>
+            <button onClick={() => setView("progress")}><b>{weeklyXp}{weeklyTarget ? <i>/{weeklyTarget}</i> : null}</b><span>Week XP</span></button>
+            <button onClick={() => setView("progress")}><b>{streak}</b><span>Streak</span></button>
+          </div>
+
+          <Coach weeklyTarget={weeklyTarget} conqueredToday={dash?.completedCount ?? 0} />
+
 
           {e && (
             <section className="mh-card mh-chain" aria-label="Chain of resolve">

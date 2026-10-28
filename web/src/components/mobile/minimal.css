@@ -54,3 +54,13 @@
 :root[data-m-theme] .mh-card, :root[data-m-theme] .mh-sysdir, :root[data-m-theme] .co-card { border-radius: 28px !important; }
 :root[data-m-theme] .mh-card { background: none !important; border-radius: 0 !important; border-top: 1px solid var(--m-line) !important; padding-left: 2px !important; padding-right: 2px !important; }
 :root[data-m-theme] .cr { background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding-left: 2px !important; padding-right: 2px !important; }
+/* no rank badge; rank reads as text. Next action is the primary object on Home. */
+:root[data-m-theme] .mh-win-body { padding: 14px 0 18px; }
+:root[data-m-theme] .mh-win-main h1 { font-size: 2.6rem; }
+:root[data-m-theme] .mh-rank { color: var(--m-accent); font-weight: 600; }
+:root[data-m-theme] .mh-win .mh-skull { display: none; }
+:root[data-m-theme] .mh-sysdir { background: color-mix(in srgb, var(--m-accent) 13%, var(--m-bg)) !important; padding: 16px 16px 16px 18px !important; }
+:root[data-m-theme] .mh-sysdir p { font-size: 1rem; color: var(--m-text); line-height: 1.35; margin: 2px 0 0; }
+:root[data-m-theme] .mh-sysdir small { color: var(--m-accent); font-size: .72rem; letter-spacing: .02em; }
+:root[data-m-theme] .mh-sysdir > button { width: 42px; height: 42px; border-radius: 50%; background: var(--m-accent); color: var(--m-ink); display: grid; place-items: center; border: 0; box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--m-accent) 70%, transparent); }
+:root[data-m-theme] .mh-sysdir.urgent > button { background: var(--m-flame); }
