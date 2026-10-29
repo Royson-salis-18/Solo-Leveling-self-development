@@ -64,3 +64,5 @@
 :root[data-m-theme] .mh-sysdir small { color: var(--m-accent); font-size: .72rem; letter-spacing: .02em; }
 :root[data-m-theme] .mh-sysdir > button { width: 42px; height: 42px; border-radius: 50%; background: var(--m-accent); color: var(--m-ink); display: grid; place-items: center; border: 0; box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--m-accent) 70%, transparent); }
 :root[data-m-theme] .mh-sysdir.urgent > button { background: var(--m-flame); }
+/* sticky Home tabs: content must never show through. Near-opaque, blurred, with a soft fade below instead of a hard band. */
+:root[data-m-theme] .mh-views { background: color-mix(in srgb, var(--m-bg) 94%, transparent); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); z-index: 20; box-shadow: 0 14px 14px -10px var(--m-bg); }
