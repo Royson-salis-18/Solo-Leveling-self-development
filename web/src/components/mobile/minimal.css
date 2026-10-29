@@ -66,3 +66,12 @@
 :root[data-m-theme] .mh-sysdir.urgent > button { background: var(--m-flame); }
 /* sticky Home tabs: content must never show through. Near-opaque, blurred, with a soft fade below instead of a hard band. */
 :root[data-m-theme] .mh-views { background: color-mix(in srgb, var(--m-bg) 94%, transparent); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); z-index: 20; box-shadow: 0 14px 14px -10px var(--m-bg); }
+/* tabs: one rounded pill control everywhere. No underlines, no square edges. */
+:root[data-m-theme] .mh-views, :root[data-m-theme] .mg-seg, :root[data-m-theme] .ma-seg, :root[data-m-theme] .mr-seg, :root[data-m-theme] .mlb-seg {
+  display: flex; gap: 4px; padding: 4px; border: 0; border-bottom: 0; border-radius: 999px; background: var(--m-flat); box-shadow: none; }
+:root[data-m-theme] .mh-views { position: sticky; top: 8px; -webkit-backdrop-filter: none; backdrop-filter: none; background: color-mix(in srgb, #fff 6%, var(--m-bg)); box-shadow: 0 10px 24px -8px var(--m-bg); }
+:root[data-m-theme] .mh-views button, :root[data-m-theme] .mg-seg button, :root[data-m-theme] .ma-seg button, :root[data-m-theme] .mr-seg button, :root[data-m-theme] .mlb-seg button {
+  flex: 1 1 0; min-width: 0; padding: 10px 12px; border-radius: 999px; border: 0; background: transparent; color: var(--m-dim); white-space: nowrap; transition: background .2s, color .2s; }
+:root[data-m-theme] .mh-views button.on, :root[data-m-theme] .mg-seg button.on, :root[data-m-theme] .ma-seg button.on, :root[data-m-theme] .mr-seg button.on, :root[data-m-theme] .mlb-seg button.on {
+  background: color-mix(in srgb, var(--m-accent) 20%, transparent); color: var(--m-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 35%, transparent); }
+:root[data-m-theme] .mh-views button.on::after, :root[data-m-theme] .mg-seg button.on::after, :root[data-m-theme] .ma-seg button.on::after, :root[data-m-theme] .mr-seg button.on::after, :root[data-m-theme] .mlb-seg button.on::after { display: none; }
